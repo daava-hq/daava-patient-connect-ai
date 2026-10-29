@@ -43,12 +43,48 @@ export async function GET(req: NextRequest) {
       Limit: limit,
     });
 
+    // Auto-upsert fetched patients into local database for accurate count and offline caching
+    for (const od of patients) {
+      await db
+        .insert(patientsTable)
+        .values({
+          practiceId,
+          opendentalPatientId: od.PatNum,
+          firstName: od.FName || 'Unknown',
+          lastName: od.LName || 'Unknown',
+          dateOfBirth: od.Birthdate ? od.Birthdate.split('T')[0] : null,
+          phoneHome: od.HmPhone || null,
+          phoneMobile: od.WirelessPhone || null,
+          email: od.Email || null,
+          status: od.PatStatus || 'Patient',
+          opendentalUpdatedAt: od.DateTStamp ? new Date(od.DateTStamp) : null,
+        })
+        .onConflictDoUpdate({
+          target: [patientsTable.practiceId, patientsTable.opendentalPatientId],
+          set: {
+            firstName: od.FName || 'Unknown',
+            lastName: od.LName || 'Unknown',
+            dateOfBirth: od.Birthdate ? od.Birthdate.split('T')[0] : null,
+            phoneHome: od.HmPhone || null,
+            phoneMobile: od.WirelessPhone || null,
+            email: od.Email || null,
+            status: od.PatStatus || 'Patient',
+            opendentalUpdatedAt: od.DateTStamp ? new Date(od.DateTStamp) : null,
+            syncedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+    }
+
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)` })
       .from(patientsTable)
       .where(eq(patientsTable.practiceId, practiceId));
 
-    const total = Number(count) || 0;
+    const dbCount = Number(count) || 0;
+    const total = patients.length < limit
+      ? offset + patients.length
+      : Math.max(dbCount, offset + limit + limit);
 
     return NextResponse.json({ data: patients, total }, { status: 200 });
   } catch (err: unknown) {

@@ -42,37 +42,35 @@ export default function PatientsPage() {
     setError('');
     try {
       const practiceId = typeof window !== 'undefined' ? localStorage.getItem('selectedClinicId') || '' : '';
+      const offset = (page - 1) * PAGE_SIZE;
       const query = new URLSearchParams({
-        page: String(page),
+        offset: String(offset),
         limit: String(PAGE_SIZE),
       });
       if (practiceId) query.set('practiceId', practiceId);
-      if (search) query.set('search', search);
 
-      const res = await fetch(`/api/patients?${query.toString()}`);
+      const res = await fetch(`/api/opendental/patients?${query.toString()}`);
       const json = await res.json();
       if (!res.ok) {
-        throw new Error(json.error || 'Failed to fetch patients');
+        throw new Error(json.error || 'Failed to fetch patients from Open Dental API');
       }
-      const result = json.data || { patients: [], total: 0 };
-      const mappedPatients = (result.patients || []).map((p: any) => ({
-        PatNum: p.opendentalPatientId,
-        FName: p.firstName,
-        LName: p.lastName,
-        WirelessPhone: p.phoneMobile,
-        HmPhone: p.phoneHome,
-        Email: p.email,
-        PatStatus: p.status,
-      }));
-      setPatients(mappedPatients);
-      setTotal(result.total);
+      const fetched = json.data || [];
+      setPatients(fetched);
+      if (json.total !== undefined) {
+        setTotal(json.total);
+      }
+      if (fetched.length < PAGE_SIZE) {
+        setHasMore(false);
+      } else {
+        setHasMore(true);
+      }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Could not fetch patients.';
+      const message = err instanceof Error ? err.message : 'Could not reach Open Dental API.';
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, []);
 
   // Fetch on page load (guarded against double call in React strict mode)
   useEffect(() => {
@@ -123,7 +121,9 @@ export default function PatientsPage() {
   const totalPages =
     total !== null && total > 0
       ? Math.max(1, Math.ceil(total / PAGE_SIZE))
-      : 1;
+      : hasMore
+      ? currentPage + 1
+      : currentPage;
 
   const columns = [
     {
