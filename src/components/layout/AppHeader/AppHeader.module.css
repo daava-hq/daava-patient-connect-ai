@@ -1,0 +1,94 @@
+.header {
+  height: 4rem;
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-6);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.leftSection {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.logoLink {
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.divider {
+  width: 1px;
+  height: 1.5rem;
+  background-color: var(--color-border);
+  flex-shrink: 0;
+}
+
+.practiceWrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.currentPracticeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.375rem var(--space-3);
+}
+
+.buildingIcon {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.practiceName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.switchPracticeLink {
+  font-size: var(--font-size-xs);
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.switchPracticeLink:hover {
+  color: var(--color-primary-hover);
+  text-decoration: underline;
+}
+
+.switchPracticeLink:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.centerSection {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 0 var(--space-6);
+}
+
+.rightSection {
+  display: flex;
+  align-items: center;
+}

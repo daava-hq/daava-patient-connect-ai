@@ -1,0 +1,51 @@
+.logoContainer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  text-decoration: none;
+}
+
+.iconBox {
+  background-color: var(--color-primary);
+  color: var(--color-surface);
+  font-weight: var(--font-weight-bold);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: -0.05em;
+}
+
+.wordmark {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  letter-spacing: -0.025em;
+}
+
+/* Sizes */
+.sm .iconBox {
+  width: 2rem;
+  height: 2rem;
+  font-size: var(--font-size-xs);
+}
+.sm .wordmark {
+  font-size: var(--font-size-sm);
+}
+
+.md .iconBox {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: var(--font-size-sm);
+}
+.md .wordmark {
+  font-size: var(--font-size-md);
+}
+
+.lg .iconBox {
+  width: 3rem;
+  height: 3rem;
+  font-size: var(--font-size-md);
+}
+.lg .wordmark {
+  font-size: var(--font-size-lg);
+}

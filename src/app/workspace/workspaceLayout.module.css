@@ -1,0 +1,17 @@
+.layoutWrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.mainBody {
+  display: flex;
+  flex: 1;
+}
+
+.contentArea {
+  flex: 1;
+  padding: var(--space-8);
+  background-color: var(--color-background);
+  overflow-y: auto;
+}

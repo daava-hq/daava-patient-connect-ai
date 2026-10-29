@@ -1,0 +1,621 @@
+/* AppointmentsCalendar.module.css */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.calendarNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-6);
+  box-shadow: var(--shadow-sm);
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.dateTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.calendarIcon {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.dateTitle h2 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  margin: 0;
+}
+
+.navControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.navBtn {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text);
+  transition: background-color var(--transition-fast);
+}
+
+.navBtn:hover {
+  background-color: var(--color-background);
+}
+
+.todayBtn {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.todayBtn:hover {
+  background-color: var(--color-background);
+}
+
+.dateInput {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  background-color: var(--color-surface);
+}
+
+.alertBox {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-4);
+}
+
+.alertError {
+  background-color: rgb(220 38 38 / 0.1);
+  color: var(--color-error);
+  border: 1px solid rgb(220 38 38 / 0.2);
+}
+
+.alertSuccess {
+  background-color: rgb(22 163 74 / 0.1);
+  color: var(--color-success);
+  border: 1px solid rgb(22 163 74 / 0.2);
+}
+
+/* Calendar Schedule View */
+.calendarWrapper {
+  position: relative;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: visible;
+}
+
+.scrollArea {
+  overflow-x: visible;
+  overflow-y: auto;
+  max-height: calc(100vh - 220px);
+  min-height: 500px;
+}
+
+.calendarTable {
+  display: flex;
+  flex-direction: column;
+  min-width: 900px;
+  width: 100%;
+}
+
+/* Header Row */
+.headerRow {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: var(--color-surface);
+  border-bottom: 2px solid var(--color-border);
+}
+
+.timeHeaderCell {
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
+  padding: 0.75rem var(--space-3);
+  font-size: 0.7rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-right: 1px solid var(--color-border);
+  position: sticky;
+  left: 0;
+  z-index: 110;
+  background-color: var(--color-surface);
+  display: flex;
+  align-items: center;
+}
+
+.colHeaderCell {
+  flex: 1;
+  min-width: 180px;
+  padding: 0.75rem var(--space-4);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-color: var(--color-surface);
+}
+
+.colHeaderCell:last-child {
+  border-right: none;
+}
+
+.colHeaderTitle {
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  line-height: 1.25;
+}
+
+.colHeaderSubtitle {
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-normal);
+  color: var(--color-primary);
+  margin-top: 2px;
+  line-height: 1.2;
+}
+
+/* Calendar Body */
+.bodyContainer {
+  display: flex;
+  position: relative;
+}
+
+/* Time Column */
+.timeColumn {
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
+  border-right: 1px solid var(--color-border);
+  position: sticky;
+  left: 0;
+  z-index: 90;
+  background-color: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+}
+
+.timeSlotLabel {
+  height: 32px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: var(--space-3);
+  box-sizing: border-box;
+}
+
+.hourSeparator {
+  border-top: 2px solid var(--color-border);
+}
+
+.minorSeparator {
+  border-top: 1px solid #f1f5f9;
+}
+
+.hourText {
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.minorText {
+  font-size: 0.7rem;
+  font-weight: var(--font-weight-normal);
+  color: #94a3b8;
+}
+
+/* Columns Track Container */
+.columnsContainer {
+  display: flex;
+  flex: 1;
+}
+
+.operatoryColumn {
+  flex: 1;
+  min-width: 180px;
+  border-right: 1px solid var(--color-border);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.operatoryColumn:last-child {
+  border-right: none;
+}
+
+/* Background grid slots */
+.gridSlot {
+  height: 32px;
+  min-height: 32px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.gridSlotHour {
+  border-top: 2px solid var(--color-border);
+}
+
+.gridSlotMinor {
+  border-top: 1px solid #f1f5f9;
+}
+
+/* Appointment Card - Similar to screenshot */
+.apptCard {
+  position: absolute;
+  background-color: #fefce8; /* soft warm cream */
+  border: 1px solid #fcd34d; /* amber / yellow border */
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  cursor: pointer;
+  z-index: 1;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.apptCardHovered {
+  z-index: 9998;
+}
+
+.apptCard:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  border-color: #eab308;
+}
+
+.apptCardHeader {
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-bold);
+  color: #854d0e; /* warm amber/brown */
+  line-height: 1.2;
+}
+
+.apptPatientName {
+  font-size: 0.8125rem;
+  font-weight: var(--font-weight-medium);
+  color: #1e293b;
+  line-height: 1.25;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.apptDurationStatus {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+.intakeBadge {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 0.65rem;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  background-color: #f8fafc;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 1px 6px;
+  margin: 4px 0;
+  line-height: 1.2;
+}
+
+.apptProcs {
+  font-size: 0.7rem;
+  color: #475569;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Modal styling */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgb(0 0 0 / 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-4);
+}
+
+.modalContent {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 30rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modalHeader h3 {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  margin: 0;
+}
+
+.closeModalBtn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+}
+
+.closeModalBtn:hover {
+  color: var(--color-text);
+}
+
+.modalBody {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--font-size-sm);
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: var(--space-2);
+}
+
+.detailLabel {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+}
+
+.detailValue {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  text-align: right;
+}
+
+.loadingOverlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgb(255 255 255 / 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.emptyColumns {
+  padding: var(--space-12);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* Hover Popover View matching screenshot */
+.hoverPopover {
+  position: absolute;
+  top: 0;
+  width: 290px;
+  background-color: #fffef5;
+  border: 1px solid #1e293b;
+  border-radius: 2px;
+  padding: 10px 12px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.3);
+  z-index: 9999;
+  pointer-events: auto;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.hoverPopoverModal {
+  position: relative;
+  width: 290px;
+  background-color: #fffef5;
+  border: 1px solid #1e293b;
+  border-radius: 2px;
+  padding: 12px 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  z-index: 1000;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.hoverPopoverModal .closeModalBtn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hoverPopoverModal .closeModalBtn:hover {
+  color: #0f172a;
+}
+
+.hoverPopoverRight {
+  left: calc(100% + 6px);
+}
+
+.hoverPopoverLeft {
+  right: calc(100% + 6px);
+}
+
+.popoverTop {
+  display: flex;
+  gap: 12px;
+}
+
+.popoverTopLeft {
+  width: 90px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.popoverPatientName {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.25;
+  margin-bottom: 6px;
+}
+
+.popoverPatientName span {
+  display: block;
+}
+
+.patientPicBox {
+  width: 88px;
+  height: 88px;
+  background-color: #cbb391;
+  border-radius: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.patientPicText {
+  font-size: 10px;
+  line-height: 1.25;
+  color: #5c4033;
+  font-weight: 500;
+}
+
+.popoverTopRight {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #0f172a;
+  line-height: 1.35;
+}
+
+.popoverMiddle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+}
+
+.popoverStatus {
+  font-size: 11px;
+  font-weight: 600;
+  color: #334155;
+  line-height: 1.3;
+}
+
+.popoverAlerts {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 2px;
+}
+
+.popoverAlertItem {
+  font-size: 11px;
+  font-weight: 700;
+  color: #dc2626;
+  line-height: 1.3;
+}
+
+.popoverProc {
+  font-size: 11px;
+  font-weight: 600;
+  color: #2563eb;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+.popoverDivider {
+  height: 1px;
+  background-color: #cbd5e1;
+  margin: 8px 0;
+  border: none;
+}
+
+.popoverBottom {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.popoverPatNum {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 1px;
+}
