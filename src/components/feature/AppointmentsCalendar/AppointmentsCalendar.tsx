@@ -337,6 +337,26 @@ export default function AppointmentsCalendar() {
         }
       />
 
+      {error && (
+        <div className={`${styles.alertBox} ${styles.alertError}`} role="alert" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <span>{error}</span>
+          {error.includes('keys') && (
+            <div>
+              <a
+                href="/workspace/settings"
+                style={{
+                  color: 'var(--color-primary)',
+                  fontWeight: 'var(--font-weight-medium)',
+                  textDecoration: 'underline',
+                }}
+              >
+                Go to Practice Settings → Open Dental Integration
+              </a>
+            </div>
+          )}
+        </div>
+      )}
+
       {successMsg && (
         <div className={`${styles.alertBox} ${styles.alertSuccess}`} role="status">
           {successMsg}

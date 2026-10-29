@@ -219,6 +219,26 @@ export default function PatientsPage() {
         }
       />
 
+      {error && (
+        <div style={{ padding: '1rem', marginBottom: '1rem', backgroundColor: 'rgb(220 38 38 / 0.1)', color: 'var(--color-error)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <span>{error}</span>
+          {error.includes('keys') && (
+            <div>
+              <a
+                href="/workspace/settings"
+                style={{
+                  color: 'var(--color-primary)',
+                  fontWeight: 'var(--font-weight-medium)',
+                  textDecoration: 'underline',
+                }}
+              >
+                Go to Practice Settings → Open Dental Integration
+              </a>
+            </div>
+          )}
+        </div>
+      )}
+
       {successMsg && (
         <div style={{ padding: '1rem', marginBottom: '1rem', backgroundColor: 'rgb(22 163 74 / 0.1)', color: 'var(--color-success)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)' }}>
           {successMsg}
