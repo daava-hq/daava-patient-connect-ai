@@ -370,7 +370,7 @@ export default function AppointmentsCalendar() {
               </div>
             )}
 
-            {/* Appointment Status Legends Bar */}
+            {/* Appointment Status Legends Bar (Open Dental AptStatus spec) */}
             <div className={styles.legendBar}>
               <span className={styles.legendTitle}>Status Legends:</span>
               <div className={styles.legendItems}>
@@ -387,8 +387,16 @@ export default function AppointmentsCalendar() {
                   <span>Broken</span>
                 </div>
                 <div className={styles.legendItem}>
-                  <span className={`${styles.legendDot} ${styles.legendUnconfirmedDot}`} />
-                  <span>Unconfirmed</span>
+                  <span className={`${styles.legendDot} ${styles.legendUnschedDot}`} />
+                  <span>UnschedList</span>
+                </div>
+                <div className={styles.legendItem}>
+                  <span className={`${styles.legendDot} ${styles.legendAsapDot}`} />
+                  <span>ASAP</span>
+                </div>
+                <div className={styles.legendItem}>
+                  <span className={`${styles.legendDot} ${styles.legendPlannedDot}`} />
+                  <span>Planned</span>
                 </div>
               </div>
             </div>
@@ -530,14 +538,19 @@ export default function AppointmentsCalendar() {
                                 if (!pos) return null;
 
                                 const isHovered = hoveredApptId === appt.AptNum;
-                                const isComplete =
-                                  appt.AptStatus === 'Complete' || appt.AptStatus === 'Completed';
-                                const isBroken = appt.AptStatus === 'Broken';
-                                const cardStatusClass = isComplete
-                                  ? styles.apptCardComplete
-                                  : isBroken
-                                  ? styles.apptCardBroken
-                                  : styles.apptCardScheduled;
+                                const status = appt.AptStatus || 'Scheduled';
+                                const cardStatusClass =
+                                  status === 'Complete' || status === 'Completed'
+                                    ? styles.apptCardComplete
+                                    : status === 'Broken'
+                                    ? styles.apptCardBroken
+                                    : status === 'UnschedList'
+                                    ? styles.apptCardUnsched
+                                    : status === 'ASAP'
+                                    ? styles.apptCardAsap
+                                    : status === 'Planned'
+                                    ? styles.apptCardPlanned
+                                    : styles.apptCardScheduled;
                                 const isNP = appt.IsNewPatient === 'true' || appt.IsNewPatient === true;
                                 const patDisplay = isNP && appt.patientName && !appt.patientName.startsWith('NP-')
                                   ? `NP-${appt.patientName}`
@@ -545,7 +558,6 @@ export default function AppointmentsCalendar() {
                                 const patientLastName = appt.patientDetails?.LName || (appt.patientName ? appt.patientName.split(',')[0]?.trim() : `Patient #${appt.PatNum}`);
                                 const patientFirstName = appt.patientDetails?.FName || (appt.patientName ? appt.patientName.split(',')[1]?.trim() : '');
                                 const duration = appt.durationMinutes || 30;
-                                const status = appt.AptStatus || 'Scheduled';
                                 const procs = appt.ProcDescript || 'Flo, Ex, Pro';
                                 const calculatedAge = calculateAge(appt.patientDetails?.Birthdate, appt.AptDateTime);
                                 const isRightColumn = colIdx >= columns.length - 2;

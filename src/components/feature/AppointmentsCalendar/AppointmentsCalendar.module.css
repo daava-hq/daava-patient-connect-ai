@@ -304,6 +304,21 @@
   border: 1px solid #fca5a5;
 }
 
+.apptCardUnsched {
+  background-color: #eff6ff;
+  border: 1px solid #93c5fd;
+}
+
+.apptCardAsap {
+  background-color: #faf5ff;
+  border: 1px solid #d8b4fe;
+}
+
+.apptCardPlanned {
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
 .apptCardHovered {
   z-index: 9998;
 }
@@ -338,6 +353,18 @@
 
 .apptCardBroken .apptCardHeader {
   color: #991b1b;
+}
+
+.apptCardUnsched .apptCardHeader {
+  color: #1e40af;
+}
+
+.apptCardAsap .apptCardHeader {
+  color: #6b21a8;
+}
+
+.apptCardPlanned .apptCardHeader {
+  color: #92400e;
 }
 
 /* Legend Bar */
@@ -398,6 +425,21 @@
 .legendBrokenDot {
   background-color: #fef2f2;
   border-color: #fca5a5;
+}
+
+.legendUnschedDot {
+  background-color: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.legendAsapDot {
+  background-color: #faf5ff;
+  border-color: #d8b4fe;
+}
+
+.legendPlannedDot {
+  background-color: #fffbeb;
+  border-color: #fde68a;
 }
 
 .legendUnconfirmedDot {
