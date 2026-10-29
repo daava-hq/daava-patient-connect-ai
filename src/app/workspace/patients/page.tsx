@@ -85,7 +85,8 @@ export default function PatientsPage() {
     fetchOpenDentalPatients(newPage);
   };
 
-  const handleSyncToDatabase = async () => {
+  const handleSyncToDatabase = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
     setSyncing(true);
     setError('');
     try {
@@ -176,6 +177,7 @@ export default function PatientsPage() {
         actions={
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <button
+              type="button"
               onClick={handleSyncToDatabase}
               disabled={syncing}
               style={{
@@ -196,6 +198,7 @@ export default function PatientsPage() {
               <span>{syncing ? 'Syncing...' : 'Sync to Database'}</span>
             </button>
             <button
+              type="button"
               onClick={() => fetchOpenDentalPatients(currentPage)}
               disabled={loading}
               style={{

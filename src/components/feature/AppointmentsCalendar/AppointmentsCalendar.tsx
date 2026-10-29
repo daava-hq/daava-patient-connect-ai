@@ -195,7 +195,8 @@ export default function AppointmentsCalendar() {
     fetchCalendarData(todayStr);
   };
 
-  const handleSyncToDatabase = async () => {
+  const handleSyncToDatabase = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
     setSyncing(true);
     setError('');
     try {
@@ -294,6 +295,7 @@ export default function AppointmentsCalendar() {
         actions={
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <button
+              type="button"
               onClick={handleSyncToDatabase}
               disabled={syncing}
               style={{
@@ -314,6 +316,7 @@ export default function AppointmentsCalendar() {
               <span>{syncing ? 'Syncing...' : 'Sync to Database'}</span>
             </button>
             <button
+              type="button"
               onClick={() => fetchCalendarData(selectedDate, true)}
               disabled={loading}
               style={{
