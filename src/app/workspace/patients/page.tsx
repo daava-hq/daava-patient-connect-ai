@@ -33,6 +33,7 @@ export default function PatientsPage() {
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [total, setTotal] = useState<number | null>(null);
 
   const fetchedRef = useRef(false);
 
@@ -55,6 +56,9 @@ export default function PatientsPage() {
       }
       const fetched = json.data || [];
       setPatients(fetched);
+      if (json.total !== undefined) {
+        setTotal(json.total);
+      }
       if (fetched.length < PAGE_SIZE) {
         setHasMore(false);
       } else {
@@ -114,7 +118,12 @@ export default function PatientsPage() {
     );
   });
 
-  const totalPages = hasMore ? currentPage + 1 : currentPage;
+  const totalPages =
+    total !== null && total > 0
+      ? Math.max(1, Math.ceil(total / PAGE_SIZE))
+      : hasMore
+      ? currentPage + 1
+      : currentPage;
 
   const columns = [
     {

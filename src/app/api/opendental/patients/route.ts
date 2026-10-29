@@ -3,7 +3,8 @@ import { getOpenDentalPatients } from '@/lib/opendental/patients';
 import { db } from '@/db';
 import { practices } from '@/db/schema/practices';
 import { practiceOpendentalCredentials } from '@/db/schema/practice_credentials';
-import { eq } from 'drizzle-orm';
+import { patients as patientsTable } from '@/db/schema/patients';
+import { eq, sql } from 'drizzle-orm';
 import { decrypt } from '@/lib/opendental/crypto';
 
 export async function GET(req: NextRequest) {
@@ -42,7 +43,14 @@ export async function GET(req: NextRequest) {
       Limit: limit,
     });
 
-    return NextResponse.json({ data: patients }, { status: 200 });
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(patientsTable)
+      .where(eq(patientsTable.practiceId, practiceId));
+
+    const total = Number(count) || 0;
+
+    return NextResponse.json({ data: patients, total }, { status: 200 });
   } catch (err: unknown) {
     const error = err instanceof Error ? err : new Error(String(err));
     return NextResponse.json({ error: error.message }, { status: 500 });
