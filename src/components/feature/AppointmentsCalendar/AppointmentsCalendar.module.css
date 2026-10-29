@@ -326,20 +326,6 @@
   margin-top: 2px;
 }
 
-.intakeBadge {
-  display: inline-block;
-  align-self: flex-start;
-  font-size: 0.65rem;
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-muted);
-  background-color: #f8fafc;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  padding: 1px 6px;
-  margin: 4px 0;
-  line-height: 1.2;
-}
-
 .apptProcs {
   font-size: 0.7rem;
   color: #475569;

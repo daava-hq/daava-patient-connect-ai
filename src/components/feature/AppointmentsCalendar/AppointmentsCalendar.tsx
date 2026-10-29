@@ -551,7 +551,6 @@ export default function AppointmentsCalendar() {
                                     <div className={styles.apptDurationStatus}>
                                       {duration} min · {status}
                                     </div>
-                                    <div className={styles.intakeBadge}>No intake link</div>
                                     <div className={styles.apptProcs}>{procs}</div>
 
                                     {/* Hover details flyout matching reference screenshot */}

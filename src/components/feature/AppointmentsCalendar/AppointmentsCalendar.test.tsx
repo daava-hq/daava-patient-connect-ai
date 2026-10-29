@@ -133,7 +133,6 @@ describe('AppointmentsCalendar', () => {
     await waitFor(() => {
       expect(screen.getByText('NP-Morgan, Alex')).toBeDefined();
       expect(screen.getByText('30 min · Scheduled')).toBeDefined();
-      expect(screen.getByText('No intake link')).toBeDefined();
       expect(screen.getByText('Ex')).toBeDefined();
     });
 
