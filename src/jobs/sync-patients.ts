@@ -28,25 +28,11 @@ export async function runPatientSync(practiceId: string): Promise<{ success: boo
     let totalSynced = 0;
 
     while (true) {
-      let odPatients: any[] = [];
-      try {
-        odPatients = await getOpenDentalPatients(developerKey, customerKey, {
-          limit,
-          offset,
-          since: creds.lastPatientSyncedAt ? creds.lastPatientSyncedAt.toISOString() : undefined,
-        });
-      } catch (netErr) {
-        logInfo('Open Dental API unreachable, falling back to mock patient sync for evaluation', { error: String(netErr) });
-        if (offset === 0) {
-          odPatients = [
-            { PatNum: 101, FName: 'John', LName: 'Doe', Birthdate: '1980-01-15', HmPhone: '555-0101', WirelessPhone: '555-0199', Email: 'john.doe@example.com', PatStatus: 'Patient', DateTStamp: new Date().toISOString() },
-            { PatNum: 102, FName: 'Jane', LName: 'Smith', Birthdate: '1992-05-20', HmPhone: '555-0202', WirelessPhone: '555-0299', Email: 'jane.smith@example.com', PatStatus: 'Patient', DateTStamp: new Date().toISOString() },
-            { PatNum: 103, FName: 'Robert', LName: 'Johnson', Birthdate: '1975-08-10', HmPhone: '555-0303', WirelessPhone: '555-0399', Email: 'robert.j@example.com', PatStatus: 'Patient', DateTStamp: new Date().toISOString() },
-          ];
-        } else {
-          odPatients = [];
-        }
-      }
+      const odPatients = await getOpenDentalPatients(developerKey, customerKey, {
+        limit,
+        offset,
+        since: creds.lastPatientSyncedAt ? creds.lastPatientSyncedAt.toISOString() : undefined,
+      });
 
       if (!odPatients || odPatients.length === 0) {
         break;

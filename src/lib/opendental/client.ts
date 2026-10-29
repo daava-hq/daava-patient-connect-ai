@@ -9,8 +9,8 @@ interface RequestOptions {
   body?: unknown;
 }
 
-const MAX_RETRIES = 3;
-const TIMEOUT_MS = 30000;
+const MAX_RETRIES = 0;
+const TIMEOUT_MS = 6000;
 
 export async function fetchOpenDental<T>(
   developerKey: string,

@@ -28,26 +28,11 @@ export async function runAppointmentSync(practiceId: string): Promise<{ success:
     let totalSynced = 0;
 
     while (true) {
-      let odAppointments: any[] = [];
-      try {
-        odAppointments = await getOpenDentalAppointments(developerKey, customerKey, {
-          limit,
-          offset,
-          since: creds.lastApptSyncedAt ? creds.lastApptSyncedAt.toISOString() : undefined,
-        });
-      } catch (netErr) {
-        logInfo('Open Dental API unreachable, falling back to mock appointment sync for evaluation', { error: String(netErr) });
-        if (offset === 0) {
-          const todayStr = new Date().toISOString().split('T')[0];
-          odAppointments = [
-            { AptNum: 501, PatNum: 101, AptDateTime: `${todayStr} 09:00:00`, AptStatus: 'Scheduled', ProcDescript: 'Ex, Pro', DateTStamp: new Date().toISOString() },
-            { AptNum: 502, PatNum: 102, AptDateTime: `${todayStr} 10:30:00`, AptStatus: 'Scheduled', ProcDescript: 'Fillings', DateTStamp: new Date().toISOString() },
-            { AptNum: 503, PatNum: 103, AptDateTime: `${todayStr} 14:00:00`, AptStatus: 'Complete', ProcDescript: 'Crown', DateTStamp: new Date().toISOString() },
-          ];
-        } else {
-          odAppointments = [];
-        }
-      }
+      const odAppointments = await getOpenDentalAppointments(developerKey, customerKey, {
+        limit,
+        offset,
+        since: creds.lastApptSyncedAt ? creds.lastApptSyncedAt.toISOString() : undefined,
+      });
 
       if (!odAppointments || odAppointments.length === 0) {
         break;
