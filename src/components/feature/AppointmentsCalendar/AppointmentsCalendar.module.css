@@ -277,8 +277,6 @@
 /* Appointment Card - Similar to screenshot */
 .apptCard {
   position: absolute;
-  background-color: #fefce8; /* soft warm cream */
-  border: 1px solid #fcd34d; /* amber / yellow border */
   border-radius: var(--radius-sm);
   padding: 6px 10px;
   box-sizing: border-box;
@@ -291,6 +289,21 @@
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
+.apptCardScheduled {
+  background-color: #fefce8;
+  border: 1px solid #fcd34d;
+}
+
+.apptCardComplete {
+  background-color: #f0fdf4;
+  border: 1px solid #86efac;
+}
+
+.apptCardBroken {
+  background-color: #fef2f2;
+  border: 1px solid #fca5a5;
+}
+
 .apptCardHovered {
   z-index: 9998;
 }
@@ -301,11 +314,95 @@
   border-color: #eab308;
 }
 
+.apptCardComplete:hover {
+  border-color: #22c55e;
+}
+
+.apptCardBroken:hover {
+  border-color: #ef4444;
+}
+
 .apptCardHeader {
   font-size: 0.75rem;
   font-weight: var(--font-weight-bold);
-  color: #854d0e; /* warm amber/brown */
   line-height: 1.2;
+}
+
+.apptCardScheduled .apptCardHeader {
+  color: #854d0e;
+}
+
+.apptCardComplete .apptCardHeader {
+  color: #166534;
+}
+
+.apptCardBroken .apptCardHeader {
+  color: #991b1b;
+}
+
+/* Legend Bar */
+.legendBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-6);
+  margin-bottom: var(--space-4);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  flex-wrap: wrap;
+}
+
+.legendTitle {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.legendItems {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.legendDot {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+}
+
+.legendScheduledDot {
+  background-color: #fefce8;
+  border-color: #fcd34d;
+}
+
+.legendCompleteDot {
+  background-color: #f0fdf4;
+  border-color: #86efac;
+}
+
+.legendBrokenDot {
+  background-color: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.legendUnconfirmedDot {
+  background-color: #fdf2f8;
+  border-color: #f472b6;
 }
 
 .apptPatientName {

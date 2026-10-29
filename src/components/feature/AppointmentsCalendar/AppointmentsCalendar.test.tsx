@@ -149,7 +149,7 @@ describe('AppointmentsCalendar', () => {
     expect(screen.getByText('30 Min')).toBeDefined();
     expect(screen.getByText('RDH Tina')).toBeDefined();
     expect(screen.getByText('Production: $0.00')).toBeDefined();
-    expect(screen.getByText('Unconfirmed')).toBeDefined();
+    expect(screen.getAllByText('Unconfirmed').length).toBeGreaterThanOrEqual(1);
 
     // Verify medical alerts
     expect(screen.getByText('High Blood Pressure')).toBeDefined();
