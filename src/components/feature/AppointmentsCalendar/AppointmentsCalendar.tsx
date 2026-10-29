@@ -316,7 +316,7 @@ export default function AppointmentsCalendar() {
               }}
             >
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-              <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
+              <span>{loading ? 'Refreshing...' : 'Refresh API'}</span>
             </button>
           </div>
         }

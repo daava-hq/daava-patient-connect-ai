@@ -197,8 +197,8 @@ export default function PatientsPage() {
                 cursor: 'pointer',
               }}
             >
-              <RefreshCw size={16} />
-              <span>{loading ? 'Loading...' : 'Refresh API'}</span>
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+              <span>{loading ? 'Refreshing...' : 'Refresh API'}</span>
             </button>
           </div>
         }
