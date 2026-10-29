@@ -4,6 +4,9 @@ import { authOptions } from '@/lib/auth/options';
 import { requirePracticeMembership } from '@/lib/auth/guards';
 import { getPracticePatients } from '@/lib/patients/patient-repository';
 import { AppError } from '@/lib/errors';
+import { db } from '@/db';
+import { practiceOpendentalCredentials } from '@/db/schema/practice_credentials';
+import { eq } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,6 +26,19 @@ export async function GET(req: NextRequest) {
     }
 
     await requirePracticeMembership(session.user.id, practiceId);
+
+    const [creds] = await db
+      .select()
+      .from(practiceOpendentalCredentials)
+      .where(eq(practiceOpendentalCredentials.practiceId, practiceId))
+      .limit(1);
+
+    if (!creds) {
+      return NextResponse.json(
+        { error: 'Open Dental integration keys have not been added for this practice. Please configure them in Practice Settings.' },
+        { status: 400 }
+      );
+    }
 
     const result = await getPracticePatients(practiceId, {
       search,
