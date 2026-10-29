@@ -199,7 +199,21 @@ export default function AppointmentsCalendar() {
     setSyncing(true);
     setError('');
     try {
-      const practiceId = typeof window !== 'undefined' ? localStorage.getItem('selectedClinicId') || '' : '';
+      let practiceId = typeof window !== 'undefined' ? localStorage.getItem('selectedClinicId') || '' : '';
+      if (!practiceId) {
+        const resList = await fetch('/api/practices');
+        if (resList.ok) {
+          const jsonList = await resList.json();
+          if (jsonList.data && jsonList.data.length > 0) {
+            practiceId = jsonList.data[0].id;
+            localStorage.setItem('selectedClinicId', practiceId);
+          }
+        }
+      }
+      if (!practiceId) {
+        throw new Error('No practice selected. Please choose a practice.');
+      }
+
       const res = await fetch(
         `/api/practices/${practiceId}/sync-appointments`,
         {
@@ -214,6 +228,7 @@ export default function AppointmentsCalendar() {
         `Successfully synchronized ${json.data.count} appointments to database!`
       );
       setTimeout(() => setSuccessMsg(''), 4000);
+      fetchCalendarData(selectedDate, true);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Sync failed';
       setError(message);
