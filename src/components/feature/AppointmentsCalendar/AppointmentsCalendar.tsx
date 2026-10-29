@@ -11,8 +11,12 @@ import {
   RefreshCw,
   Database,
   X,
+  Key,
 } from 'lucide-react';
 import { CalendarColumn, OpenDentalAppointment } from '@/lib/opendental/types';
+import SectionCard from '@/components/ui/SectionCard/SectionCard';
+import EmptyState from '@/components/feedback/EmptyState/EmptyState';
+import Link from 'next/link';
 
 // Default columns matching practice operatories for immediate rendering
 const DEFAULT_COLUMNS: CalendarColumn[] = [
@@ -318,287 +322,312 @@ export default function AppointmentsCalendar() {
         }
       />
 
-      {error && (
-        <div className={`${styles.alertBox} ${styles.alertError}`} role="alert" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <span>{error}</span>
-          {error.includes('keys') && (
-            <div>
-              <a
-                href="/workspace/settings"
-                style={{
-                  color: 'var(--color-primary)',
-                  fontWeight: 'var(--font-weight-medium)',
-                  textDecoration: 'underline',
-                }}
-              >
-                Go to Practice Settings → Open Dental Integration
-              </a>
-            </div>
-          )}
-        </div>
-      )}
-
       {successMsg && (
         <div className={`${styles.alertBox} ${styles.alertSuccess}`} role="status">
           {successMsg}
         </div>
       )}
 
-      {/* Date Navigation Bar */}
-      <div className={styles.calendarNav}>
-        <div className={styles.dateTitle}>
-          <CalendarIcon size={20} className={styles.calendarIcon} />
-          <h2>
-            {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-            })}
-          </h2>
-        </div>
-        <div className={styles.navControls}>
-          <button
-            onClick={() => handleDateChange(-1)}
-            className={styles.navBtn}
-            aria-label="Previous day"
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <button onClick={handleToday} className={styles.todayBtn}>
-            Today
-          </button>
-          <button
-            onClick={() => handleDateChange(1)}
-            className={styles.navBtn}
-            aria-label="Next day"
-          >
-            <ChevronRight size={18} />
-          </button>
-          <input
-            type="date"
-            value={selectedDate}
-            className={styles.dateInput}
-            onChange={(e) => {
-              if (e.target.value) {
-                setSelectedDate(e.target.value);
-                fetchCalendarData(e.target.value);
-              }
-            }}
-            aria-label="Select date"
-          />
-        </div>
-      </div>
+      {(() => {
+        const isKeysMissing = Boolean(
+          error && (error.toLowerCase().includes('keys') || error.toLowerCase().includes('credentials') || error.toLowerCase().includes('not configured'))
+        );
 
-      {/* Calendar Schedule Grid with Operatory / Provider Headers */}
-      <div className={styles.calendarWrapper}>
-        {loading && (
-          <div className={styles.loadingOverlay}>
-            <RefreshCw size={18} className="animate-spin" />
-            <span>Loading calendar schedule...</span>
-          </div>
-        )}
+        if (isKeysMissing) {
+          return (
+            <SectionCard title="Open Dental Integration">
+              <EmptyState
+                icon={<Key size={32} />}
+                title="Integration Keys Not Configured"
+                description="Open Dental integration keys have not been added for this practice. Please configure your developer and customer keys in Practice Settings to view the appointment calendar."
+                action={
+                  <Link
+                    href="/workspace/settings"
+                    style={{
+                      display: 'inline-block',
+                      backgroundColor: 'var(--color-primary)',
+                      color: 'var(--color-surface)',
+                      padding: '0.5rem 1rem',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: 'var(--font-size-sm)',
+                      fontWeight: 'var(--font-weight-medium)',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Go to Practice Settings
+                  </Link>
+                }
+              />
+            </SectionCard>
+          );
+        }
 
-        <div className={styles.scrollArea}>
-          <div className={styles.calendarTable}>
-            {/* Header row: TIME + Operatories/Providers */}
-            <div className={styles.headerRow}>
-              <div className={styles.timeHeaderCell}>TIME</div>
-              {columns.map((col) => {
-                const isDoctor = col.role === 'Doctor';
-                const showSubtitle = Boolean(
-                  isDoctor && col.name && col.name !== col.shortName
-                );
+        return (
+          <>
+            {error && (
+              <div className={`${styles.alertBox} ${styles.alertError}`} role="alert">
+                <span>{error}</span>
+              </div>
+            )}
 
-                return (
-                  <div key={col.id} className={styles.colHeaderCell}>
-                    <div className={styles.colHeaderTitle}>{col.shortName}</div>
-                    {showSubtitle && (
-                      <div className={styles.colHeaderSubtitle}>{col.name}</div>
-                    )}
-                  </div>
-                );
-              })}
+            {/* Date Navigation Bar */}
+            <div className={styles.calendarNav}>
+              <div className={styles.dateTitle}>
+                <CalendarIcon size={20} className={styles.calendarIcon} />
+                <h2>
+                  {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </h2>
+              </div>
+              <div className={styles.navControls}>
+                <button
+                  onClick={() => handleDateChange(-1)}
+                  className={styles.navBtn}
+                  aria-label="Previous day"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button onClick={handleToday} className={styles.todayBtn}>
+                  Today
+                </button>
+                <button
+                  onClick={() => handleDateChange(1)}
+                  className={styles.navBtn}
+                  aria-label="Next day"
+                >
+                  <ChevronRight size={18} />
+                </button>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  className={styles.dateInput}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setSelectedDate(e.target.value);
+                      fetchCalendarData(e.target.value);
+                    }
+                  }}
+                  aria-label="Select date"
+                />
+              </div>
             </div>
 
-            {/* Calendar Body: Left TIME column + Operatory vertical tracks */}
-            <div className={styles.bodyContainer}>
-                {/* Left Time Column with 6 AM to 8 PM in 10-minute intervals */}
-                <div className={styles.timeColumn}>
-                  {slotRows.map((slot) => (
-                    <div
-                      key={slot.index}
-                      className={`${styles.timeSlotLabel} ${
-                        slot.isHourSlot ? styles.hourSeparator : styles.minorSeparator
-                      }`}
-                    >
-                      <span className={slot.isHourSlot ? styles.hourText : styles.minorText}>
-                        {slot.timeText}
-                      </span>
-                    </div>
-                  ))}
+            {/* Calendar Schedule Grid with Operatory / Provider Headers */}
+            <div className={styles.calendarWrapper}>
+              {loading && (
+                <div className={styles.loadingOverlay}>
+                  <RefreshCw size={18} className="animate-spin" />
+                  <span>Loading calendar schedule...</span>
                 </div>
+              )}
 
-                {/* Columns container */}
-                <div className={styles.columnsContainer}>
-                  {columns.map((col, colIdx) => {
-                    // Find all appointments for this column
-                    // Match primarily by OperatoryNum, fallback by ProvNum if Op=0
-                    const colAppts = appointments.filter((a) => {
-                      if (Number(a.Op) === col.operatoryNum) return true;
-                      if (
-                        (!a.Op || Number(a.Op) === 0) &&
-                        (Number(a.ProvNum) === col.providerNum ||
-                          Number(a.ProvHyg) === col.providerNum)
-                      ) {
-                        return true;
-                      }
-                      if (
-                        colIdx === 0 &&
-                        (!a.Op || Number(a.Op) === 0) &&
-                        (!a.ProvNum || Number(a.ProvNum) === 0)
-                      ) {
-                        return true;
-                      }
-                      return false;
-                    });
+              <div className={styles.scrollArea}>
+                <div className={styles.calendarTable}>
+                  {/* Header row: TIME + Operatories/Providers */}
+                  <div className={styles.headerRow}>
+                    <div className={styles.timeHeaderCell}>TIME</div>
+                    {columns.map((col) => {
+                      const isDoctor = col.role === 'Doctor';
+                      const showSubtitle = Boolean(
+                        isDoctor && col.name && col.name !== col.shortName
+                      );
 
-                    return (
-                      <div key={col.id} className={styles.operatoryColumn}>
-                        {/* Horizontal 10-minute grid slot lines */}
+                      return (
+                        <div key={col.id} className={styles.colHeaderCell}>
+                          <div className={styles.colHeaderTitle}>{col.shortName}</div>
+                          {showSubtitle && (
+                            <div className={styles.colHeaderSubtitle}>{col.name}</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Calendar Body: Left TIME column + Operatory vertical tracks */}
+                  <div className={styles.bodyContainer}>
+                      {/* Left Time Column with 6 AM to 8 PM in 10-minute intervals */}
+                      <div className={styles.timeColumn}>
                         {slotRows.map((slot) => (
                           <div
                             key={slot.index}
-                            className={`${styles.gridSlot} ${
-                              slot.isHourSlot ? styles.gridSlotHour : styles.gridSlotMinor
+                            className={`${styles.timeSlotLabel} ${
+                              slot.isHourSlot ? styles.hourSeparator : styles.minorSeparator
                             }`}
-                          />
+                          >
+                            <span className={slot.isHourSlot ? styles.hourText : styles.minorText}>
+                              {slot.timeText}
+                            </span>
+                          </div>
                         ))}
+                      </div>
 
-                        {/* Render appointment cards */}
-                        {colAppts.map((appt) => {
-                          const pos = getAppointmentPosition(appt);
-                          if (!pos) return null;
-
-                          const isHovered = hoveredApptId === appt.AptNum;
-                          const isComplete =
-                            appt.AptStatus === 'Complete' || appt.AptStatus === 'Completed';
-                          const isNP = appt.IsNewPatient === 'true' || appt.IsNewPatient === true;
-                          const patDisplay = isNP && appt.patientName && !appt.patientName.startsWith('NP-')
-                            ? `NP-${appt.patientName}`
-                            : (appt.patientName || `Patient #${appt.PatNum}`);
-                          const patientLastName = appt.patientDetails?.LName || (appt.patientName ? appt.patientName.split(',')[0]?.trim() : `Patient #${appt.PatNum}`);
-                          const patientFirstName = appt.patientDetails?.FName || (appt.patientName ? appt.patientName.split(',')[1]?.trim() : '');
-                          const duration = appt.durationMinutes || 30;
-                          const status = appt.AptStatus || 'Scheduled';
-                          const procs = appt.ProcDescript || 'Flo, Ex, Pro';
-                          const calculatedAge = calculateAge(appt.patientDetails?.Birthdate, appt.AptDateTime);
-                          const isRightColumn = colIdx >= columns.length - 2;
-
-                          const cardStyle: React.CSSProperties = {
-                            top: `${pos.top}px`,
-                            height: `${pos.height}px`,
-                            left: '4px',
-                            right: '4px',
-                            width: 'calc(100% - 8px)',
-                          };
+                      {/* Columns container */}
+                      <div className={styles.columnsContainer}>
+                        {columns.map((col, colIdx) => {
+                          // Find all appointments for this column
+                          // Match primarily by OperatoryNum, fallback by ProvNum if Op=0
+                          const colAppts = appointments.filter((a) => {
+                            if (Number(a.Op) === col.operatoryNum) return true;
+                            if (
+                              (!a.Op || Number(a.Op) === 0) &&
+                              (Number(a.ProvNum) === col.providerNum ||
+                                Number(a.ProvHyg) === col.providerNum)
+                            ) {
+                              return true;
+                            }
+                            if (
+                              colIdx === 0 &&
+                              (!a.Op || Number(a.Op) === 0) &&
+                              (!a.ProvNum || Number(a.ProvNum) === 0)
+                            ) {
+                              return true;
+                            }
+                            return false;
+                          });
 
                           return (
-                            <div
-                              key={appt.AptNum}
-                              className={`${styles.apptCard} ${isHovered ? styles.apptCardHovered : ''}`}
-                              style={cardStyle}
-                              onClick={() => setSelectedAppt(appt)}
-                              onMouseEnter={() => setHoveredApptId(appt.AptNum)}
-                              onMouseLeave={() => setHoveredApptId(null)}
-                              role="button"
-                              tabIndex={0}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  setSelectedAppt(appt);
-                                }
-                              }}
-                              aria-label="Appointment card"
-                            >
-                              <div className={styles.apptCardHeader}>Booked</div>
-                              <div className={styles.apptPatientName}>{patDisplay}</div>
-                              <div className={styles.apptDurationStatus}>
-                                {duration} min · {status}
-                              </div>
-                              <div className={styles.intakeBadge}>No intake link</div>
-                              <div className={styles.apptProcs}>{procs}</div>
-
-                              {/* Hover details flyout matching reference screenshot */}
-                              {isHovered && (
+                            <div key={col.id} className={styles.operatoryColumn}>
+                              {/* Horizontal 10-minute grid slot lines */}
+                              {slotRows.map((slot) => (
                                 <div
-                                  className={`${styles.hoverPopover} ${
-                                    isRightColumn ? styles.hoverPopoverLeft : styles.hoverPopoverRight
+                                  key={slot.index}
+                                  className={`${styles.gridSlot} ${
+                                    slot.isHourSlot ? styles.gridSlotHour : styles.gridSlotMinor
                                   }`}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <div className={styles.popoverTop}>
-                                    <div className={styles.popoverTopLeft}>
-                                      <div className={styles.popoverPatientName}>
-                                        <span>{isNP ? `NP-${patientLastName},` : `${patientLastName},`}</span>
-                                        <span>{patientFirstName}</span>
-                                      </div>
-                                      <div className={styles.patientPicBox}>
-                                        <span className={styles.patientPicText}>Patient Picture</span>
-                                        <span className={styles.patientPicText}>Unavailable</span>
-                                      </div>
-                                    </div>
+                                />
+                              ))}
 
-                                    <div className={styles.popoverTopRight}>
-                                      <div>{formatPopoverDate(appt.AptDateTime)}</div>
-                                      <div>{formatPopoverTime(appt.AptDateTime)}</div>
-                                      <div>{duration} Min</div>
-                                      <div>{appt.provAbbr || col.shortName}</div>
-                                      <div>Production: $0.00</div>
-                                    </div>
-                                  </div>
+                              {/* Render appointment cards */}
+                              {colAppts.map((appt) => {
+                                const pos = getAppointmentPosition(appt);
+                                if (!pos) return null;
 
-                                  <div className={styles.popoverMiddle}>
-                                    <div className={styles.popoverStatus}>
-                                      {appt.confirmed || (appt.Confirmed === 19 ? 'Unconfirmed' : 'Confirmed')}
+                                const isHovered = hoveredApptId === appt.AptNum;
+                                const isComplete =
+                                  appt.AptStatus === 'Complete' || appt.AptStatus === 'Completed';
+                                const isNP = appt.IsNewPatient === 'true' || appt.IsNewPatient === true;
+                                const patDisplay = isNP && appt.patientName && !appt.patientName.startsWith('NP-')
+                                  ? `NP-${appt.patientName}`
+                                  : (appt.patientName || `Patient #${appt.PatNum}`);
+                                const patientLastName = appt.patientDetails?.LName || (appt.patientName ? appt.patientName.split(',')[0]?.trim() : `Patient #${appt.PatNum}`);
+                                const patientFirstName = appt.patientDetails?.FName || (appt.patientName ? appt.patientName.split(',')[1]?.trim() : '');
+                                const duration = appt.durationMinutes || 30;
+                                const status = appt.AptStatus || 'Scheduled';
+                                const procs = appt.ProcDescript || 'Flo, Ex, Pro';
+                                const calculatedAge = calculateAge(appt.patientDetails?.Birthdate, appt.AptDateTime);
+                                const isRightColumn = colIdx >= columns.length - 2;
+
+                                const cardStyle: React.CSSProperties = {
+                                  top: `${pos.top}px`,
+                                  height: `${pos.height}px`,
+                                  left: '4px',
+                                  right: '4px',
+                                  width: 'calc(100% - 8px)',
+                                };
+
+                                return (
+                                  <div
+                                    key={appt.AptNum}
+                                    className={`${styles.apptCard} ${isHovered ? styles.apptCardHovered : ''}`}
+                                    style={cardStyle}
+                                    onClick={() => setSelectedAppt(appt)}
+                                    onMouseEnter={() => setHoveredApptId(appt.AptNum)}
+                                    onMouseLeave={() => setHoveredApptId(null)}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' || e.key === ' ') {
+                                        setSelectedAppt(appt);
+                                      }
+                                    }}
+                                    aria-label="Appointment card"
+                                  >
+                                    <div className={styles.apptCardHeader}>Booked</div>
+                                    <div className={styles.apptPatientName}>{patDisplay}</div>
+                                    <div className={styles.apptDurationStatus}>
+                                      {duration} min · {status}
                                     </div>
-                                    {Array.isArray(appt.diseases) && appt.diseases.length > 0 && (
-                                      <div className={styles.popoverAlerts}>
-                                        {appt.diseases.map((disease, dIdx) => (
-                                          <div key={dIdx} className={styles.popoverAlertItem}>
-                                            {disease}
+                                    <div className={styles.intakeBadge}>No intake link</div>
+                                    <div className={styles.apptProcs}>{procs}</div>
+
+                                    {/* Hover details flyout matching reference screenshot */}
+                                    {isHovered && (
+                                      <div
+                                        className={`${styles.hoverPopover} ${
+                                          isRightColumn ? styles.hoverPopoverLeft : styles.hoverPopoverRight
+                                        }`}
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <div className={styles.popoverTop}>
+                                          <div className={styles.popoverTopLeft}>
+                                            <div className={styles.popoverPatientName}>
+                                              <span>{isNP ? `NP-${patientLastName},` : `${patientLastName},`}</span>
+                                              <span>{patientFirstName}</span>
+                                            </div>
+                                            <div className={styles.patientPicBox}>
+                                              <span className={styles.patientPicText}>Patient Picture</span>
+                                              <span className={styles.patientPicText}>Unavailable</span>
+                                            </div>
                                           </div>
-                                        ))}
+
+                                          <div className={styles.popoverTopRight}>
+                                            <div>{formatPopoverDate(appt.AptDateTime)}</div>
+                                            <div>{formatPopoverTime(appt.AptDateTime)}</div>
+                                            <div>{duration} Min</div>
+                                            <div>{appt.provAbbr || col.shortName}</div>
+                                            <div>Production: $0.00</div>
+                                          </div>
+                                        </div>
+
+                                        <div className={styles.popoverMiddle}>
+                                          <div className={styles.popoverStatus}>
+                                            {appt.confirmed || (appt.Confirmed === 19 ? 'Unconfirmed' : 'Confirmed')}
+                                          </div>
+                                          {Array.isArray(appt.diseases) && appt.diseases.length > 0 && (
+                                            <div className={styles.popoverAlerts}>
+                                              {appt.diseases.map((disease, dIdx) => (
+                                                <div key={dIdx} className={styles.popoverAlertItem}>
+                                                  {disease}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                          <div className={styles.popoverProc}>{appt.ProcDescript || 'Ex'}</div>
+                                        </div>
+
+                                        <div className={styles.popoverDivider} />
+
+                                        <div className={styles.popoverBottom}>
+                                          <div className={styles.popoverPatNum}>{appt.PatNum}</div>
+                                          <div>{appt.patientDetails?.PatStatus || 'Patient'}</div>
+                                          {calculatedAge !== null && <div>Age: {calculatedAge}</div>}
+                                          <div>Hm: {appt.patientDetails?.HmPhone || ''}</div>
+                                          <div>Wk: {appt.patientDetails?.WkPhone || ''}</div>
+                                          <div>Cell: {appt.patientDetails?.WirelessPhone || ''}</div>
+                                          <div>Confirm Method: —</div>
+                                          <div>Contact Method: —</div>
+                                          <div>Recall Method: —</div>
+                                        </div>
                                       </div>
                                     )}
-                                    <div className={styles.popoverProc}>{appt.ProcDescript || 'Ex'}</div>
                                   </div>
-
-                                  <div className={styles.popoverDivider} />
-
-                                  <div className={styles.popoverBottom}>
-                                    <div className={styles.popoverPatNum}>{appt.PatNum}</div>
-                                    <div>{appt.patientDetails?.PatStatus || 'Patient'}</div>
-                                    {calculatedAge !== null && <div>Age: {calculatedAge}</div>}
-                                    <div>Hm: {appt.patientDetails?.HmPhone || ''}</div>
-                                    <div>Wk: {appt.patientDetails?.WkPhone || ''}</div>
-                                    <div>Cell: {appt.patientDetails?.WirelessPhone || ''}</div>
-                                    <div>Confirm Method: —</div>
-                                    <div>Contact Method: —</div>
-                                    <div>Recall Method: —</div>
-                                  </div>
-                                </div>
-                              )}
+                                );
+                              })}
                             </div>
                           );
                         })}
                       </div>
-                    );
-                  })}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
