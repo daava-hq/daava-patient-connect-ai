@@ -9,6 +9,7 @@ import { logError, logInfo } from '@/lib/logger';
 export const jobName = 'sync-patients';
 
 export async function runPatientSync(practiceId: string): Promise<{ success: boolean; count: number; error?: string }> {
+  console.log(`[Sync Step 1] Starting patient sync for practice ID: ${practiceId}`);
   try {
     const [creds] = await db
       .select()
@@ -17,9 +18,11 @@ export async function runPatientSync(practiceId: string): Promise<{ success: boo
       .limit(1);
 
     if (!creds) {
+      console.log(`[Sync Error] Open Dental credentials not configured for practice ID: ${practiceId}`);
       return { success: false, count: 0, error: 'Open Dental credentials not configured for this practice' };
     }
 
+    console.log(`[Sync Step 2] Successfully fetched and decrypted Open Dental credentials for practice ID: ${practiceId}`);
     const developerKey = decrypt(creds.developerKeyEnc);
     const customerKey = decrypt(creds.customerKeyEnc);
 
@@ -28,12 +31,13 @@ export async function runPatientSync(practiceId: string): Promise<{ success: boo
     let totalSynced = 0;
 
     while (true) {
+      console.log(`[Sync Step 3] Fetching patient batch from Open Dental API (Offset: ${offset}, Limit: ${limit})...`);
       const odPatients = await getOpenDentalPatients(developerKey, customerKey, {
-        limit,
-        offset,
-        since: creds.lastPatientSyncedAt ? creds.lastPatientSyncedAt.toISOString() : undefined,
+        Limit: limit,
+        Offset: offset,
       });
 
+      console.log(`[Sync Step 4] Received ${odPatients?.length || 0} patients from Open Dental API batch.`);
       if (!odPatients || odPatients.length === 0) {
         break;
       }
@@ -69,10 +73,12 @@ export async function runPatientSync(practiceId: string): Promise<{ success: boo
       })
       .where(eq(practiceOpendentalCredentials.practiceId, practiceId));
 
+    console.log(`[Sync Success] Patient sync completed successfully for practice ID: ${practiceId}. Total synchronized: ${totalSynced}`);
     logInfo('Patient sync completed successfully', { practiceId, totalSynced });
     return { success: true, count: totalSynced };
   } catch (err: unknown) {
     const error = err instanceof Error ? err : new Error(String(err));
+    console.error(`[Sync Failure] Patient sync failed for practice ID: ${practiceId}`, error);
     logError('Patient sync failed', error, { practiceId });
     return { success: false, count: 0, error: error.message };
   }
