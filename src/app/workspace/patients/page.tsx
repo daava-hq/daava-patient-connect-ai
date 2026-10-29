@@ -7,7 +7,10 @@ import FilterBar from '@/components/ui/FilterBar/FilterBar';
 import SearchInput from '@/components/ui/SearchInput/SearchInput';
 import StatusBadge from '@/components/ui/StatusBadge/StatusBadge';
 import Pagination from '@/components/ui/Pagination/Pagination';
-import { RefreshCw, Database } from 'lucide-react';
+import { RefreshCw, Database, Key } from 'lucide-react';
+import SectionCard from '@/components/ui/SectionCard/SectionCard';
+import EmptyState from '@/components/feedback/EmptyState/EmptyState';
+import Link from 'next/link';
 
 interface OpenDentalPatientRow {
   PatNum: number;
@@ -192,58 +195,83 @@ export default function PatientsPage() {
         }
       />
 
-      {error && (
-        <div style={{ padding: '1rem', marginBottom: '1rem', backgroundColor: 'rgb(220 38 38 / 0.1)', color: 'var(--color-error)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <span>{error}</span>
-          {error.includes('keys') && (
-            <div>
-              <a
-                href="/workspace/settings"
-                style={{
-                  color: 'var(--color-primary)',
-                  fontWeight: 'var(--font-weight-medium)',
-                  textDecoration: 'underline',
-                }}
-              >
-                Go to Practice Settings → Open Dental Integration
-              </a>
-            </div>
-          )}
-        </div>
-      )}
-
       {successMsg && (
         <div style={{ padding: '1rem', marginBottom: '1rem', backgroundColor: 'rgb(22 163 74 / 0.1)', color: 'var(--color-success)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)' }}>
           {successMsg}
         </div>
       )}
 
-      {patients.length > 0 && !error && (
-        <FilterBar>
-          <div style={{ width: '100%', maxWidth: '24rem' }}>
-            <SearchInput
-              value={search}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-              placeholder="Search patients by name, email, phone..."
+      {(() => {
+        const isKeysMissing = Boolean(
+          error && (error.toLowerCase().includes('keys') || error.toLowerCase().includes('credentials') || error.toLowerCase().includes('not configured'))
+        );
+
+        if (isKeysMissing) {
+          return (
+            <SectionCard title="Open Dental Integration">
+              <EmptyState
+                icon={<Key size={32} />}
+                title="Integration Keys Not Configured"
+                description="Open Dental integration keys have not been added for this practice. Please configure your developer and customer keys in Practice Settings to view and sync patients."
+                action={
+                  <Link
+                    href="/workspace/settings"
+                    style={{
+                      display: 'inline-block',
+                      backgroundColor: 'var(--color-primary)',
+                      color: 'var(--color-surface)',
+                      padding: '0.5rem 1rem',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: 'var(--font-size-sm)',
+                      fontWeight: 'var(--font-weight-medium)',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Go to Practice Settings
+                  </Link>
+                }
+              />
+            </SectionCard>
+          );
+        }
+
+        return (
+          <>
+            {error && (
+              <div style={{ padding: '1rem', marginBottom: '1rem', backgroundColor: 'rgb(220 38 38 / 0.1)', color: 'var(--color-error)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <span>{error}</span>
+              </div>
+            )}
+
+            {patients.length > 0 && !error && (
+              <FilterBar>
+                <div style={{ width: '100%', maxWidth: '24rem' }}>
+                  <SearchInput
+                    value={search}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+                    placeholder="Search patients by name, email, phone..."
+                  />
+                </div>
+              </FilterBar>
+            )}
+
+            <DataTable
+              columns={columns}
+              data={filteredPatients}
+              keyExtractor={(row: OpenDentalPatientRow) => row.PatNum}
+              emptyMessage={loading ? 'Fetching patients from Open Dental API...' : 'No patients found.'}
             />
-          </div>
-        </FilterBar>
-      )}
 
-      <DataTable
-        columns={columns}
-        data={filteredPatients}
-        keyExtractor={(row: OpenDentalPatientRow) => row.PatNum}
-        emptyMessage={loading ? 'Fetching patients from Open Dental API...' : 'No patients found.'}
-      />
-
-      {patients.length > 0 && !error && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={handlePageChange}
-        />
-      )}
+            {patients.length > 0 && !error && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+              />
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }
