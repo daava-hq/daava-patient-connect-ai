@@ -22,6 +22,7 @@ Patient Connect is a multi-organisation dental practice patient engagement platf
 | Referrals | Track inbound and outbound patient referrals. |
 | Surveys | Post-visit satisfaction surveys. |
 | Connect | Two-way SMS texting between practice staff and patients. |
+| Centralized Templates | Reusable categorized system and practice templates for all 9 engagement modules with variable validation and cloning. |
 | Reports | Per-feature reports with date filters and CSV export. |
 | Settings | Practice branding, team management, communication preferences. |
 

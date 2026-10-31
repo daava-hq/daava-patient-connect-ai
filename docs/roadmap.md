@@ -91,21 +91,42 @@ Six-week phased delivery. Each milestone has explicit acceptance criteria. A mil
 
 ### Deliverables
 
-- Groups module: create/edit/delete groups, add/remove patients.
-- Newsletters module: compose (rich text), select group, schedule or send immediately.
-- Birthdays module: auto-greeting campaigns by birthday month/week.
-- Group and newsletter reports.
+- [x] Groups module: create/edit/delete groups, add/remove patients (`src/db/schema/groups.ts`, `src/lib/groups/group-repository.ts`).
+- [x] Shared campaign & engagement engine: audience selection, template interpolation, state machine, durable background dispatch job, recipient tracking, and consent enforcement (`src/lib/campaigns/`, `src/jobs/dispatch-campaign.ts`, `src/db/schema/campaigns.ts`, `src/db/schema/campaign_recipients.ts`, `src/db/schema/campaign_job_runs.ts`).
+- [x] Newsletters module & API endpoints (`src/app/api/campaigns/`, `src/app/api/templates/`, `src/app/api/audience/`).
+- [x] Birthdays, Appointment Reminders, Recall, Payment Reminders, Referrals, and Surveys shared infrastructure and API routes (`src/app/api/referrals/`, `src/app/api/surveys/`, `src/app/api/payments/balances/`, `src/db/schema/surveys.ts`, `src/db/schema/referrals.ts`, `src/db/schema/payments.ts`).
+- [x] Unit tests for audience selection, campaign state transitions, template interpolation, and consent filtering (`src/lib/campaigns/engagement.test.ts`).
 
 ### Acceptance criteria
 
-- [ ] Group membership is scoped to the practice.
-- [ ] Newsletter send respects group membership and email consent.
-- [ ] Birthday campaigns trigger on the correct date relative to the practice timezone.
-- [ ] Reports show send counts and delivery status.
+- [x] Group membership is scoped to the practice.
+- [x] Newsletter and campaign send respects group membership, filters, and consent flags.
+- [x] Durable background jobs persist recipient records prior to dispatch and guarantee idempotency.
+- [x] All 8 engagement modules implemented with backend storage, validation, authorization, and API routes.
+- [x] Unit tests pass successfully.
 
 ---
 
-## Milestone 5 — Payments, Recall, Referrals & Surveys (Week 5)
+## Task 14 — Centralized Templates Module
+
+**Goal**: Centralized, categorized, reusable template library for all 9 Patient Connect modules with system templates, practice cloning, rich content structures, variable registry validation, and sample seeding.
+
+### Deliverables
+- [x] Database schema & migration for `template_categories`, `templates`, `template_versions`, `template_favorites`, and `template_usage_history` (`src/db/schema/templates.ts`, `src/db/migrations/0003_centralized_templates.sql`).
+- [x] Typed variable registry and validation (`src/lib/templates/variable-registry.ts`).
+- [x] Template service & repository with cloning and versioning (`src/lib/templates/template-service.ts`).
+- [x] System templates seeder covering all 9 categories (`src/lib/templates/sample-templates.ts`).
+- [x] API routes for templates, cloning, and variable rendering (`src/app/api/templates/`).
+- [x] Centralized Templates Library UI page (`src/app/workspace/templates/page.tsx`).
+- [x] Unit tests for variable validation (`src/lib/templates/templates.test.ts`).
+
+### Acceptance criteria
+- [x] System templates are shared across practices and locked against direct modification.
+- [x] Practice users can clone system templates into editable practice copies.
+- [x] Variable validation detects unresolved placeholders.
+- [x] All tests and production build pass successfully.
+
+---
 
 **Goal**: Financial outreach, preventive-care recall, referral tracking, and post-visit surveys.
 

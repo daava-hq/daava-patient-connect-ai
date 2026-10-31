@@ -20,6 +20,7 @@ import {
   Clock,
   Share2,
   FileQuestion,
+  FileText,
 } from 'lucide-react';
 
 export default function AppSidebar() {
@@ -27,6 +28,7 @@ export default function AppSidebar() {
   const [isEngagementsOpen, setIsEngagementsOpen] = useState(true);
 
   const engagementSubitems = [
+    { label: 'Templates Library', href: '/workspace/templates', icon: FileText },
     { label: 'Appointment Reminders', href: '/workspace/reminders', icon: Bell },
     { label: 'Birthdays', href: '/workspace/birthdays', icon: Gift },
     { label: 'Groups', href: '/workspace/groups', icon: FolderOpen },

@@ -10,7 +10,7 @@ const envSchema = z.object({
 });
 
 export const env = envSchema.parse({
-  DATABASE_URL: process.env.DATABASE_URL || '******localhost:5432/test',
+  DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/patient_connect2',
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || 'test-secret-key-min-length-required',
   NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',
   CREDENTIALS_ENCRYPTION_KEY: process.env.CREDENTIALS_ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',

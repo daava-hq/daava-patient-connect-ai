@@ -137,6 +137,30 @@ organisations
 - `appointments(practice_id, scheduled_at)` — appointment list/calendar.
 - `practice_members(user_id)` — practice lookup by user.
 
-## Future tables (tracked in roadmap)
+## Centralized Templates tables
 
-`groups`, `group_members`, `campaigns`, `campaign_recipients`, `surveys`, `survey_responses`, `conversations`, `messages`
+### `template_categories`
+- `id` (uuid PK)
+- `slug` (text UNIQUE)
+- `name` (text)
+- `description` (text)
+- `sort_order` (integer)
+
+### `templates`
+- `id` (uuid PK)
+- `practice_id` (uuid FK → practices, nullable for system templates)
+- `category_id` (uuid FK → template_categories)
+- `name` (text)
+- `description` (text)
+- `template_type` (text: sms, email, newsletter, survey, internal_response)
+- `channel` (text: sms, email, in_app)
+- `content` (jsonb)
+- `variables` (jsonb)
+- `status` (text)
+- `is_system` (boolean)
+- `version` (integer)
+- `created_by` (uuid FK → users)
+
+### `template_versions`, `template_favorites`, `template_usage_history`
+Support version history, user favorites, and audit usage tracking per practice.
+
