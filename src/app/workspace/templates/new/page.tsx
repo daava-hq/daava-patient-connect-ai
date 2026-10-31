@@ -24,6 +24,7 @@ import {
   Bold,
   Italic,
   Link as LinkIcon,
+  GripVertical,
 } from 'lucide-react';
 
 export default function NewTemplateEditorPage() {
@@ -122,6 +123,21 @@ export default function NewTemplateEditorPage() {
           setDoc({ ...doc, sections });
           break;
         }
+      }
+    }
+  }
+
+  function reorderBlocks(sourceId: string, targetId: string) {
+    if (sourceId === targetId) return;
+    const sections = [...doc.sections];
+    for (const sec of sections) {
+      const srcIdx = sec.blocks.findIndex((b) => b.id === sourceId);
+      const tgtIdx = sec.blocks.findIndex((b) => b.id === targetId);
+      if (srcIdx !== -1 && tgtIdx !== -1) {
+        const [moved] = sec.blocks.splice(srcIdx, 1);
+        sec.blocks.splice(tgtIdx, 0, moved);
+        setDoc({ ...doc, sections });
+        break;
       }
     }
   }
@@ -275,9 +291,12 @@ export default function NewTemplateEditorPage() {
                 <div
                   key={type}
                   draggable
-                  onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ type }))}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', `add:${type}`);
+                    e.dataTransfer.effectAllowed = 'copy';
+                  }}
                   onClick={() => addBlock(type)}
-                  style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '0.6rem', borderRadius: '6px', cursor: 'grab', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', textTransform: 'capitalize' }}
+                  style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '0.6rem', borderRadius: '6px', cursor: 'grab', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', textTransform: 'capitalize', userSelect: 'none' }}
                 >
                   {type === 'heading' && <Type size={16} />}
                   {type === 'paragraph' && <FileText size={16} />}
@@ -311,14 +330,16 @@ export default function NewTemplateEditorPage() {
         {/* Center Canvas with Dropzone */}
         <main
           style={{ flex: 1, padding: '2rem', overflowY: 'auto', display: 'flex', justifyContent: 'center' }}
-          onDragOver={(e) => e.preventDefault()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+          }}
           onDrop={(e) => {
             e.preventDefault();
-            try {
-              const data = JSON.parse(e.dataTransfer.getData('application/json'));
-              if (data?.type) addBlock(data.type);
-            } catch {
-              // ignore
+            const data = e.dataTransfer.getData('text/plain');
+            if (data.startsWith('add:')) {
+              const type = data.replace('add:', '') as any;
+              addBlock(type);
             }
           }}
         >
@@ -338,32 +359,69 @@ export default function NewTemplateEditorPage() {
               )}
 
               {doc.sections.map((sec) => (
-                <div key={sec.id} style={{ background: sec.backgroundColor || '#fff', padding: sec.padding || '1rem', borderRadius: '6px', marginBottom: '1rem', border: '1px dashed #cbd5e1' }}>
+                <div
+                  key={sec.id}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const data = e.dataTransfer.getData('text/plain');
+                    if (data.startsWith('add:')) {
+                      const type = data.replace('add:', '') as any;
+                      addBlock(type);
+                    }
+                  }}
+                  style={{ background: sec.backgroundColor || '#fff', padding: sec.padding || '1rem', borderRadius: '6px', marginBottom: '1rem', border: '2px dashed #cbd5e1', minHeight: '120px' }}
+                >
                   {sec.blocks.length === 0 ? (
-                    <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.875rem' }}>Drag and drop blocks here or click to add.</p>
+                    <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.875rem', padding: '2rem 0' }}>Drag and drop blocks here or click to add.</p>
                   ) : (
                     sec.blocks.map((b) => (
                       <div
                         key={b.id}
+                        draggable
+                        onDragStart={(e) => {
+                          e.stopPropagation();
+                          e.dataTransfer.setData('text/plain', `reorder:${b.id}`);
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = 'move';
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const data = e.dataTransfer.getData('text/plain');
+                          if (data.startsWith('reorder:')) {
+                            const sourceId = data.replace('reorder:', '');
+                            reorderBlocks(sourceId, b.id);
+                          } else if (data.startsWith('add:')) {
+                            const type = data.replace('add:', '') as any;
+                            addBlock(type);
+                          }
+                        }}
                         onClick={() => setSelectedBlockId(b.id)}
                         style={{
                           padding: '0.75rem',
                           marginBottom: '0.75rem',
                           borderRadius: '6px',
-                          border: selectedBlockId === b.id ? '2px solid #2563eb' : '1px solid transparent',
+                          border: selectedBlockId === b.id ? '2px solid #2563eb' : '1px solid #e2e8f0',
                           background: selectedBlockId === b.id ? '#eff6ff' : '#f8fafc',
-                          cursor: 'pointer',
+                          cursor: 'grab',
                           position: 'relative',
                         }}
                       >
                         {/* Reorder & delete quick controls */}
-                        {selectedBlockId === b.id && (
-                          <div style={{ position: 'absolute', top: '4px', right: '4px', display: 'flex', gap: '2px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px', zIndex: 10 }}>
-                            <button title="Move Up" onClick={(e) => { e.stopPropagation(); moveBlock(b.id, 'up'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}><MoveUp size={14} /></button>
-                            <button title="Move Down" onClick={(e) => { e.stopPropagation(); moveBlock(b.id, 'down'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}><MoveDown size={14} /></button>
-                            <button title="Delete" onClick={(e) => { e.stopPropagation(); deleteBlock(b.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#dc2626' }}><Trash2 size={14} /></button>
-                          </div>
-                        )}
+                        <div style={{ position: 'absolute', top: '4px', right: '4px', display: 'flex', gap: '2px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px', zIndex: 10 }}>
+                          <span title="Drag to reorder" style={{ cursor: 'grab', padding: '2px', display: 'flex', alignItems: 'center', color: '#94a3b8' }}><GripVertical size={14} /></span>
+                          <button title="Move Up" onClick={(e) => { e.stopPropagation(); moveBlock(b.id, 'up'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}><MoveUp size={14} /></button>
+                          <button title="Move Down" onClick={(e) => { e.stopPropagation(); moveBlock(b.id, 'down'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}><MoveDown size={14} /></button>
+                          <button title="Delete" onClick={(e) => { e.stopPropagation(); deleteBlock(b.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#dc2626' }}><Trash2 size={14} /></button>
+                        </div>
 
                         {b.type === 'heading' && <h3 style={{ color: b.properties.color || '#1e293b', textAlign: b.properties.alignment || 'left', margin: 0 }}>{b.properties.text}</h3>}
                         {b.type === 'paragraph' && <p style={{ color: b.properties.color || '#475569', textAlign: b.properties.alignment || 'left', margin: 0, lineHeight: 1.4 }} dangerouslySetInnerHTML={{ __html: b.properties.text || '' }} />}
