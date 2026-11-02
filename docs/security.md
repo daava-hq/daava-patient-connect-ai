@@ -66,6 +66,11 @@ Every `route.ts` must:
 - Redact all patient PII (name, DOB, phone, email) from logs and error messages.
 - Enforce communication consent flags (`sms_consent`, `email_consent`) before any outbound message.
 - Implement opt-out handling: update consent flags and suppress future messages.
+- Appointment reminders re-check consent, practice ownership, appointment status, patient status, and destination immediately before provider dispatch. Only `Scheduled` appointments for active `Patient` records are eligible; this status is not interpreted as attendance confirmation.
+- Reminder occurrences are deduplicated by appointment, schedule, channel, and patient. Provider adapters receive the occurrence ID as an idempotency key.
+- The reminder cron endpoint requires `APPOINTMENT_REMINDERS_CRON_SECRET` as a bearer token and compares it in constant time. Never expose this secret to browser code.
+- SMS remains an unconfigured stub. Email uses Resend only when `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are configured; both values remain server-side.
+- Appointment and campaign email content is sent to Resend. Before sending patient data, verify applicable privacy, consent, contractual, and regulatory requirements with the provider and your organization.
 
 ## Webhook verification
 

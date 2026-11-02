@@ -8,6 +8,7 @@ export interface SendMessageOptions {
   to: string; // phone number or email address
   body: string;
   subject?: string; // email only
+  idempotencyKey?: string;
 }
 
 export interface SendMessageResult {
@@ -18,5 +19,6 @@ export interface SendMessageResult {
 
 export interface MessagingAdapter {
   channel: 'sms' | 'email';
+  configured: boolean;
   send(options: SendMessageOptions): Promise<SendMessageResult>;
 }

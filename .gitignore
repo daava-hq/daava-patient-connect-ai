@@ -4,6 +4,7 @@ node_modules
 dist
 build
 *.local
+.continue/
 coverage
 playwright-report
 test-results

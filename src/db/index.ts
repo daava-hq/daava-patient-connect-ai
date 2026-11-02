@@ -17,6 +17,7 @@ import * as surveys from './schema/surveys';
 import * as referrals from './schema/referrals';
 import * as payments from './schema/payments';
 import * as templates from './schema/templates';
+import * as appointmentReminders from './schema/appointment_reminders';
 
 const client = postgres(env.DATABASE_URL, {
   user: process.env.USER || 'premkumark',
@@ -41,5 +42,6 @@ export const db = drizzle(client, {
     ...referrals,
     ...payments,
     ...templates,
+    ...appointmentReminders,
   },
 });

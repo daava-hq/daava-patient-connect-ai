@@ -164,3 +164,23 @@ organisations
 ### `template_versions`, `template_favorites`, `template_usage_history`
 Support version history, user favorites, and audit usage tracking per practice.
 
+## Appointment reminders
+
+### `appointment_reminder_schedules`
+
+Practice-owned reminder rules reference an SMS or email template in the
+`appointment-reminders` category. Schedules store the interval, practice-local
+send time, enabled state, and creator.
+
+### `appointment_reminders`
+
+Practice-owned reminder occurrences reference a locally synchronized
+appointment, patient, and schedule. Each occurrence records its scheduled time,
+manual/automated origin, status (`pending`, `processing`, `sent`, `delivered`,
+`failed`, or `skipped`), attempt timestamps, provider message ID, and a
+PII-minimized failure reason.
+
+The unique key on `(appointment_id, schedule_id, channel, patient_id)` prevents
+duplicate occurrences. The due index supports the cron worker. Provider
+delivery confirmation is not implemented yet, so `delivered_at` remains unset
+until a provider webhook or polling integration is added.

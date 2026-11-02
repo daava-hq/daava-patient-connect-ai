@@ -1,1 +1,13 @@
-{"version":"5","dialect":"pg","entries":[]}
+{
+  "version": "5",
+  "dialect": "pg",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1793585325011,
+      "tag": "0004_appointment_reminders",
+      "breakpoints": true
+    }
+  ]
+}

@@ -23,7 +23,7 @@ export async function listTemplates(
   options: { categoryId?: string; type?: string; channel?: string; search?: string } = {}
 ) {
   const conditions = [
-    eq(templates.practiceId, practiceId),
+    or(eq(templates.practiceId, practiceId), eq(templates.isSystem, true))!,
     isNull(templates.deletedAt),
   ];
 
@@ -45,7 +45,7 @@ export async function getTemplateById(practiceId: string, templateId: string): P
     .where(
       and(
         eq(templates.id, templateId),
-        eq(templates.practiceId, practiceId),
+        or(eq(templates.practiceId, practiceId), eq(templates.isSystem, true))!,
         isNull(templates.deletedAt)
       )
     )

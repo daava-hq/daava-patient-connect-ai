@@ -32,8 +32,29 @@ pnpm dev
 | `DATABASE_URL` | PostgreSQL connection string |
 | `NEXTAUTH_SECRET` | NextAuth session secret |
 | `NEXTAUTH_URL` | App base URL (e.g. `http://localhost:3000`) |
+| `APPOINTMENT_REMINDERS_CRON_SECRET` | Bearer secret for the appointment-reminder cron endpoint |
+| `RESEND_API_KEY` | Server-side Resend API key |
+| `RESEND_FROM_EMAIL` | Sender address on a domain verified with Resend |
+| `RESEND_REPLY_TO` | Optional reply-to address |
 
 Practice-specific Open Dental keys are stored **in the database**, not in `.env`.
+
+Email dispatch uses Resend when both `RESEND_API_KEY` and `RESEND_FROM_EMAIL`
+are configured. Verify the sender domain in Resend, set these values in
+`.env.local` or the deployment secret manager, then restart/redeploy the app.
+The key is server-only and must never use a `NEXT_PUBLIC_` prefix.
+The adapter sends plain-text messages via
+https://resend.com/docs/api-reference/emails/send-email.
+
+### Appointment reminder scheduler
+
+Configure an external scheduler to `POST /api/cron/appointment-reminders` every
+five minutes with `Authorization: Bearer $APPOINTMENT_REMINDERS_CRON_SECRET`.
+The endpoint processes each practice with an enabled reminder schedule. Do not
+expose the secret to the client. A scheduler is not provisioned by this
+repository. SMS/email adapters currently report as unconfigured, so dispatch
+records a provider-unavailable failure rather than claiming a send succeeded.
+Delivery confirmation requires a future provider webhook or polling integration.
 
 ## Available scripts
 
@@ -49,8 +70,8 @@ All scripts are defined in `package.json`. Use only these — do not invent new 
 | `pnpm test` | `vitest run` | Unit + integration tests |
 | `pnpm test:watch` | `vitest` | Tests in watch mode |
 | `pnpm test:e2e` | `playwright test` | Playwright e2e tests |
-| `pnpm db:generate` | `drizzle-kit generate` | Generate SQL migration from schema |
-| `pnpm db:migrate` | `drizzle-kit migrate` | Apply pending migrations |
+| `pnpm db:generate` | `drizzle-kit generate:pg` | Generate PostgreSQL migration from schema |
+| `pnpm db:migrate` | `node --env-file-if-exists=.env.local scripts/migrate.mjs` | Apply pending Drizzle migrations |
 | `pnpm db:push` | `drizzle-kit push` | Push schema to dev DB (no migration file) |
 | `pnpm db:studio` | `drizzle-kit studio` | Open Drizzle Studio |
 
@@ -65,7 +86,7 @@ All scripts are defined in `package.json`. Use only these — do not invent new 
 
 1. Edit the Drizzle schema in `src/db/schema/`.
 2. Run `pnpm db:generate` — review generated SQL in `src/db/migrations/`.
-3. Run `pnpm db:migrate` — applies to the target database.
+3. Run `pnpm db:migrate` — loads `.env.local` when present and applies migrations to `DATABASE_URL`.
 4. Commit both the schema change and the migration file together.
 5. Never hand-edit generated migration files.
 

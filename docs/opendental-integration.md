@@ -33,8 +33,8 @@ Each practice record has an encrypted `opendental_credentials` column (or a sepa
 
 | Job | Description | Status |
 |-----|-------------|--------|
-| `sync-patients` | Full + incremental patient pull | Planned — Milestone 2 |
-| `sync-appointments` | Full + incremental appointment pull | Planned — Milestone 2 |
+| `sync-patients` | Full + incremental patient pull | Implemented |
+| `sync-appointments` | Full + incremental appointment pull | Implemented |
 
 ## Sync design principles
 
@@ -79,6 +79,21 @@ Key fields to store locally:
 | `AptStatus` | `status` |
 | `ProcDescript` | `description` |
 | `DateTStamp` | `opendental_updated_at` |
+
+## Appointment reminders
+
+Appointment reminders read only from the locally synchronized `appointments`
+and `patients` tables; the reminders feature does not write to Open Dental.
+Schedules use the practice IANA timezone. Seven-day and three-day intervals
+preserve the appointment's local wall-clock time, 24-hour reminders use elapsed
+time, and same-day reminders use a configurable local time.
+
+The worker targets appointments whose local status is `Scheduled` and whose
+patient status is `Patient`, then rechecks both immediately before dispatch.
+`Scheduled` is not treated as patient-confirmed attendance. Appointment
+provider/operatory data is not currently stored in the synchronized schema;
+templates that require unavailable variables are rejected before dispatch.
+SMS/email delivery remains disabled until real providers are configured.
 
 ## Operatories & Providers (Calendar Columns)
 
