@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
-import { FileText, Plus, Copy, Search, X, Image as ImageIcon, Eye, Edit3 } from 'lucide-react';
+import { FileText, Plus, Search, X, Image as ImageIcon, Eye, Edit3 } from 'lucide-react';
 import { renderDocumentToHtml } from '@/lib/templates/document-schema';
 
 export default function TemplatesLibraryPage() {
@@ -61,26 +61,6 @@ export default function TemplatesLibraryPage() {
       showToast('Failed to load templates', 'error');
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleClone(templateId: string) {
-    if (!practiceId) return;
-    try {
-      const res = await fetch(`/api/templates/${templateId}/clone`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ practiceId }),
-      });
-      const json = await res.json();
-      if (res.ok) {
-        showToast('Template cloned successfully into your practice library', 'success');
-        fetchTemplates(practiceId, selectedCategory);
-      } else {
-        showToast(json.error || 'Failed to clone template', 'error');
-      }
-    } catch {
-      showToast('Failed to clone template', 'error');
     }
   }
 
@@ -214,33 +194,21 @@ export default function TemplatesLibraryPage() {
                   <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem', lineHeight: '1.4' }}>{t.description || 'No description provided.'}</p>
                 </div>
 
-                {/* Bottom: Labels (System/Practice, SMS/Email) and Action Buttons */}
+                {/* Bottom: Channel and Action Buttons */}
                 <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', padding: '0.2rem 0.5rem', borderRadius: '4px', background: t.isSystem ? '#eff6ff' : '#f0fdf4', color: t.isSystem ? '#1d4ed8' : '#15803d' }}>
-                      {t.isSystem ? 'System' : 'Practice'}
-                    </span>
                     <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', background: '#f1f5f9', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
                       {t.channel}
                     </span>
                   </div>
 
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    {t.isSystem ? (
-                      <button
-                        onClick={() => handleClone(t.id)}
-                        style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '0.4rem 0.85rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                      >
-                        <Copy size={14} /> Clone to Practice
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => router.push(`/workspace/templates/${t.id}/edit`)}
-                        style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '0.4rem 0.85rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                      >
-                        <Edit3 size={14} /> Edit Template
-                      </button>
-                    )}
+                    <button
+                      onClick={() => router.push(`/workspace/templates/${t.id}/edit`)}
+                      style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '0.4rem 0.85rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                    >
+                      <Edit3 size={14} /> Edit Template
+                    </button>
                   </div>
                 </div>
               </div>

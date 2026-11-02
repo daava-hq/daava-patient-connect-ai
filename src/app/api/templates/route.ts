@@ -3,7 +3,6 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/options';
 import { requirePracticeMembership } from '@/lib/auth/guards';
 import { listTemplates, createTemplate, getTemplateCategories } from '@/lib/templates/template-service';
-import { seedSystemTemplates } from '@/lib/templates/sample-templates';
 import { AppError } from '@/lib/errors';
 import { z } from 'zod';
 
@@ -30,15 +29,12 @@ export async function GET(req: NextRequest) {
 
     await requirePracticeMembership(session.user.id, practiceId);
 
-    await seedSystemTemplates().catch(() => {});
-
     const categoryId = searchParams.get('categoryId') || undefined;
     const type = searchParams.get('type') || undefined;
     const channel = searchParams.get('channel') || undefined;
-    const isSystem = searchParams.has('isSystem') ? searchParams.get('isSystem') === 'true' : undefined;
 
     const cats = await getTemplateCategories();
-    const items = await listTemplates(practiceId, { categoryId, type, channel, isSystem });
+    const items = await listTemplates(practiceId, { categoryId, type, channel });
 
     return NextResponse.json({ data: { categories: cats, templates: items } });
   } catch (err) {

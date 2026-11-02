@@ -20,17 +20,16 @@ export async function getTemplateCategories(): Promise<TemplateCategory[]> {
 
 export async function listTemplates(
   practiceId: string,
-  options: { categoryId?: string; type?: string; channel?: string; isSystem?: boolean; search?: string } = {}
+  options: { categoryId?: string; type?: string; channel?: string; search?: string } = {}
 ) {
   const conditions = [
-    or(eq(templates.practiceId, practiceId), eq(templates.isSystem, true)),
+    eq(templates.practiceId, practiceId),
     isNull(templates.deletedAt),
   ];
 
   if (options.categoryId) conditions.push(eq(templates.categoryId, options.categoryId));
   if (options.type) conditions.push(eq(templates.templateType, options.type as any));
   if (options.channel) conditions.push(eq(templates.channel, options.channel as any));
-  if (options.isSystem !== undefined) conditions.push(eq(templates.isSystem, options.isSystem));
 
   return db
     .select()
@@ -46,7 +45,7 @@ export async function getTemplateById(practiceId: string, templateId: string): P
     .where(
       and(
         eq(templates.id, templateId),
-        or(eq(templates.practiceId, practiceId), eq(templates.isSystem, true)),
+        eq(templates.practiceId, practiceId),
         isNull(templates.deletedAt)
       )
     )
