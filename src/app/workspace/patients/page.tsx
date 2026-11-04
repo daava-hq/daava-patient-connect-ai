@@ -7,19 +7,23 @@ import FilterBar from '@/components/ui/FilterBar/FilterBar';
 import SearchInput from '@/components/ui/SearchInput/SearchInput';
 import StatusBadge from '@/components/ui/StatusBadge/StatusBadge';
 import Pagination from '@/components/ui/Pagination/Pagination';
-import { RefreshCw, Database, Key } from 'lucide-react';
+import { RefreshCw, Database, Key, Mail, Phone } from 'lucide-react';
 import SectionCard from '@/components/ui/SectionCard/SectionCard';
 import EmptyState from '@/components/feedback/EmptyState/EmptyState';
 import Link from 'next/link';
+import { formatDob } from '@/lib/patients/patient-utils';
 
 interface OpenDentalPatientRow {
   PatNum: number;
   FName: string;
   LName: string;
+  Birthdate?: string;
   WirelessPhone?: string;
   HmPhone?: string;
   Email?: string;
   PatStatus?: string;
+  emailConsent?: boolean;
+  smsConsent?: boolean;
 }
 
 const PAGE_SIZE = 20;
@@ -126,11 +130,20 @@ export default function PatientsPage() {
   const filteredPatients = patients.filter((p) => {
     if (!search) return true;
     const q = search.toLowerCase();
+    const fullName = `${p.FName || ''} ${p.LName || ''}`.toLowerCase();
+    const reverseName = `${p.LName || ''}, ${p.FName || ''}`.toLowerCase();
+    const formattedDob = formatDob(p.Birthdate).toLowerCase();
     return (
       p.FName?.toLowerCase().includes(q) ||
       p.LName?.toLowerCase().includes(q) ||
+      fullName.includes(q) ||
+      reverseName.includes(q) ||
       p.Email?.toLowerCase().includes(q) ||
-      p.WirelessPhone?.includes(q)
+      p.WirelessPhone?.includes(q) ||
+      p.HmPhone?.includes(q) ||
+      p.Birthdate?.includes(q) ||
+      formattedDob.includes(q) ||
+      String(p.PatNum).includes(q)
     );
   });
 
@@ -147,8 +160,16 @@ export default function PatientsPage() {
       accessorKey: (row: OpenDentalPatientRow) => `#${row.PatNum}`,
     },
     {
-      header: 'Name',
-      accessorKey: (row: OpenDentalPatientRow) => `${row.FName} ${row.LName}`,
+      header: 'Last Name',
+      accessorKey: (row: OpenDentalPatientRow) => row.LName || '—',
+    },
+    {
+      header: 'First Name',
+      accessorKey: (row: OpenDentalPatientRow) => row.FName || '—',
+    },
+    {
+      header: 'DOB',
+      accessorKey: (row: OpenDentalPatientRow) => formatDob(row.Birthdate),
     },
     {
       header: 'Mobile Phone',
@@ -157,6 +178,39 @@ export default function PatientsPage() {
     {
       header: 'Email',
       accessorKey: (row: OpenDentalPatientRow) => row.Email || '—',
+    },
+    {
+      header: 'Consent Status',
+      accessorKey: (row: OpenDentalPatientRow) => (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+          {row.Email?.trim() && typeof row.emailConsent === 'boolean' && (
+            <span
+              role="img"
+              aria-label={`Email consent: ${row.emailConsent ? 'yes' : 'no'}`}
+              title={`Email consent: ${row.emailConsent ? 'yes' : 'no'}`}
+            >
+              <Mail
+                size={16}
+                aria-hidden="true"
+                style={{ color: row.emailConsent ? 'var(--color-success)' : 'var(--color-error)' }}
+              />
+            </span>
+          )}
+          {row.WirelessPhone?.trim() && typeof row.smsConsent === 'boolean' && (
+            <span
+              role="img"
+              aria-label={`Phone consent: ${row.smsConsent ? 'yes' : 'no'}`}
+              title={`Phone consent: ${row.smsConsent ? 'yes' : 'no'}`}
+            >
+              <Phone
+                size={16}
+                aria-hidden="true"
+                style={{ color: row.smsConsent ? 'var(--color-success)' : 'var(--color-error)' }}
+              />
+            </span>
+          )}
+        </span>
+      ),
     },
     {
       header: 'Status',
@@ -296,7 +350,7 @@ export default function PatientsPage() {
                   <SearchInput
                     value={search}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-                    placeholder="Search patients by name, email, phone..."
+                    placeholder="Search patients by name, DOB, email, phone..."
                   />
                 </div>
               </FilterBar>

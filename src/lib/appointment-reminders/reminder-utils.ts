@@ -77,12 +77,23 @@ export function calculateReminderTime(
   appointmentAt: Date,
   interval: ReminderIntervalValue,
   timeZone: string,
-  localSendTime: string
+  localSendTime: string,
+  now = new Date()
 ): Date {
   if (!Number.isFinite(appointmentAt.getTime())) throw new RangeError('Invalid appointment date');
 
   const localDate = getDateParts(appointmentAt, timeZone);
-  if (interval === 'same_day') return localDateTimeToInstant(localDate, localSendTime, timeZone);
+  if (interval === 'same_day') {
+    const currentLocalDate = getDateParts(now, timeZone);
+    if (
+      localDate.year === currentLocalDate.year &&
+      localDate.month === currentLocalDate.month &&
+      localDate.day === currentLocalDate.day
+    ) {
+      return now;
+    }
+    return localDateTimeToInstant(localDate, localSendTime, timeZone);
+  }
   if (interval === '24_hours') return new Date(appointmentAt.getTime() - 24 * 60 * 60_000);
 
   const daysBefore = interval === '7_days' ? 7 : interval === '3_days' ? 3 : undefined;

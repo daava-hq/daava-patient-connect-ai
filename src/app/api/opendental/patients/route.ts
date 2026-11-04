@@ -1,26 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { z } from 'zod';
+import { authOptions } from '@/lib/auth/options';
+import { requirePracticeMembership } from '@/lib/auth/guards';
+import { AppError } from '@/lib/errors';
 import { getOpenDentalPatients } from '@/lib/opendental/patients';
 import { db } from '@/db';
-import { practices } from '@/db/schema/practices';
 import { practiceOpendentalCredentials } from '@/db/schema/practice_credentials';
 import { patients as patientsTable } from '@/db/schema/patients';
 import { eq, sql } from 'drizzle-orm';
 import { decrypt } from '@/lib/opendental/crypto';
+import { upsertPatient } from '@/lib/patients/patient-repository';
+
+const querySchema = z.object({
+  practiceId: z.string().uuid(),
+  offset: z.coerce.number().int().nonnegative().default(0),
+  limit: z.coerce.number().int().min(1).max(100).default(100),
+});
 
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    let practiceId = searchParams.get('practiceId');
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
-    const limit = parseInt(searchParams.get('limit') || '100', 10);
-
-    if (!practiceId) {
-      const [defaultPractice] = await db
-        .select({ id: practices.id })
-        .from(practices)
-        .limit(1);
-      practiceId = defaultPractice?.id || 'c678c32c-2eeb-47ae-95ff-3938bc40e54b';
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const parsedQuery = querySchema.safeParse(
+      Object.fromEntries(new URL(req.url).searchParams)
+    );
+    if (!parsedQuery.success) {
+      return NextResponse.json({ error: parsedQuery.error.flatten() }, { status: 400 });
+    }
+
+    const { practiceId, offset, limit } = parsedQuery.data;
+    await requirePracticeMembership(session.user.id, practiceId);
 
     const [creds] = await db
       .select()
@@ -43,37 +56,31 @@ export async function GET(req: NextRequest) {
       Limit: limit,
     });
 
-    // Auto-upsert fetched patients into local database for accurate count and offline caching
+    const consentsByPatientId = new Map<number, { smsConsent: boolean; emailConsent: boolean }>();
+
+    // Persist each patient so the list can display locally stored consent flags.
     for (const od of patients) {
-      await db
-        .insert(patientsTable)
-        .values({
-          practiceId,
-          opendentalPatientId: od.PatNum,
-          firstName: od.FName || 'Unknown',
-          lastName: od.LName || 'Unknown',
-          dateOfBirth: od.Birthdate ? od.Birthdate.split('T')[0] : null,
-          phoneHome: od.HmPhone || null,
-          phoneMobile: od.WirelessPhone || null,
-          email: od.Email || null,
-          status: od.PatStatus || 'Patient',
-          opendentalUpdatedAt: od.DateTStamp ? new Date(od.DateTStamp) : null,
-        })
-        .onConflictDoUpdate({
-          target: [patientsTable.practiceId, patientsTable.opendentalPatientId],
-          set: {
-            firstName: od.FName || 'Unknown',
-            lastName: od.LName || 'Unknown',
-            dateOfBirth: od.Birthdate ? od.Birthdate.split('T')[0] : null,
-            phoneHome: od.HmPhone || null,
-            phoneMobile: od.WirelessPhone || null,
-            email: od.Email || null,
-            status: od.PatStatus || 'Patient',
-            opendentalUpdatedAt: od.DateTStamp ? new Date(od.DateTStamp) : null,
-            syncedAt: new Date(),
-            updatedAt: new Date(),
-          },
-        });
+      const savedPatient = await upsertPatient({
+        practiceId,
+        opendentalPatientId: od.PatNum,
+        firstName: od.FName || 'Unknown',
+        lastName: od.LName || 'Unknown',
+        dateOfBirth: od.Birthdate ? od.Birthdate.split('T')[0] : null,
+        phoneHome: od.HmPhone || null,
+        phoneMobile: od.WirelessPhone || null,
+        email: od.Email || null,
+        status: od.PatStatus || 'Patient',
+        opendentalUpdatedAt: od.DateTStamp ? new Date(od.DateTStamp) : null,
+      });
+
+      if (!savedPatient) {
+        throw new Error('Failed to save an Open Dental patient');
+      }
+
+      consentsByPatientId.set(od.PatNum, {
+        smsConsent: savedPatient.smsConsent,
+        emailConsent: savedPatient.emailConsent,
+      });
     }
 
     const [{ count }] = await db
@@ -86,8 +93,20 @@ export async function GET(req: NextRequest) {
       ? offset + patients.length
       : Math.max(dbCount, offset + limit + limit);
 
-    return NextResponse.json({ data: patients, total }, { status: 200 });
+    const data = patients.map((patient) => {
+      const consents = consentsByPatientId.get(patient.PatNum);
+      if (!consents) {
+        throw new Error('Failed to load consent state for an Open Dental patient');
+      }
+
+      return { ...patient, ...consents };
+    });
+
+    return NextResponse.json({ data, total }, { status: 200 });
   } catch (err: unknown) {
+    if (err instanceof AppError) {
+      return NextResponse.json({ error: err.message }, { status: err.statusCode });
+    }
     const error = err instanceof Error ? err : new Error(String(err));
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

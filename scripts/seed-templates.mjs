@@ -45,12 +45,12 @@ async function main() {
           {
             id: 'sec-1',
             blocks: [
-              { id: 'b-1', type: 'paragraph', properties: { text: 'Hi {{patient.firstName}}, this is a reminder from {{practice.name}} for your appointment tomorrow at {{appointment.time}} with {{appointment.provider}}. Reply C to confirm.' } }
+              { id: 'b-1', type: 'paragraph', properties: { text: 'Hi {{patient.firstName}}, this is a reminder from {{practice.name}} for your dental visit on {{appointment.date}} at {{appointment.time}}. Reply C to confirm or call {{practice.phone}} to reschedule.' } }
             ]
           }
         ]
       }),
-      variables: JSON.stringify(['patient.firstName', 'practice.name', 'appointment.time', 'appointment.provider']),
+      variables: JSON.stringify(['patient.firstName', 'practice.name', 'appointment.date', 'appointment.time', 'practice.phone']),
       status: 'published',
       is_system: true,
       version: 1
@@ -72,14 +72,14 @@ async function main() {
             blocks: [
               { id: 'b-1', type: 'image', properties: { url: 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=800&auto=format&fit=crop&q=60', alt: 'Dental Care', alignment: 'center' } },
               { id: 'b-2', type: 'heading', properties: { text: 'Appointment Confirmation', level: 'h2', color: '#1e293b', alignment: 'left' } },
-              { id: 'b-3', type: 'paragraph', properties: { text: 'Dear {{patient.firstName}}, your visit is confirmed for {{appointment.date}} at {{appointment.time}} with {{appointment.provider}}.', color: '#475569' } },
-              { id: 'b-4', type: 'button', properties: { text: 'View Appointment Details', url: '{{practice.website}}', backgroundColor: '#2563eb', color: '#ffffff', alignment: 'center' } },
+              { id: 'b-3', type: 'paragraph', properties: { text: 'Dear {{patient.firstName}}, your visit is confirmed for {{appointment.date}} at {{appointment.time}}.', color: '#475569' } },
+              { id: 'b-4', type: 'paragraph', properties: { text: 'Location: {{practice.name}}, {{practice.address}}', color: '#475569' } },
               { id: 'b-5', type: 'paragraph', properties: { text: 'Please call us at {{practice.phone}} if you need to reschedule.', color: '#64748b' } }
             ]
           }
         ]
       }),
-      variables: JSON.stringify(['patient.firstName', 'practice.name', 'appointment.date', 'appointment.time', 'appointment.provider', 'practice.website', 'practice.phone']),
+      variables: JSON.stringify(['patient.firstName', 'practice.name', 'appointment.date', 'appointment.time', 'practice.name', 'practice.address', 'practice.phone']),
       status: 'published',
       is_system: true,
       version: 1

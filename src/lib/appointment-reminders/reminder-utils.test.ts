@@ -34,6 +34,14 @@ describe('appointment reminder utilities', () => {
     expect(reminderAt.toISOString()).toBe('2026-03-08T16:00:00.000Z');
   });
 
+  it('schedules an appointment received for today immediately', () => {
+    const now = new Date('2026-11-04T15:00:00.000Z');
+    const appointmentAt = new Date('2026-11-04T17:00:00.000Z');
+
+    expect(calculateReminderTime(appointmentAt, 'same_day', 'America/New_York', '09:00', now))
+      .toEqual(now);
+  });
+
   it('moves a nonexistent spring-forward send time forward by the DST gap', () => {
     const appointmentAt = new Date('2026-03-08T19:00:00.000Z');
     const reminderAt = calculateReminderTime(

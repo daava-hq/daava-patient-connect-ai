@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Bell, Eye, Plus, Send, Settings2, X } from 'lucide-react';
+import { Bell, Eye, Plus, RotateCcw, Send, Settings2, X } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
 import {
@@ -68,6 +68,7 @@ interface ReminderTemplate {
 
 interface ReminderDashboard {
   practice: { name: string; timezone: string };
+  sampleDataResetAvailable: boolean;
   schedules: ReminderSchedule[];
   upcoming: UpcomingReminder[];
   history: ReminderHistory[];
@@ -141,6 +142,7 @@ export default function RemindersPage() {
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [resettingSampleData, setResettingSampleData] = useState(false);
   const scheduleDialogRef = useRef<HTMLElement | null>(null);
   const templateDialogRef = useRef<HTMLElement | null>(null);
 
@@ -357,6 +359,31 @@ export default function RemindersPage() {
     }
   }
 
+  async function resetSampleData() {
+    if (!practiceId || !dashboard?.sampleDataResetAvailable) return;
+    const confirmed = window.confirm(
+      'Clear all reminder history for this sample practice and reset its six test appointments? The automatic cron test can send six emails to prem@daava.ai.'
+    );
+    if (!confirmed) return;
+
+    setResettingSampleData(true);
+    try {
+      const response = await fetch('/api/appointment-reminders/sample-data/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ practiceId }),
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || 'Unable to reset sample reminder data');
+      showToast('Sample reminders reset. The six 24-hour test reminders are due now; run the cron to send them.', 'success');
+      await loadDashboard(practiceId);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to reset sample reminder data', 'error');
+    } finally {
+      setResettingSampleData(false);
+    }
+  }
+
   return (
     <main className={styles.page}>
       <PageHeader
@@ -452,13 +479,24 @@ export default function RemindersPage() {
                 <h2 id="upcoming-heading">Upcoming reminders</h2>
                 <p>Appointment status is checked again immediately before dispatch; “Scheduled” does not mean attendance is confirmed.</p>
               </div>
+              {dashboard.sampleDataResetAvailable && (
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={() => void resetSampleData()}
+                  disabled={resettingSampleData}
+                >
+                  <RotateCcw size={16} aria-hidden="true" />
+                  {resettingSampleData ? 'Resetting…' : 'Reset sample data'}
+                </button>
+              )}
             </div>
             <div className={styles.filters}>
               <label>
                 Schedule
                 <select value={filterSchedule} onChange={(event) => setFilterSchedule(event.target.value)}>
                   <option value="all">All schedules</option>
-                  {dashboard.schedules.map((schedule) => (
+                  {dashboard.schedules.filter((schedule) => schedule.enabled).map((schedule) => (
                     <option key={schedule.id} value={schedule.id}>{schedule.name}</option>
                   ))}
                 </select>

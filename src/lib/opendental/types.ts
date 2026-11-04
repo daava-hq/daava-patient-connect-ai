@@ -22,6 +22,8 @@ export interface OpenDentalPatientDetails {
   WkPhone?: string;
   WirelessPhone?: string;
   Email?: string;
+  smsConsent?: boolean;
+  emailConsent?: boolean;
   priProvAbbr?: string;
   secProvAbbr?: string;
   ChartNumber?: string;

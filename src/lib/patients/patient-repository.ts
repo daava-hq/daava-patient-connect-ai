@@ -57,7 +57,11 @@ export async function getPatientById(practiceId: string, patientId: string) {
 export async function upsertPatient(data: NewPatient) {
   const [upserted] = await db
     .insert(patients)
-    .values(data)
+    .values({
+      ...data,
+      smsConsent: data.smsConsent ?? Boolean(data.phoneMobile?.trim()),
+      emailConsent: data.emailConsent ?? Boolean(data.email?.trim()),
+    })
     .onConflictDoUpdate({
       target: [patients.practiceId, patients.opendentalPatientId],
       set: {

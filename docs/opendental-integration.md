@@ -64,6 +64,16 @@ Key fields to store locally:
 | `DateTStamp` | `opendental_updated_at` |
 
 Store only the fields needed for engagement features. Do not mirror entire records.
+New patient rows created through Open Dental sync default `sms_consent` to
+`true` when a mobile number is present and `email_consent` to `true` when an
+email address is present. A missing contact channel defaults to `false`.
+Subsequent syncs preserve both consent flags so later opt-outs are not
+overwritten. These flags are Patient Connect values, not consent data supplied
+by Open Dental.
+The appointment calendar reads these saved consent flags from the local
+practice-scoped patient records; it does not treat Open Dental as the source
+of consent. Calendar icons are shown only when the matching email/mobile
+contact detail and a saved consent value are available.
 
 ## Appointment sync
 

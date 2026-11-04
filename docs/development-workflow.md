@@ -29,6 +29,7 @@ pnpm dev
 
 | Variable | Description |
 |----------|-------------|
+| `APP_ENVIRONMENT` | `local`, `dev`, `stage`, or `production` (defaults to `local` when omitted) |
 | `DATABASE_URL` | PostgreSQL connection string |
 | `NEXTAUTH_SECRET` | NextAuth session secret |
 | `NEXTAUTH_URL` | App base URL (e.g. `http://localhost:3000`) |
@@ -38,6 +39,40 @@ pnpm dev
 | `RESEND_REPLY_TO` | Optional reply-to address |
 
 Practice-specific Open Dental keys are stored **in the database**, not in `.env`.
+
+Keep `APP_ENVIRONMENT` aligned with the database and deployment you are using.
+The appointment-reminder sample-data seeder requires `APP_ENVIRONMENT` to be
+explicitly set to `local` or `dev` (it does not use the application default),
+requires an explicit `DATABASE_URL`, and only writes to its dedicated sample
+practice. It clears reminder history and disables other schedules only within
+that dedicated sample practice; it does not create synthetic delivery history.
+Use it after migrations and after a published appointment-reminder email
+template is available:
+
+```bash
+pnpm seed:reminders-test-data
+```
+
+The script loads `.env.local` when present. It creates six eligible synthetic
+appointments for `prem@daava.ai`, clears previous reminder history for the
+sample practice, and enables only its 24-hour email schedule. The reminder
+occurrences are due immediately, so the next cron run can send all six in one
+batch. Rerun the same command or use **Reset sample data** on the sample
+practice's reminders page
+to clear history and reset the six appointments before another team test.
+Both reset paths are restricted to the dedicated sample practice in local/dev.
+
+To run a local sample-only cron poll immediately and then every two minutes:
+
+```bash
+pnpm reminders:cron:local
+```
+
+Keep the process running during the test and stop it with Ctrl+C. It requires
+`APPOINTMENT_REMINDERS_CRON_SECRET`, calls only the local server and only
+processes the dedicated sample practice. With Resend configured, due reminders
+send real email to `prem@daava.ai`; resetting the sample data allows those six
+messages to be sent again. The seeder itself never sends email.
 
 Email dispatch uses Resend when both `RESEND_API_KEY` and `RESEND_FROM_EMAIL`
 are configured. Verify the sender domain in Resend, set these values in
@@ -49,11 +84,20 @@ https://resend.com/docs/api-reference/emails/send-email.
 ### Appointment reminder scheduler
 
 Configure an external scheduler to `POST /api/cron/appointment-reminders` every
-five minutes with `Authorization: Bearer $APPOINTMENT_REMINDERS_CRON_SECRET`.
+two minutes with `Authorization: Bearer $APPOINTMENT_REMINDERS_CRON_SECRET`.
 The endpoint processes each practice with an enabled reminder schedule. Do not
 expose the secret to the client. A scheduler is not provisioned by this
-repository. SMS/email adapters currently report as unconfigured, so dispatch
-records a provider-unavailable failure rather than claiming a send succeeded.
+repository; the job's `schedule` value is descriptive and does not provision
+the external scheduler. Each schedule creates one occurrence per eligible
+appointment; the cron sends only occurrences whose calculated reminder time
+has arrived, and repeated runs do not resend completed occurrences. Thus,
+24-hour, 3-day, and 7-day reminders are sent relative to each appointment,
+not as a daily digest of every future appointment. For local sample testing,
+use the sample-only runner above. The cron response reports reminder counts (`sent`, `failed`, and
+`skipped`) separately from practice-level job failures. For same-day schedules,
+appointments dated today become due immediately on the next poll; future-date
+appointments remain scheduled for the configured local send time. SMS remains
+unconfigured, so dispatch records a provider-unavailable failure.
 Delivery confirmation requires a future provider webhook or polling integration.
 
 ## Available scripts
@@ -74,6 +118,8 @@ All scripts are defined in `package.json`. Use only these — do not invent new 
 | `pnpm db:migrate` | `node --env-file-if-exists=.env.local scripts/migrate.mjs` | Apply pending Drizzle migrations |
 | `pnpm db:push` | `drizzle-kit push` | Push schema to dev DB (no migration file) |
 | `pnpm db:studio` | `drizzle-kit studio` | Open Drizzle Studio |
+| `pnpm seed:reminders-test-data` | `node --env-file-if-exists=.env.local scripts/seed-appointment-reminders-test-data.mjs` | Reset and seed six local reminder test appointments |
+| `pnpm reminders:cron:local` | `node --env-file-if-exists=.env.local scripts/run-appointment-reminders-cron.mjs` | Poll the local sample-only reminder cron every two minutes |
 
 ## After every change
 

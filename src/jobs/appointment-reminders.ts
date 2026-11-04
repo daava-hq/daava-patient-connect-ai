@@ -3,7 +3,7 @@ import { logInfo } from '@/lib/logger';
 import { processDueAppointmentReminders } from '@/lib/appointment-reminders/reminder-service';
 
 export const jobName = 'appointment-reminders';
-export const schedule = '*/5 * * * *';
+export const schedule = '*/2 * * * *';
 
 export async function run(practiceId: string) {
   logInfo('Appointment reminder job started', { practiceId });

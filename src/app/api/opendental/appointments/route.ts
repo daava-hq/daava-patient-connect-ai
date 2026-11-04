@@ -17,8 +17,9 @@ import { fetchOpenDental } from '@/lib/opendental/client';
 import { db } from '@/db';
 import { practices } from '@/db/schema/practices';
 import { practiceOpendentalCredentials } from '@/db/schema/practice_credentials';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { decrypt } from '@/lib/opendental/crypto';
+import { patients as patientsTable } from '@/db/schema/patients';
 
 // In-memory cache for providers, operatories, and patient details (valid for 2 minutes)
 interface CachedData {
@@ -125,6 +126,25 @@ export async function GET(req: NextRequest) {
       new Set(rawAppointments.map((a) => Number(a.PatNum)).filter((num) => num > 0))
     );
 
+    const patientConsents = distinctPatNums.length
+      ? await db
+          .select({
+            opendentalPatientId: patientsTable.opendentalPatientId,
+            smsConsent: patientsTable.smsConsent,
+            emailConsent: patientsTable.emailConsent,
+          })
+          .from(patientsTable)
+          .where(
+            and(
+              eq(patientsTable.practiceId, practiceId),
+              inArray(patientsTable.opendentalPatientId, distinctPatNums)
+            )
+          )
+      : [];
+    const patientConsentMap = new Map(
+      patientConsents.map((patient) => [patient.opendentalPatientId, patient])
+    );
+
     const diseaseEntries = await Promise.all(
       distinctPatNums.map(async (patNum): Promise<[number, string[]]> => {
         try {
@@ -154,6 +174,7 @@ export async function GET(req: NextRequest) {
         : patNum
         ? `Patient #${patNum}`
         : '';
+      const consent = patientConsentMap.get(patNum);
       const durationMinutes =
         typeof appt.Pattern === 'string' && appt.Pattern.length > 0
           ? appt.Pattern.length * 5
@@ -175,7 +196,13 @@ export async function GET(req: NextRequest) {
         provAbbr: effectiveProvAbbr,
         patientName,
         durationMinutes,
-        patientDetails: patient,
+        patientDetails: patient
+          ? {
+              ...patient,
+              smsConsent: consent?.smsConsent,
+              emailConsent: consent?.emailConsent,
+            }
+          : undefined,
         diseases,
       };
     });
@@ -192,4 +219,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-

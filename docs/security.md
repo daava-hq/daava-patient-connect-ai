@@ -71,6 +71,7 @@ Every `route.ts` must:
 - The reminder cron endpoint requires `APPOINTMENT_REMINDERS_CRON_SECRET` as a bearer token and compares it in constant time. Never expose this secret to browser code.
 - SMS remains an unconfigured stub. Email uses Resend only when `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are configured; both values remain server-side.
 - Appointment and campaign email content is sent to Resend. Before sending patient data, verify applicable privacy, consent, contractual, and regulatory requirements with the provider and your organization.
+- `APP_ENVIRONMENT` identifies `local`, `dev`, `stage`, or `production`. The appointment-reminder sample-data seeder fails closed unless the value is `local` or `dev`, requires an explicit database URL, and uses an isolated sample practice.
 
 ## Webhook verification
 

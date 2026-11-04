@@ -53,6 +53,9 @@ describe('AppointmentsCalendar', () => {
                       HmPhone: '(513)494-6021',
                       WkPhone: '',
                       WirelessPhone: '(513)494-6020',
+                      Email: 'alex.morgan@example.com',
+                      emailConsent: true,
+                      smsConsent: false,
                     },
                   },
                 ],
@@ -133,23 +136,31 @@ describe('AppointmentsCalendar', () => {
     await waitFor(() => {
       expect(screen.getByText('NP-Morgan, Alex')).toBeDefined();
       expect(screen.getByText('30 min · Scheduled')).toBeDefined();
-      expect(screen.getByText('Ex')).toBeDefined();
     });
 
     const card = screen.getByText('NP-Morgan, Alex').closest('[role="button"]')!;
+    expect(screen.getAllByLabelText('Email consent: yes')).toHaveLength(1);
+    expect(screen.getAllByLabelText('Phone consent: no')).toHaveLength(1);
 
     // Hover on card: triggers hover popover
     fireEvent.mouseEnter(card);
 
-    // Verify hover popover details from screenshot
-    expect(screen.getByText('Patient Picture')).toBeDefined();
-    expect(screen.getByText('Unavailable')).toBeDefined();
+    expect(screen.getAllByLabelText('Email consent: yes')).toHaveLength(2);
+    expect(screen.getAllByLabelText('Phone consent: no')).toHaveLength(2);
+
+    // Verify hover popover details
     expect(screen.getByText('Wednesday, 10/21/2026')).toBeDefined();
     expect(screen.getByText('10:30 AM')).toBeDefined();
     expect(screen.getByText('30 Min')).toBeDefined();
     expect(screen.getByText('RDH Tina')).toBeDefined();
-    expect(screen.getByText('Production: $0.00')).toBeDefined();
-    expect(screen.getAllByText('Unconfirmed').length).toBeGreaterThanOrEqual(1);
+
+    // Verify ALERTS, COMMUNICATIONS, and NOTES sections
+    expect(screen.getByText('ALERTS')).toBeDefined();
+    expect(screen.getByText('COMMUNICATIONS')).toBeDefined();
+    expect(screen.getByText('Email sent')).toBeDefined();
+    expect(screen.getByText('Email read')).toBeDefined();
+    expect(screen.getByText('Text confirmed')).toBeDefined();
+    expect(screen.getByText('NOTES')).toBeDefined();
 
     // Verify medical alerts
     expect(screen.getByText('High Blood Pressure')).toBeDefined();
@@ -158,16 +169,6 @@ describe('AppointmentsCalendar', () => {
     expect(screen.getByText('Anemia')).toBeDefined();
     expect(screen.getByText('Artificial Heart Valve')).toBeDefined();
     expect(screen.getByText('Asthma')).toBeDefined();
-
-    // Verify patient bottom details
-    expect(screen.getByText('84')).toBeDefined();
-    expect(screen.getByText('Prospective')).toBeDefined();
-    expect(screen.getByText('Age: 47')).toBeDefined();
-    expect(screen.getByText('Hm: (513)494-6021')).toBeDefined();
-    expect(screen.getByText('Cell: (513)494-6020')).toBeDefined();
-    expect(screen.getByText('Confirm Method: —')).toBeDefined();
-    expect(screen.getByText('Contact Method: —')).toBeDefined();
-    expect(screen.getByText('Recall Method: —')).toBeDefined();
 
     // Mouse leave hides the popover
     fireEvent.mouseLeave(card);

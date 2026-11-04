@@ -7,6 +7,7 @@ import { patients } from '@/db/schema/patients';
 import { practices } from '@/db/schema/practices';
 import { templateCategories, templates } from '@/db/schema/templates';
 import { AppError, NotFoundError } from '@/lib/errors';
+import { env } from '@/lib/env';
 import { getAdapter } from '@/lib/messaging/stub-adapter';
 import {
   buildAppointmentTemplateContext,
@@ -28,10 +29,17 @@ export interface ReminderScheduleInput {
   enabled: boolean;
 }
 
+const SAMPLE_PRACTICE_SLUG = 'appointment-reminder-sample';
+const SAMPLE_REMINDER_SCHEDULE_NAME = 'Sample 24-Hour Email Reminder';
+const SAMPLE_EMAIL = 'prem@daava.ai';
+const SAMPLE_PATIENT_NUMBERS = [8901, 8902, 8903, 8904, 8905, 8906];
+const SAMPLE_APPOINTMENT_NUMBERS = [7801, 7802, 7803, 7804, 7805, 7806];
+
 export async function getReminderDashboard(practiceId: string, now = new Date()) {
   const [practice] = await db
     .select({
       name: practices.name,
+      slug: practices.slug,
       phone: practices.phone,
       address: practices.address,
       timezone: practices.timezone,
@@ -78,8 +86,6 @@ export async function getReminderDashboard(practiceId: string, now = new Date())
     .where(
       and(
         eq(appointments.practiceId, practiceId),
-        eq(appointments.status, 'Scheduled'),
-        eq(patients.status, 'Patient'),
         gt(appointments.scheduledAt, now),
         lte(appointments.scheduledAt, new Date(now.getTime() + 30 * 24 * 60 * 60_000))
       )
@@ -121,7 +127,8 @@ export async function getReminderDashboard(practiceId: string, now = new Date())
           appointment.scheduledAt,
           schedule.interval as ReminderIntervalValue,
           practice.timezone,
-          schedule.localSendTime
+          schedule.localSendTime,
+          now
         );
         const existing = occurrenceByKey.get(`${appointment.id}:${schedule.id}`);
         const hasConsent = schedule.channel === 'sms' ? appointment.smsConsent : appointment.emailConsent;
@@ -201,7 +208,15 @@ export async function getReminderDashboard(practiceId: string, now = new Date())
     .where(eq(appointmentReminders.practiceId, practiceId));
 
   return {
-    practice,
+    practice: {
+      name: practice.name,
+      phone: practice.phone,
+      address: practice.address,
+      timezone: practice.timezone,
+    },
+    sampleDataResetAvailable:
+      (env.APP_ENVIRONMENT === 'local' || env.APP_ENVIRONMENT === 'dev') &&
+      practice.slug === SAMPLE_PRACTICE_SLUG,
     schedules: scheduleRows,
     upcoming: upcoming.sort((a, b) => a.reminderAt.getTime() - b.reminderAt.getTime()).slice(0, 500),
     history,
@@ -210,6 +225,112 @@ export async function getReminderDashboard(practiceId: string, now = new Date())
       sms: getAdapter('sms').configured,
       email: getAdapter('email').configured,
     },
+  };
+}
+
+export async function resetSampleAppointmentReminderData(practiceId: string) {
+  if (env.APP_ENVIRONMENT !== 'local' && env.APP_ENVIRONMENT !== 'dev') {
+    throw new AppError(404, 'Sample reminder data is unavailable', 'SAMPLE_DATA_UNAVAILABLE');
+  }
+
+  const [practice] = await db
+    .select({ id: practices.id })
+    .from(practices)
+    .where(and(eq(practices.id, practiceId), eq(practices.slug, SAMPLE_PRACTICE_SLUG)))
+    .limit(1);
+  if (!practice) throw new NotFoundError('Sample practice not found');
+
+  const schedules = await db
+    .select({ id: appointmentReminderSchedules.id, name: appointmentReminderSchedules.name })
+    .from(appointmentReminderSchedules)
+    .where(eq(appointmentReminderSchedules.practiceId, practiceId));
+  const testSchedule = schedules.find((schedule) => schedule.name === SAMPLE_REMINDER_SCHEDULE_NAME);
+  if (!testSchedule) throw new NotFoundError('Sample 24-hour reminder schedule not found');
+
+  const now = new Date();
+  const appointmentStart = new Date(now.getTime() + 24 * 60 * 60_000 - 3 * 60_000);
+  const reminderAt = new Date(appointmentStart.getTime() - 24 * 60 * 60_000);
+
+  const reset = await db.transaction(async (tx) => {
+    const deletedReminders = await tx
+      .delete(appointmentReminders)
+      .where(eq(appointmentReminders.practiceId, practiceId))
+      .returning({ id: appointmentReminders.id });
+
+    const updatedPatients = await tx
+      .update(patients)
+      .set({
+        email: SAMPLE_EMAIL,
+        phoneMobile: null,
+        status: 'Patient',
+        smsConsent: false,
+        emailConsent: true,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(patients.practiceId, practiceId),
+          inArray(patients.opendentalPatientId, SAMPLE_PATIENT_NUMBERS)
+        )
+      )
+      .returning({ id: patients.id });
+    if (updatedPatients.length !== SAMPLE_PATIENT_NUMBERS.length) {
+      throw new AppError(409, 'Expected six sample patients before reset', 'SAMPLE_DATA_INCOMPLETE');
+    }
+
+    const updatedAppointments = await tx
+      .update(appointments)
+      .set({
+        scheduledAt: appointmentStart,
+        status: 'Scheduled',
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(appointments.practiceId, practiceId),
+          inArray(appointments.opendentalApptId, SAMPLE_APPOINTMENT_NUMBERS)
+        )
+      )
+      .returning({ id: appointments.id });
+    if (updatedAppointments.length !== SAMPLE_APPOINTMENT_NUMBERS.length) {
+      throw new AppError(409, 'Expected six sample appointments before reset', 'SAMPLE_DATA_INCOMPLETE');
+    }
+
+    await tx
+      .update(practices)
+      .set({
+        phone: '(555) 010-0100',
+        address: '123 Sample Street, Test City, NY 10001',
+        updatedAt: now,
+      })
+      .where(eq(practices.id, practiceId));
+
+    for (const schedule of schedules) {
+      await tx
+        .update(appointmentReminderSchedules)
+        .set({
+          enabled: schedule.id === testSchedule.id,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(appointmentReminderSchedules.id, schedule.id),
+            eq(appointmentReminderSchedules.practiceId, practiceId)
+          )
+        );
+    }
+
+    return {
+      deletedReminders: deletedReminders.length,
+      resetPatients: updatedPatients.length,
+      resetAppointments: updatedAppointments.length,
+    };
+  });
+
+  return {
+    ...reset,
+    scheduleName: SAMPLE_REMINDER_SCHEDULE_NAME,
+    reminderAt,
   };
 }
 
@@ -489,7 +610,8 @@ export async function processDueAppointmentReminders(input: {
           appointment.scheduledAt,
           schedule.interval as ReminderIntervalValue,
           practice.timezone,
-          schedule.localSendTime
+          schedule.localSendTime,
+          now
         ),
       }));
       const rows = await db
@@ -633,7 +755,8 @@ async function dispatchAppointmentReminder(reminderId: string, practiceId: strin
         record.appointmentAt,
         record.scheduleInterval as ReminderIntervalValue,
         record.timezone,
-        record.scheduleSendTime
+        record.scheduleSendTime,
+        now
       );
     } catch (error) {
       if (error instanceof RangeError) {

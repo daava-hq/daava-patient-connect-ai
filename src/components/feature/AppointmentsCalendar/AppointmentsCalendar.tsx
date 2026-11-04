@@ -12,8 +12,10 @@ import {
   Database,
   X,
   Key,
+  Mail,
+  Phone,
 } from 'lucide-react';
-import { CalendarColumn, OpenDentalAppointment } from '@/lib/opendental/types';
+import { CalendarColumn, OpenDentalAppointment, OpenDentalPatientDetails } from '@/lib/opendental/types';
 import SectionCard from '@/components/ui/SectionCard/SectionCard';
 import EmptyState from '@/components/feedback/EmptyState/EmptyState';
 import Link from 'next/link';
@@ -124,6 +126,50 @@ function calculateAge(birthdate?: string, refDate?: string): number | null {
     age--;
   }
   return age >= 0 ? age : null;
+}
+
+function ConsentIcons({
+  patientDetails,
+  className,
+}: {
+  patientDetails?: OpenDentalPatientDetails;
+  className: string;
+}) {
+  const hasEmailConsent = Boolean(patientDetails?.Email?.trim()) &&
+    typeof patientDetails?.emailConsent === 'boolean';
+  const hasPhoneConsent = Boolean(patientDetails?.WirelessPhone?.trim()) &&
+    typeof patientDetails?.smsConsent === 'boolean';
+
+  if (!hasEmailConsent && !hasPhoneConsent) return null;
+
+  return (
+    <span className={className}>
+      {hasEmailConsent && (
+        <span
+          className={`${styles.consentIcon} ${
+            patientDetails.emailConsent ? styles.consentYes : styles.consentNo
+          }`}
+          role="img"
+          aria-label={`Email consent: ${patientDetails.emailConsent ? 'yes' : 'no'}`}
+          title={`Email consent: ${patientDetails.emailConsent ? 'yes' : 'no'}`}
+        >
+          <Mail size={14} aria-hidden="true" />
+        </span>
+      )}
+      {hasPhoneConsent && (
+        <span
+          className={`${styles.consentIcon} ${
+            patientDetails.smsConsent ? styles.consentYes : styles.consentNo
+          }`}
+          role="img"
+          aria-label={`Phone consent: ${patientDetails.smsConsent ? 'yes' : 'no'}`}
+          title={`Phone consent: ${patientDetails.smsConsent ? 'yes' : 'no'}`}
+        >
+          <Phone size={14} aria-hidden="true" />
+        </span>
+      )}
+    </span>
+  );
 }
 
 export default function AppointmentsCalendar() {
@@ -625,12 +671,17 @@ export default function AppointmentsCalendar() {
                                     }}
                                     aria-label="Appointment card"
                                   >
-                                    <div className={styles.apptCardHeader}>Booked</div>
+                                    <div className={styles.apptCardTopRow}>
+                                      <div className={styles.apptCardHeader}>Booked</div>
+                                      <ConsentIcons
+                                        patientDetails={appt.patientDetails}
+                                        className={styles.consentIcons}
+                                      />
+                                    </div>
                                     <div className={styles.apptPatientName}>{patDisplay}</div>
                                     <div className={styles.apptDurationStatus}>
                                       {duration} min · {status}
                                     </div>
-                                    <div className={styles.apptProcs}>{procs}</div>
 
                                     {/* Hover details flyout matching reference screenshot */}
                                     {isHovered && (
@@ -646,26 +697,23 @@ export default function AppointmentsCalendar() {
                                               <span>{isNP ? `NP-${patientLastName},` : `${patientLastName},`}</span>
                                               <span>{patientFirstName}</span>
                                             </div>
-                                            <div className={styles.patientPicBox}>
-                                              <span className={styles.patientPicText}>Patient Picture</span>
-                                              <span className={styles.patientPicText}>Unavailable</span>
-                                            </div>
                                           </div>
 
                                           <div className={styles.popoverTopRight}>
+                                            <ConsentIcons
+                                              patientDetails={appt.patientDetails}
+                                              className={styles.popoverConsentIcons}
+                                            />
                                             <div>{formatPopoverDate(appt.AptDateTime)}</div>
                                             <div>{formatPopoverTime(appt.AptDateTime)}</div>
                                             <div>{duration} Min</div>
                                             <div>{appt.provAbbr || col.shortName}</div>
-                                            <div>Production: $0.00</div>
                                           </div>
                                         </div>
 
+                                        <div className={styles.popoverSectionHeader}>ALERTS</div>
                                         <div className={styles.popoverMiddle}>
-                                          <div className={styles.popoverStatus}>
-                                            {appt.confirmed || (appt.Confirmed === 19 ? 'Unconfirmed' : 'Confirmed')}
-                                          </div>
-                                          {Array.isArray(appt.diseases) && appt.diseases.length > 0 && (
+                                          {Array.isArray(appt.diseases) && appt.diseases.length > 0 ? (
                                             <div className={styles.popoverAlerts}>
                                               {appt.diseases.map((disease, dIdx) => (
                                                 <div key={dIdx} className={styles.popoverAlertItem}>
@@ -673,22 +721,34 @@ export default function AppointmentsCalendar() {
                                                 </div>
                                               ))}
                                             </div>
+                                          ) : (
+                                            <div style={{ fontSize: '11px', color: '#64748b' }}>No medical alerts</div>
                                           )}
-                                          <div className={styles.popoverProc}>{appt.ProcDescript || 'Ex'}</div>
                                         </div>
 
                                         <div className={styles.popoverDivider} />
 
-                                        <div className={styles.popoverBottom}>
-                                          <div className={styles.popoverPatNum}>{appt.PatNum}</div>
-                                          <div>{appt.patientDetails?.PatStatus || 'Patient'}</div>
-                                          {calculatedAge !== null && <div>Age: {calculatedAge}</div>}
-                                          <div>Hm: {appt.patientDetails?.HmPhone || ''}</div>
-                                          <div>Wk: {appt.patientDetails?.WkPhone || ''}</div>
-                                          <div>Cell: {appt.patientDetails?.WirelessPhone || ''}</div>
-                                          <div>Confirm Method: —</div>
-                                          <div>Contact Method: —</div>
-                                          <div>Recall Method: —</div>
+                                        <div className={styles.popoverSectionHeader}>COMMUNICATIONS</div>
+                                        <div className={styles.popoverCommunications}>
+                                          <div className={styles.commRow}>
+                                            <span className={styles.commType}>Email sent</span>
+                                            <span className={styles.commTime}>on Nov 2 at 9:08 am</span>
+                                          </div>
+                                          <div className={styles.commRow}>
+                                            <span className={styles.commType}>Email read</span>
+                                            <span className={styles.commTime}>on Nov 3 at 2:15 pm</span>
+                                          </div>
+                                          <div className={styles.commRow}>
+                                            <span className={styles.commType}>Text confirmed</span>
+                                            <span className={styles.commTime}>on Nov 3 at 4:22 pm</span>
+                                          </div>
+                                        </div>
+
+                                        <div className={styles.popoverDivider} />
+
+                                        <div className={styles.popoverSectionHeader}>NOTES</div>
+                                        <div className={styles.popoverNotes}>
+                                          {appt.Note || appt.ProcDescript || 'Routine checkup & hygiene'}
                                         </div>
                                       </div>
                                     )}
@@ -709,4 +769,3 @@ export default function AppointmentsCalendar() {
     </div>
   );
 }
-
