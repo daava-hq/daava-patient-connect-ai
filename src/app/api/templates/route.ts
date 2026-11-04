@@ -16,6 +16,15 @@ const createSchema = z.object({
   content: z.record(z.any()).default({}),
   variables: z.array(z.string()).default([]),
   status: z.enum(['draft', 'published', 'archived']).default('draft'),
+}).superRefine((data, context) => {
+  if (data.channel === 'email' &&
+      (typeof data.content.subject !== 'string' || !data.content.subject.trim())) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['content', 'subject'],
+      message: 'Email subject is required',
+    });
+  }
 });
 
 export async function GET(req: NextRequest) {

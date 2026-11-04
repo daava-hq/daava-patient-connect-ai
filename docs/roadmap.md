@@ -118,6 +118,7 @@ Six-week phased delivery. Each milestone has explicit acceptance criteria. A mil
 - [x] System templates seeder covering all 9 categories (`src/lib/templates/sample-templates.ts`).
 - [x] API routes for templates, cloning, and variable rendering (`src/app/api/templates/`).
 - [x] Centralized Templates Library UI page (`src/app/workspace/templates/page.tsx`).
+- [x] Template editors support SMS and email channels, with a required subject for email only.
 - [x] Unit tests for variable validation (`src/lib/templates/templates.test.ts`).
 
 ### Acceptance criteria

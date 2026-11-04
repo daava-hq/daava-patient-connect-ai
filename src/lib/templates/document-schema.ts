@@ -43,6 +43,31 @@ export interface TemplateDocument {
   sections: CanvasSection[];
 }
 
+export function extractTemplateBody(content: Record<string, unknown>): string {
+  if (typeof content.body === 'string') return content.body;
+
+  const extractBlockText = (block: unknown): string[] => {
+    if (!isRecord(block)) return [];
+    const properties = isRecord(block.properties) ? block.properties : block;
+    const text = typeof properties.text === 'string' ? [properties.text] : [];
+    const url = block.type === 'button' && typeof properties.url === 'string' ? [properties.url] : [];
+    return [...text, ...url];
+  };
+
+  const sections = Array.isArray(content.sections) ? content.sections : [];
+  const sectionTexts = sections.flatMap((section) => {
+    if (!isRecord(section) || !Array.isArray(section.blocks)) return [];
+    return section.blocks.flatMap(extractBlockText);
+  });
+  const blocks = Array.isArray(content.blocks) ? content.blocks.flatMap(extractBlockText) : [];
+
+  return [...sectionTexts, ...blocks].join('\n\n');
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 export function createDefaultDocument(layoutType: string = 'newsletter'): TemplateDocument {
   switch (layoutType) {
     case 'announcement':

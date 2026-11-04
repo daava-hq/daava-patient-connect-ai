@@ -5,7 +5,23 @@ import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
 import { FileText, Plus, Search, X, Image as ImageIcon, Eye, Edit3 } from 'lucide-react';
-import { renderDocumentToHtml } from '@/lib/templates/document-schema';
+import EmailMessagePreview from '@/components/feature/EmailMessagePreview/EmailMessagePreview';
+import { extractTemplateBody, renderDocumentToHtml } from '@/lib/templates/document-schema';
+
+const previewSampleVars: Record<string, string> = {
+  'patient.firstName': 'Jane',
+  'patient.lastName': 'Doe',
+  'patient.fullName': 'Jane Doe',
+  'practice.name': 'Smile Dental Care',
+  'practice.phone': '(555) 839-2010',
+  'practice.website': 'https://smiledental.com',
+  'appointment.date': 'November 15, 2026',
+  'appointment.time': '10:30 AM',
+  'appointment.provider': 'Dr. Smith, DDS',
+  'appointment.confirmUrl': 'https://patient.example.com/appointment-confirmation?token=preview',
+  'payment.amount': '$150.00',
+  'payment.dueDate': 'November 30, 2026',
+};
 
 export default function TemplatesLibraryPage() {
   const router = useRouter();
@@ -65,24 +81,9 @@ export default function TemplatesLibraryPage() {
   }
 
   function getInterpolatedContent(t: any, forCard = false) {
-    const sampleVars: Record<string, string> = {
-      'patient.firstName': 'Jane',
-      'patient.lastName': 'Doe',
-      'patient.fullName': 'Jane Doe',
-      'practice.name': 'Smile Dental Care',
-      'practice.phone': '(555) 839-2010',
-      'practice.website': 'https://smiledental.com',
-      'appointment.date': 'November 15, 2026',
-      'appointment.time': '10:30 AM',
-      'appointment.provider': 'Dr. Smith, DDS',
-      'appointment.confirmUrl': 'https://patient.example.com/appointment-confirmation?token=preview',
-      'payment.amount': '$150.00',
-      'payment.dueDate': 'November 30, 2026',
-    };
-
     if (t.content?.body) {
       let text = t.content.body;
-      for (const [k, v] of Object.entries(sampleVars)) {
+      for (const [k, v] of Object.entries(previewSampleVars)) {
         text = text.replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'g'), v);
       }
       const pad = forCard ? '0.75rem' : '1.5rem';
@@ -90,9 +91,27 @@ export default function TemplatesLibraryPage() {
       return `<div style="padding: ${pad}; font-family: sans-serif; color: #1e293b; line-height: 1.5; background: #fff; font-size: ${size};">${text}</div>`;
     }
 
-    if (t.content?.sections || t.content?.blocks) {
-      let html = renderDocumentToHtml(t.content);
-      for (const [k, v] of Object.entries(sampleVars)) {
+    if (Array.isArray(t.content?.sections) || Array.isArray(t.content?.blocks)) {
+      const sourceSections = Array.isArray(t.content.sections)
+        ? t.content.sections
+        : [{ id: 'preview-section', blocks: t.content.blocks }];
+      const document = {
+        ...t.content,
+        sections: sourceSections.map((section: any, sectionIndex: number) => ({
+          ...section,
+          id: section.id || `preview-section-${sectionIndex}`,
+          blocks: (Array.isArray(section.blocks) ? section.blocks : []).map((block: any, blockIndex: number) => ({
+            ...block,
+            id: block.id || `preview-block-${sectionIndex}-${blockIndex}`,
+            properties: {
+              ...block,
+              ...(block.properties && typeof block.properties === 'object' ? block.properties : {}),
+            },
+          })),
+        })),
+      };
+      let html = renderDocumentToHtml(document);
+      for (const [k, v] of Object.entries(previewSampleVars)) {
         html = html.replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'g'), v);
       }
       if (forCard) {
@@ -115,6 +134,14 @@ export default function TemplatesLibraryPage() {
     }
 
     return '<div style="padding: 1rem; color: #64748b; background: #fff;">No preview available</div>';
+  }
+
+  function getInterpolatedText(t: any) {
+    let text = extractTemplateBody(t.content || {});
+    for (const [key, value] of Object.entries(previewSampleVars)) {
+      text = text.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g'), value);
+    }
+    return text;
   }
 
   const filteredTemplates = templates.filter((t) =>
@@ -182,9 +209,12 @@ export default function TemplatesLibraryPage() {
                 style={{ width: '100%', height: '170px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', position: 'relative', overflow: 'hidden', cursor: 'pointer' }}
                 onClick={() => setPreviewTemplate(t)}
               >
-                <div style={{ width: '100%', height: '100%', overflow: 'hidden', background: '#fff' }} dangerouslySetInnerHTML={{ __html: getInterpolatedContent(t, true) }} />
+                <EmailMessagePreview
+                  html={getInterpolatedContent(t, true)}
+                  style={{ height: '170px', minHeight: 0, border: 0, borderRadius: 0, pointerEvents: 'none' }}
+                />
                 <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(0,0,0,0.75)', color: '#fff', padding: '0.25rem 0.6rem', borderRadius: '4px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 500 }}>
-                  <Eye size={12} /> Click to preview in Email
+                  <Eye size={12} /> Click to preview
                 </div>
               </div>
 
@@ -218,30 +248,37 @@ export default function TemplatesLibraryPage() {
         </div>
       )}
 
-      {/* Email Client Preview Modal */}
+      {/* Template preview modal */}
       {previewTemplate && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
           <div style={{ background: '#f1f5f9', borderRadius: '12px', width: '100%', maxWidth: '720px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)' }}>
             <div style={{ background: '#1e293b', color: '#fff', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTopLeftRadius: '12px', borderTopRightRadius: '12px' }}>
               <div>
-                <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>Email Preview: {previewTemplate.name}</h3>
-                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Simulated Email Client View with Sample Data</span>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>{previewTemplate.channel === 'sms' ? 'SMS Preview' : 'Email Preview'}: {previewTemplate.name}</h3>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{previewTemplate.channel === 'sms' ? 'Text message preview with sample data' : 'Simulated Email Client View with Sample Data'}</span>
               </div>
               <button onClick={() => setPreviewTemplate(null)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}><X size={20} /></button>
             </div>
             <div style={{ padding: '1.5rem' }}>
-              {/* Simulated Email Header */}
-              <div style={{ background: '#fff', padding: '1rem 1.25rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid #e2e8f0', fontSize: '0.875rem' }}>
-                <div style={{ marginBottom: '0.4rem', color: '#64748b' }}><strong>From:</strong> Smile Dental Care &lt;notifications@smiledental.com&gt;</div>
-                <div style={{ marginBottom: '0.4rem', color: '#64748b' }}><strong>To:</strong> Jane Doe &lt;jane@example.com&gt;</div>
-                <div style={{ color: '#0f172a' }}><strong>Subject:</strong> {previewTemplate.content?.subject || previewTemplate.name}</div>
-              </div>
-
-              {/* Email Body Frame */}
-              <div
-                style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
-                dangerouslySetInnerHTML={{ __html: getInterpolatedContent(previewTemplate, false) }}
-              />
+              {previewTemplate.channel === 'sms' ? (
+                <div style={{ maxWidth: '480px', padding: '1rem', background: '#e2e8f0', borderRadius: '12px' }}>
+                  <div style={{ display: 'inline-block', padding: '0.75rem 1rem', background: '#fff', borderRadius: '12px', color: '#1e293b', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', boxShadow: '0 1px 2px rgba(0,0,0,0.08)' }}>
+                    {getInterpolatedText(previewTemplate) || 'No message content available.'}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ background: '#fff', padding: '1rem 1.25rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid #e2e8f0', fontSize: '0.875rem' }}>
+                    <div style={{ marginBottom: '0.4rem', color: '#64748b' }}><strong>From:</strong> Smile Dental Care &lt;notifications@smiledental.com&gt;</div>
+                    <div style={{ marginBottom: '0.4rem', color: '#64748b' }}><strong>To:</strong> Jane Doe &lt;jane@example.com&gt;</div>
+                    <div style={{ color: '#0f172a' }}><strong>Subject:</strong> {previewTemplate.content?.subject || previewTemplate.name}</div>
+                  </div>
+                  <EmailMessagePreview
+                    html={getInterpolatedContent(previewTemplate, false)}
+                    style={{ height: 'min(60vh, 640px)', minHeight: '360px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+                  />
+                </>
+              )}
             </div>
           </div>
         </div>

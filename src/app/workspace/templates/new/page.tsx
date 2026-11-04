@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
-import { createDefaultDocument, renderDocumentToHtml, TemplateDocument, CanvasBlock } from '@/lib/templates/document-schema';
+import { createDefaultDocument, extractTemplateBody, renderDocumentToHtml, TemplateDocument, CanvasBlock } from '@/lib/templates/document-schema';
 import { VARIABLE_REGISTRY } from '@/lib/templates/variable-registry';
 import {
   Plus,
@@ -35,8 +35,9 @@ export default function NewTemplateEditorPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [templateName, setTemplateName] = useState('New Campaign Template');
   const [templateDescription, setTemplateDescription] = useState('');
-  const [templateType, setTemplateType] = useState('newsletter');
-  const [channel, setChannel] = useState('email');
+  const [templateType, setTemplateType] = useState<'sms' | 'email'>('email');
+  const [channel, setChannel] = useState<'sms' | 'email'>('email');
+  const [smsBody, setSmsBody] = useState('');
   const [doc, setDoc] = useState<TemplateDocument>(createDefaultDocument('newsletter'));
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
@@ -202,6 +203,12 @@ export default function NewTemplateEditorPage() {
   }
 
   function insertVariable(varKey: string) {
+    if (channel === 'sms') {
+      setSmsBody((currentBody) => `${currentBody}{{${varKey}}}`);
+      showToast(`Inserted {{${varKey}}}`, 'success');
+      return;
+    }
+
     if (!selectedBlockId) {
       showToast('Please select a text block first to insert a variable', 'info');
       return;
@@ -239,6 +246,10 @@ export default function NewTemplateEditorPage() {
       showToast('Missing practice or category', 'error');
       return;
     }
+    if (channel === 'email' && !doc.subject?.trim()) {
+      showToast('Email subject is required', 'error');
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch('/api/templates', {
@@ -251,7 +262,11 @@ export default function NewTemplateEditorPage() {
           description: templateDescription,
           templateType,
           channel,
-          content: doc,
+          content: {
+            ...doc,
+            subject: channel === 'email' ? doc.subject : undefined,
+            body: channel === 'sms' ? smsBody : undefined,
+          },
           variables: VARIABLE_REGISTRY.map((v) => v.key),
           status,
         }),
@@ -285,6 +300,7 @@ export default function NewTemplateEditorPage() {
             type="text"
             value={templateName}
             onChange={(e) => setTemplateName(e.target.value)}
+            aria-label="Template name"
             style={{ fontSize: '1rem', fontWeight: 600, border: '1px solid #cbd5e1', padding: '0.35rem 0.6rem', borderRadius: '4px', background: '#fff', width: '220px' }}
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -337,12 +353,14 @@ export default function NewTemplateEditorPage() {
               <Smartphone size={16} /> Mobile
             </button>
           </div>
-          <button
-            onClick={() => setShowHtmlPreview(!showHtmlPreview)}
-            style={{ background: '#f1f5f9', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-          >
-            <Eye size={16} /> {showHtmlPreview ? 'Visual Editor' : 'HTML Code'}
-          </button>
+          {channel === 'email' && (
+            <button
+              onClick={() => setShowHtmlPreview(!showHtmlPreview)}
+              style={{ background: '#f1f5f9', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            >
+              <Eye size={16} /> {showHtmlPreview ? 'Visual Editor' : 'HTML Code'}
+            </button>
+          )}
           <button
             onClick={() => handleSave('published')}
             disabled={saving}
@@ -357,11 +375,46 @@ export default function NewTemplateEditorPage() {
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Left Sidebar: Element Library & Variables */}
         <aside style={{ width: '300px', background: '#fff', borderRight: '1px solid #e2e8f0', padding: '1.25rem', overflowY: 'auto' }}>
+          <div style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid #e2e8f0' }}>
+            <h4 style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Message Settings</h4>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginBottom: '0.75rem', fontSize: '0.8rem', color: '#475569', fontWeight: 500 }}>
+              Template channel
+              <select
+                value={channel}
+                onChange={(e) => {
+                  const nextChannel = e.target.value as 'sms' | 'email';
+                  setChannel(nextChannel);
+                  setTemplateType(nextChannel);
+                }}
+                aria-label="Template channel"
+                style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff' }}
+              >
+                <option value="email">Email template</option>
+                <option value="sms">SMS template</option>
+              </select>
+            </label>
+            {channel === 'email' && (
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem', color: '#475569', fontWeight: 500 }}>
+                Email subject <span aria-hidden="true">*</span>
+                <input
+                  type="text"
+                  value={doc.subject || ''}
+                  onChange={(e) => setDoc((currentDoc) => ({ ...currentDoc, subject: e.target.value }))}
+                  placeholder="Enter email subject"
+                  aria-label="Email subject"
+                  required
+                  style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff', fontWeight: 400 }}
+                />
+              </label>
+            )}
+          </div>
           <div style={{ marginBottom: '1.5rem' }}>
-            <h4 style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Layout & Content Blocks</h4>
-            <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>Drag elements onto the canvas or click to add.</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-              {(['heading', 'paragraph', 'image', 'logo', 'button', 'divider', 'spacer', 'footer'] as const).map((type) => (
+            {channel === 'email' && (
+              <>
+                <h4 style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Layout & Content Blocks</h4>
+                <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>Drag elements onto the canvas or click to add.</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  {(['heading', 'paragraph', 'image', 'logo', 'button', 'divider', 'spacer', 'footer'] as const).map((type) => (
                 <div
                   key={type}
                   draggable
@@ -383,8 +436,10 @@ export default function NewTemplateEditorPage() {
                   {type === 'footer' && <FileText size={16} />}
                   <span>{type}</span>
                 </div>
-              ))}
-            </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           <div>
@@ -394,6 +449,8 @@ export default function NewTemplateEditorPage() {
                 <button
                   key={v.key}
                   onClick={() => insertVariable(v.key)}
+                  type="button"
+                  aria-label={`Insert ${v.key}`}
                   style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '0.5rem 0.75rem', borderRadius: '4px', textAlign: 'left', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                 >
                   <span style={{ fontWeight: 500, color: '#1e293b' }}>{v.label}</span>
@@ -414,6 +471,28 @@ export default function NewTemplateEditorPage() {
           }}
           onDrop={(e) => handleDrop(e)}
         >
+          {channel === 'sms' ? (
+            <div style={{ width: '100%', maxWidth: '480px', background: '#fff', padding: '1.5rem', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              <label htmlFor="sms-message" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#334155' }}>SMS message</label>
+              <textarea
+                id="sms-message"
+                aria-label="SMS message"
+                rows={8}
+                value={smsBody}
+                onChange={(e) => setSmsBody(e.target.value)}
+                placeholder="Write the text message. Use Dynamic Variables to personalize it."
+                style={{ width: '100%', resize: 'vertical', padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: '6px', font: 'inherit', lineHeight: 1.5 }}
+              />
+              <div style={{ textAlign: 'right', fontSize: '0.75rem', color: '#64748b', marginTop: '0.35rem' }}>{smsBody.length} characters</div>
+              <div style={{ marginTop: '1.25rem', padding: '1rem', background: '#f0f4f8', borderRadius: '8px' }}>
+                <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>SMS PREVIEW</p>
+                <div style={{ display: 'inline-block', maxWidth: '90%', padding: '0.75rem 1rem', background: '#fff', borderRadius: '12px', color: '#1e293b', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', boxShadow: '0 1px 2px rgba(0,0,0,0.08)' }}>
+                  {smsBody || 'Your text message will appear here.'}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
           {/* Screenshot-inspired Rich Formatting Toolbar (Always Visible) */}
           {!showHtmlPreview && activeBlock && (
             <div style={{ width: '100%', maxWidth: previewMode === 'desktop' ? '650px' : '380px', background: '#fff', border: '1px solid #cbd5e1', borderBottom: 'none', borderTopLeftRadius: '8px', borderTopRightRadius: '8px', padding: '0.5rem 1rem', display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
@@ -638,6 +717,8 @@ export default function NewTemplateEditorPage() {
                 </div>
               ))}
             </div>
+          )}
+            </>
           )}
         </main>
       </div>
