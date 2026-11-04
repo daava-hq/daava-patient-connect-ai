@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Bell, Eye, Plus, RotateCcw, Send, Settings2, X } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
+import EmailMessagePreview from '@/components/feature/EmailMessagePreview/EmailMessagePreview';
 import {
   REMINDER_INTERVAL_OPTIONS,
   type ReminderIntervalValue,
@@ -97,6 +98,7 @@ interface PreviewResult {
   channel: string;
   subject: string;
   body: string;
+  html?: string;
   unresolved: string[];
   isValid: boolean;
 }
@@ -712,7 +714,11 @@ export default function RemindersPage() {
                 <div className={`${styles.previewBox} ${preview.isValid ? '' : styles.previewInvalid}`} aria-live="polite">
                   <strong>{preview.templateName} · {preview.channel.toUpperCase()}</strong>
                   {preview.subject && <p><b>Subject:</b> {preview.subject}</p>}
-                  <pre>{preview.body || 'Template has no message body.'}</pre>
+                  {preview.channel === 'email' && preview.html ? (
+                    <EmailMessagePreview html={preview.html} />
+                  ) : (
+                    <pre>{preview.body || 'Template has no message body.'}</pre>
+                  )}
                   {!preview.isValid && (
                     <p className={styles.errorText}>
                       Missing or invalid variables: {preview.unresolved.join(', ') || 'message body'}
