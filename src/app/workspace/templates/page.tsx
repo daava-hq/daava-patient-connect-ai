@@ -75,6 +75,7 @@ export default function TemplatesLibraryPage() {
       'appointment.date': 'November 15, 2026',
       'appointment.time': '10:30 AM',
       'appointment.provider': 'Dr. Smith, DDS',
+      'appointment.confirmUrl': 'https://patient.example.com/appointment-confirmation?token=preview',
       'payment.amount': '$150.00',
       'payment.dueDate': 'November 30, 2026',
     };

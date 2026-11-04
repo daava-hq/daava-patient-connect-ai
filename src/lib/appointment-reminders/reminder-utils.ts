@@ -111,6 +111,42 @@ export function isEligibleAppointment(status: string, patientStatus: string): bo
   return status === 'Scheduled' && patientStatus === 'Patient';
 }
 
+export function isAppointmentDateTimeMatch(
+  localScheduledAt: Date,
+  openDentalDateTime: string,
+  timeZone: string
+): boolean {
+  const remoteMatch = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(?::(\d{2}))?(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/i.exec(
+    openDentalDateTime
+  );
+  if (!remoteMatch || !Number.isFinite(localScheduledAt.getTime())) return false;
+
+  const localDateTime = formatDateTimeParts(localScheduledAt, timeZone);
+  if (remoteMatch[4]) {
+    const remoteInstant = new Date(openDentalDateTime);
+    return Number.isFinite(remoteInstant.getTime()) &&
+      localDateTime === formatDateTimeParts(remoteInstant, timeZone);
+  }
+
+  const remoteDateTime = `${remoteMatch[1]} ${remoteMatch[2]}:${remoteMatch[3] ?? '00'}`;
+  return localDateTime === remoteDateTime;
+}
+
+function formatDateTimeParts(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const values = new Map(parts.map((part) => [part.type, part.value]));
+  return `${values.get('year')}-${values.get('month')}-${values.get('day')} ${values.get('hour')}:${values.get('minute')}:${values.get('second')}`;
+}
+
 export function getReminderSuppressionReason(input: {
   appointmentStatus: string;
   patientStatus: string;
@@ -180,6 +216,7 @@ export interface AppointmentTemplateContext {
     time: string;
     provider: string;
     status: string;
+    confirmUrl: string;
   };
 }
 
@@ -192,7 +229,12 @@ export function buildAppointmentTemplateContext(input: {
     birthDate: string | null;
   };
   practice: { name: string; phone: string | null; address: string | null };
-  appointment: { scheduledAt: Date; providerName: string | null; status: string };
+  appointment: {
+    scheduledAt: Date;
+    providerName: string | null;
+    status: string;
+    confirmUrl?: string;
+  };
   timeZone: string;
 }): AppointmentTemplateContext {
   const dateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -224,6 +266,7 @@ export function buildAppointmentTemplateContext(input: {
       time: timeFormatter.format(input.appointment.scheduledAt),
       provider: input.appointment.providerName ?? '',
       status: input.appointment.status,
+      confirmUrl: input.appointment.confirmUrl ?? '',
     },
   };
 }
@@ -231,7 +274,7 @@ export function buildAppointmentTemplateContext(input: {
 export function renderAppointmentTemplateContent(
   content: Record<string, unknown>,
   context: AppointmentTemplateContext
-): { subject: string; body: string; unresolved: string[] } {
+): { subject: string; body: string; html: string; unresolved: string[] } {
   const variables: Record<string, string> = {};
   for (const [key, value] of Object.entries(context.patient)) variables[`patient.${key}`] = value;
   for (const [key, value] of Object.entries(context.practice)) variables[`practice.${key}`] = value;
@@ -251,7 +294,8 @@ export function renderAppointmentTemplateContent(
   visitTemplateValues(content, interpolate);
   const subject = typeof content.subject === 'string' ? interpolate(content.subject) : '';
   const body = typeof content.body === 'string' ? interpolate(content.body) : extractTemplateText(content, interpolate);
-  return { subject, body, unresolved: Array.from(unresolved) };
+  const html = renderTemplateHtml(content, interpolate);
+  return { subject, body, html, unresolved: Array.from(unresolved) };
 }
 
 function visitTemplateValues(value: unknown, interpolate: (text: string) => string): void {
@@ -281,6 +325,9 @@ function extractTemplateText(
       if (!isRecord(block)) continue;
       const properties = isRecord(block.properties) ? block.properties : block;
       if (typeof properties.text === 'string') lines.push(interpolate(properties.text));
+      if (block.type === 'button' && typeof properties.url === 'string') {
+        lines.push(interpolate(properties.url));
+      }
     }
   }
 
@@ -288,10 +335,81 @@ function extractTemplateText(
   for (const block of blocks) {
     if (!isRecord(block)) continue;
     if (typeof block.text === 'string') lines.push(interpolate(block.text));
-    if (typeof block.url === 'string') interpolate(block.url);
+    if (block.type === 'button' && typeof block.url === 'string') lines.push(interpolate(block.url));
   }
 
   return lines.join('\n\n');
+}
+
+function renderTemplateHtml(
+  content: Record<string, unknown>,
+  interpolate: (value: string) => string
+): string {
+  const blocks: unknown[] = [];
+  const sections = Array.isArray(content.sections) ? content.sections : [];
+  for (const section of sections) {
+    if (isRecord(section) && Array.isArray(section.blocks)) blocks.push(...section.blocks);
+  }
+  if (Array.isArray(content.blocks)) blocks.push(...content.blocks);
+
+  const rendered = blocks.flatMap((block) => {
+    if (!isRecord(block) || typeof block.type !== 'string') return [];
+    const properties = isRecord(block.properties) ? block.properties : block;
+    const text = typeof properties.text === 'string' ? escapeHtml(interpolate(properties.text)) : '';
+
+    switch (block.type) {
+      case 'heading':
+        return text ? [`<h2 style="margin:0 0 16px;color:#172b4d;font-size:24px;line-height:1.3">${text}</h2>`] : [];
+      case 'paragraph':
+      case 'text':
+      case 'footer':
+        return text ? [`<p style="margin:0 0 16px;color:#344563;font-size:16px;line-height:1.6">${text}</p>`] : [];
+      case 'button': {
+        if (typeof properties.url !== 'string' || !text) return [];
+        const url = interpolate(properties.url);
+        if (!isHttpUrl(url)) return [];
+        return [
+          `<p style="margin:24px 0"><a href="${escapeHtml(url)}" style="display:inline-block;padding:12px 20px;border-radius:6px;background:#1769e0;color:#ffffff;font-weight:600;text-decoration:none">${text}</a></p>`,
+        ];
+      }
+      case 'image': {
+        if (typeof properties.url !== 'string') return [];
+        const url = interpolate(properties.url);
+        if (!isHttpUrl(url)) return [];
+        const alt = typeof properties.alt === 'string' ? escapeHtml(interpolate(properties.alt)) : '';
+        return [`<img src="${escapeHtml(url)}" alt="${alt}" style="display:block;max-width:100%;height:auto;margin:0 0 16px">`];
+      }
+      case 'divider':
+        return ['<hr style="border:0;border-top:1px solid #dfe1e6;margin:24px 0">'];
+      default:
+        return [];
+    }
+  });
+
+  if (rendered.length === 0) return '';
+  return `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#172b4d">${rendered.join('')}</div>`;
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => {
+    switch (character) {
+      case '&': return '&amp;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '"': return '&quot;';
+      case "'": return '&#39;';
+      default: return character;
+    }
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

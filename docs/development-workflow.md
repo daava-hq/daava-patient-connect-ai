@@ -33,6 +33,7 @@ pnpm dev
 | `DATABASE_URL` | PostgreSQL connection string |
 | `NEXTAUTH_SECRET` | NextAuth session secret |
 | `NEXTAUTH_URL` | App base URL (e.g. `http://localhost:3000`) |
+| `APPOINTMENT_CONFIRMATION_TOKEN_SECRET` | Random secret of at least 32 characters used to sign email confirmation links; required outside local |
 | `APPOINTMENT_REMINDERS_CRON_SECRET` | Bearer secret for the appointment-reminder cron endpoint |
 | `RESEND_API_KEY` | Server-side Resend API key |
 | `RESEND_FROM_EMAIL` | Sender address on a domain verified with Resend |
@@ -56,10 +57,11 @@ pnpm seed:reminders-test-data
 The script loads `.env.local` when present. It creates six eligible synthetic
 appointments for `prem@daava.ai`, clears previous reminder history for the
 sample practice, and enables only its 24-hour email schedule. The reminder
-occurrences are due immediately, so the next cron run can send all six in one
-batch. Rerun the same command or use **Reset sample data** on the sample
-practice's reminders page
-to clear history and reset the six appointments before another team test.
+occurrences are scheduled 10 minutes after the seed/reset operation, preventing
+an immediate cron poll from sending them unexpectedly. After that buffer, the
+next cron run may send all six in one batch. Rerun the same command or use
+**Reset sample data** on the sample practice's reminders page to clear history
+and reset the six appointments before another team test.
 Both reset paths are restricted to the dedicated sample practice in local/dev.
 
 To run a local sample-only cron poll immediately and then every two minutes:
@@ -118,6 +120,8 @@ All scripts are defined in `package.json`. Use only these — do not invent new 
 | `pnpm db:migrate` | `node --env-file-if-exists=.env.local scripts/migrate.mjs` | Apply pending Drizzle migrations |
 | `pnpm db:push` | `drizzle-kit push` | Push schema to dev DB (no migration file) |
 | `pnpm db:studio` | `drizzle-kit studio` | Open Drizzle Studio |
+| `pnpm seed:templates` | `node --env-file-if-exists=.env.local scripts/seed-templates.mjs` | Add missing system templates in local/dev without deleting existing templates |
+| `pnpm seed:appointment-confirmation-template` | `node --env-file-if-exists=.env.local scripts/seed-templates.mjs --appointment-confirmation-only` | Safely add the email confirmation template in local/dev |
 | `pnpm seed:reminders-test-data` | `node --env-file-if-exists=.env.local scripts/seed-appointment-reminders-test-data.mjs` | Reset and seed six local reminder test appointments |
 | `pnpm reminders:cron:local` | `node --env-file-if-exists=.env.local scripts/run-appointment-reminders-cron.mjs` | Poll the local sample-only reminder cron every two minutes |
 

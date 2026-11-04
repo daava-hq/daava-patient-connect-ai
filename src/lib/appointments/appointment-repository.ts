@@ -26,6 +26,7 @@ export async function getPracticeAppointments(
       opendentalApptId: appointments.opendentalApptId,
       scheduledAt: appointments.scheduledAt,
       status: appointments.status,
+      confirmationStatus: appointments.confirmationStatus,
       description: appointments.description,
       syncedAt: appointments.syncedAt,
       patientFirstName: patients.firstName,
@@ -55,6 +56,7 @@ export async function upsertAppointment(data: {
   opendentalPatientId: number;
   scheduledAt: Date;
   status: string;
+  confirmationStatus?: string | null;
   description?: string | null;
   opendentalUpdatedAt?: Date | null;
 }) {
@@ -86,6 +88,7 @@ export async function upsertAppointment(data: {
       opendentalApptId: data.opendentalApptId,
       scheduledAt: data.scheduledAt,
       status: data.status,
+      confirmationStatus: data.confirmationStatus ?? null,
       description: data.description || null,
       opendentalUpdatedAt: data.opendentalUpdatedAt || null,
       syncedAt: new Date(),
@@ -100,6 +103,9 @@ export async function upsertAppointment(data: {
         opendentalUpdatedAt: data.opendentalUpdatedAt || null,
         syncedAt: new Date(),
         updatedAt: new Date(),
+        ...(data.confirmationStatus !== undefined
+          ? { confirmationStatus: data.confirmationStatus }
+          : {}),
       },
     })
     .returning();

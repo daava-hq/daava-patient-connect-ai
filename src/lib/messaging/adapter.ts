@@ -8,6 +8,7 @@ export interface SendMessageOptions {
   to: string; // phone number or email address
   body: string;
   subject?: string; // email only
+  html?: string; // email only
   idempotencyKey?: string;
 }
 

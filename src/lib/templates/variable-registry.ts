@@ -27,6 +27,7 @@ export const VARIABLE_REGISTRY: TemplateVariableDefinition[] = [
   { key: 'appointment.time', label: 'Appointment Time', category: 'appointment', description: 'Scheduled time of visit', example: '10:30 AM' },
   { key: 'appointment.provider', label: 'Provider Name', category: 'appointment', description: 'Treating dentist or hygienist', example: 'Dr. Smith, DDS' },
   { key: 'appointment.status', label: 'Appointment Status', category: 'appointment', description: 'Current status of appointment', example: 'Confirmed' },
+  { key: 'appointment.confirmUrl', label: 'Appointment Confirmation Link', category: 'appointment', description: 'Secure link for the patient to confirm this appointment', example: 'https://patient.example.com/appointment-confirmation?token=preview' },
 
   // Other
   { key: 'campaign.name', label: 'Campaign Name', category: 'other', description: 'Name of outreach campaign', example: 'Fall Hygiene Recall' },

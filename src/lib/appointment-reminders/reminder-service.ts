@@ -5,14 +5,26 @@ import { appointmentReminders, appointmentReminderSchedules } from '@/db/schema/
 import { appointments } from '@/db/schema/appointments';
 import { patients } from '@/db/schema/patients';
 import { practices } from '@/db/schema/practices';
+import { practiceOpendentalCredentials } from '@/db/schema/practice_credentials';
 import { templateCategories, templates } from '@/db/schema/templates';
 import { AppError, NotFoundError } from '@/lib/errors';
 import { env } from '@/lib/env';
+import { logError } from '@/lib/logger';
 import { getAdapter } from '@/lib/messaging/stub-adapter';
+import {
+  decrypt,
+  confirmOpenDentalAppointment,
+  getOpenDentalAppointment,
+} from '@/lib/opendental';
+import {
+  createAppointmentConfirmationToken,
+  readAppointmentConfirmationToken,
+} from './confirmation-token';
 import {
   buildAppointmentTemplateContext,
   calculateReminderTime,
   getReminderSuppressionReason,
+  isAppointmentDateTimeMatch,
   isEligibleAppointment,
   isRenderedAppointmentTemplateValid,
   renderAppointmentTemplateContent,
@@ -34,6 +46,180 @@ const SAMPLE_REMINDER_SCHEDULE_NAME = 'Sample 24-Hour Email Reminder';
 const SAMPLE_EMAIL = 'prem@daava.ai';
 const SAMPLE_PATIENT_NUMBERS = [8901, 8902, 8903, 8904, 8905, 8906];
 const SAMPLE_APPOINTMENT_NUMBERS = [7801, 7802, 7803, 7804, 7805, 7806];
+
+interface AppointmentConfirmationContext {
+  reminderId: string;
+  practiceId: string;
+  practiceName: string;
+  timezone: string;
+  appointmentId: string;
+  opendentalApptId: number;
+  opendentalPatientId: number;
+  scheduledAt: Date;
+  appointmentStatus: string;
+  confirmationStatus: string | null;
+  patientStatus: string;
+  reminderChannel: string;
+  reminderStatus: string;
+}
+
+function getConfirmationClaims(token: string, now: Date) {
+  try {
+    return readAppointmentConfirmationToken(token, now);
+  } catch {
+    throw new AppError(400, 'This appointment confirmation link is invalid or expired', 'INVALID_CONFIRMATION_LINK');
+  }
+}
+
+async function getAppointmentConfirmationContext(
+  token: string,
+  now: Date
+): Promise<AppointmentConfirmationContext> {
+  const claims = getConfirmationClaims(token, now);
+  const [record] = await db
+    .select({
+      reminderId: appointmentReminders.id,
+      practiceId: appointmentReminders.practiceId,
+      practiceName: practices.name,
+      timezone: practices.timezone,
+      appointmentId: appointments.id,
+      opendentalApptId: appointments.opendentalApptId,
+      opendentalPatientId: patients.opendentalPatientId,
+      scheduledAt: appointments.scheduledAt,
+      appointmentStatus: appointments.status,
+      confirmationStatus: appointments.confirmationStatus,
+      patientStatus: patients.status,
+      reminderChannel: appointmentReminders.channel,
+      reminderStatus: appointmentReminders.status,
+    })
+    .from(appointmentReminders)
+    .innerJoin(
+      appointments,
+      and(
+        eq(appointmentReminders.appointmentId, appointments.id),
+        eq(appointmentReminders.practiceId, appointments.practiceId)
+      )
+    )
+    .innerJoin(
+      patients,
+      and(
+        eq(appointmentReminders.patientId, patients.id),
+        eq(appointmentReminders.practiceId, patients.practiceId)
+      )
+    )
+    .innerJoin(practices, eq(appointmentReminders.practiceId, practices.id))
+    .where(eq(appointmentReminders.id, claims.reminderId))
+    .limit(1);
+
+  if (
+    !record ||
+    record.reminderChannel !== 'email' ||
+    (record.reminderStatus !== 'sent' && record.reminderStatus !== 'delivered')
+  ) {
+    throw new NotFoundError('Appointment confirmation link not found');
+  }
+  if (record.appointmentStatus !== 'Scheduled' || record.patientStatus !== 'Patient') {
+    throw new AppError(409, 'This appointment can no longer be confirmed', 'APPOINTMENT_INELIGIBLE');
+  }
+  if (record.scheduledAt <= now) {
+    throw new AppError(410, 'This appointment has already passed', 'APPOINTMENT_PASSED');
+  }
+  return record;
+}
+
+export async function getAppointmentConfirmationDetails(token: string, now = new Date()) {
+  const record = await getAppointmentConfirmationContext(token, now);
+  return {
+    practiceName: record.practiceName,
+    scheduledAt: record.scheduledAt,
+    timezone: record.timezone,
+    alreadyConfirmed: record.confirmationStatus?.toLowerCase() === 'confirmed',
+  };
+}
+
+export async function confirmAppointmentFromEmail(token: string, now = new Date()) {
+  const record = await getAppointmentConfirmationContext(token, now);
+  if (record.confirmationStatus?.toLowerCase() === 'confirmed') {
+    return { confirmed: true, alreadyConfirmed: true };
+  }
+
+  const [credentials] = await db
+    .select()
+    .from(practiceOpendentalCredentials)
+    .where(eq(practiceOpendentalCredentials.practiceId, record.practiceId))
+    .limit(1);
+  if (!credentials) {
+    throw new AppError(503, 'Open Dental is not configured for this practice', 'OPENDENTAL_NOT_CONFIGURED');
+  }
+
+  let developerKey: string;
+  let customerKey: string;
+  try {
+    developerKey = decrypt(credentials.developerKeyEnc);
+    customerKey = decrypt(credentials.customerKeyEnc);
+  } catch {
+    logError(
+      'Open Dental appointment confirmation credentials could not be decrypted',
+      new Error('Credential decryption failed'),
+      { practiceId: record.practiceId }
+    );
+    throw new AppError(503, 'Open Dental credentials are unavailable for this practice', 'OPENDENTAL_CREDENTIALS_UNAVAILABLE');
+  }
+  let openDentalAppointment;
+  try {
+    openDentalAppointment = await getOpenDentalAppointment(
+      developerKey,
+      customerKey,
+      record.opendentalApptId
+    );
+  } catch {
+    logError(
+      'Open Dental appointment could not be revalidated',
+      new Error('Open Dental appointment lookup failed'),
+      { practiceId: record.practiceId }
+    );
+    throw new AppError(502, 'Open Dental could not verify this appointment. Please contact the practice.', 'OPENDENTAL_LOOKUP_FAILED');
+  }
+  if (
+    openDentalAppointment.AptNum !== record.opendentalApptId ||
+    openDentalAppointment.PatNum !== record.opendentalPatientId ||
+    openDentalAppointment.AptStatus !== 'Scheduled' ||
+    !isAppointmentDateTimeMatch(
+      record.scheduledAt,
+      openDentalAppointment.AptDateTime,
+      record.timezone
+    )
+  ) {
+    throw new AppError(409, 'This appointment can no longer be confirmed', 'APPOINTMENT_INELIGIBLE');
+  }
+
+  try {
+    await confirmOpenDentalAppointment(developerKey, customerKey, record.opendentalApptId);
+  } catch {
+    logError(
+      'Open Dental appointment confirmation failed',
+      new Error('Open Dental confirmation request failed'),
+      { practiceId: record.practiceId }
+    );
+    throw new AppError(502, 'Open Dental could not confirm this appointment. Please contact the practice.', 'OPENDENTAL_CONFIRMATION_FAILED');
+  }
+
+  const [updated] = await db
+    .update(appointments)
+    .set({ confirmationStatus: 'Confirmed', updatedAt: now })
+    .where(
+      and(
+        eq(appointments.id, record.appointmentId),
+        eq(appointments.practiceId, record.practiceId)
+      )
+    )
+    .returning({ id: appointments.id });
+  if (!updated) {
+    throw new AppError(409, 'The appointment could not be updated locally. Please contact the practice.', 'APPOINTMENT_UPDATE_FAILED');
+  }
+
+  return { confirmed: true, alreadyConfirmed: false };
+}
 
 export async function getReminderDashboard(practiceId: string, now = new Date()) {
   const [practice] = await db
@@ -248,7 +434,7 @@ export async function resetSampleAppointmentReminderData(practiceId: string) {
   if (!testSchedule) throw new NotFoundError('Sample 24-hour reminder schedule not found');
 
   const now = new Date();
-  const appointmentStart = new Date(now.getTime() + 24 * 60 * 60_000 - 3 * 60_000);
+  const appointmentStart = new Date(now.getTime() + 24 * 60 * 60_000 + 10 * 60_000);
   const reminderAt = new Date(appointmentStart.getTime() - 24 * 60 * 60_000);
 
   const reset = await db.transaction(async (tx) => {
@@ -424,6 +610,7 @@ export async function previewAppointmentReminder(
       scheduledAt: contextRow.scheduledAt,
       providerName: null,
       status: contextRow.status,
+      confirmUrl: new URL('/appointment-confirmation?preview=true', env.NEXTAUTH_URL).toString(),
     },
     timeZone: contextRow.timezone,
   });
@@ -434,6 +621,7 @@ export async function previewAppointmentReminder(
     channel: template.channel,
     subject: rendered.subject,
     body: rendered.body,
+    html: rendered.html,
     unresolved: rendered.unresolved,
     isValid: isRenderedAppointmentTemplateValid(rendered, template.channel),
   };
@@ -828,6 +1016,12 @@ async function dispatchAppointmentReminder(reminderId: string, practiceId: strin
       scheduledAt: record.appointmentAt,
       providerName: null,
       status: record.appointmentStatus,
+      confirmUrl: record.channel === 'email'
+        ? new URL(
+          `/appointment-confirmation?token=${encodeURIComponent(createAppointmentConfirmationToken(reminderId, now))}`,
+          env.NEXTAUTH_URL
+        ).toString()
+        : '',
     },
     timeZone: record.timezone,
   });
@@ -867,6 +1061,7 @@ async function dispatchAppointmentReminder(reminderId: string, practiceId: strin
     to: destination,
     body: rendered.body,
     subject: rendered.subject || undefined,
+    html: record.channel === 'email' && rendered.html ? rendered.html : undefined,
     idempotencyKey: reminderId,
   });
   if (!outcome.accepted) {

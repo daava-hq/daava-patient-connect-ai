@@ -15,6 +15,7 @@ export const appointments = pgTable(
     opendentalApptId: bigint('opendental_appt_id', { mode: 'number' }).notNull(),
     scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull(),
     status: text('status').default('Scheduled').notNull(),
+    confirmationStatus: text('confirmation_status'),
     description: text('description'),
     opendentalUpdatedAt: timestamp('opendental_updated_at', { withTimezone: true }),
     syncedAt: timestamp('synced_at', { withTimezone: true }).defaultNow().notNull(),

@@ -708,6 +708,7 @@ export default function AppointmentsCalendar() {
                                             <div>{formatPopoverTime(appt.AptDateTime)}</div>
                                             <div>{duration} Min</div>
                                             <div>{appt.provAbbr || col.shortName}</div>
+                                            {appt.confirmed && <div>Confirmation: {appt.confirmed}</div>}
                                           </div>
                                         </div>
 

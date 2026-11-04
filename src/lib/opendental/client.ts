@@ -7,6 +7,7 @@ interface RequestOptions {
   method?: string;
   params?: Record<string, string | number>;
   body?: unknown;
+  allowEmptyResponse?: boolean;
 }
 
 const MAX_RETRIES = 0;
@@ -55,6 +56,10 @@ export async function fetchOpenDental<T>(
 
       if (response.ok) {
         if (response.status === 204) return {} as T;
+        if (options.allowEmptyResponse) {
+          const responseBody = await response.text();
+          return responseBody ? JSON.parse(responseBody) as T : {} as T;
+        }
         return (await response.json()) as T;
       }
 

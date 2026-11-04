@@ -79,6 +79,7 @@ async function getEmailTemplate() {
       AND t.channel = 'email'
       AND t.is_system = true
       AND t.deleted_at IS NULL
+      AND t.name <> '24-Hour Appointment Reminder (EMAIL)'
     ORDER BY t.is_system DESC, t.name
     LIMIT 1
   `;
@@ -138,7 +139,7 @@ async function upsertSchedules(practice, template) {
 
 async function upsertAppointments(practiceId) {
   const now = Date.now();
-  const appointmentAt = new Date(now + 24 * 60 * 60_000 - 3 * 60_000);
+  const appointmentAt = new Date(now + 24 * 60 * 60_000 + 10 * 60_000);
   const scenarios = [
     {
       patientId: 8901,

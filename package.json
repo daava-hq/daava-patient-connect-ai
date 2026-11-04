@@ -15,7 +15,8 @@
     "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "seed:templates": "node scripts/seed-templates.mjs",
+    "seed:templates": "node --env-file-if-exists=.env.local scripts/seed-templates.mjs",
+    "seed:appointment-confirmation-template": "node --env-file-if-exists=.env.local scripts/seed-templates.mjs --appointment-confirmation-only",
     "seed:reminders-test-data": "node --env-file-if-exists=.env.local scripts/seed-appointment-reminders-test-data.mjs",
     "reminders:cron:local": "node --env-file-if-exists=.env.local scripts/run-appointment-reminders-cron.mjs",
     "gen:register-link": "node scripts/gen-register-link.mjs"

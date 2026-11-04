@@ -49,6 +49,7 @@ export async function runAppointmentSync(practiceId: string): Promise<{ success:
           opendentalPatientId: od.PatNum,
           scheduledAt: new Date(od.AptDateTime),
           status: od.AptStatus || 'Scheduled',
+          confirmationStatus: typeof od.confirmed === 'string' ? od.confirmed : undefined,
           description: od.ProcDescript,
           opendentalUpdatedAt: od.DateTStamp ? new Date(od.DateTStamp) : null,
         });

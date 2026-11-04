@@ -104,6 +104,7 @@ organisations
 | `opendental_appt_id` | `bigint` | Natural key from OD |
 | `scheduled_at` | `timestamptz` | |
 | `status` | `text` | `Scheduled`, `Complete`, `Broken`, `UnschedList` |
+| `confirmation_status` | `text` | Open Dental confirmation value; does not replace appointment status |
 | `description` | `text` | |
 | `opendental_updated_at` | `timestamptz` | |
 | `synced_at` | `timestamptz` | |

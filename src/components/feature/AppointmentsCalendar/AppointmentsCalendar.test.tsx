@@ -153,6 +153,7 @@ describe('AppointmentsCalendar', () => {
     expect(screen.getByText('10:30 AM')).toBeDefined();
     expect(screen.getByText('30 Min')).toBeDefined();
     expect(screen.getByText('RDH Tina')).toBeDefined();
+    expect(screen.getByText('Confirmation: Unconfirmed')).toBeDefined();
 
     // Verify ALERTS, COMMUNICATIONS, and NOTES sections
     expect(screen.getByText('ALERTS')).toBeDefined();

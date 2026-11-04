@@ -38,7 +38,7 @@ Each practice record has an encrypted `opendental_credentials` column (or a sepa
 
 ## Sync design principles
 
-1. **Read-only first** — only GET endpoints in MVP; no writes to Open Dental.
+1. **Read-only by default** — synchronization uses GET endpoints; the appointment confirmation flow is the only implemented write path.
 2. **Idempotent upserts** — use `opendental_patient_id` and `opendental_appt_id` as natural keys.
 3. **Incremental sync** — store `last_synced_at` per practice; request only records updated since last sync.
 4. **Pagination** — honour `Limit`/`Offset` or cursor-based pagination per endpoint spec.
@@ -87,13 +87,27 @@ Key fields to store locally:
 | `PatNum` | `opendental_patient_id` |
 | `AptDateTime` | `scheduled_at` |
 | `AptStatus` | `status` |
+| `confirmed` | `confirmation_status` |
 | `ProcDescript` | `description` |
 | `DateTStamp` | `opendental_updated_at` |
+
+`AptStatus` and the confirmation value are distinct Open Dental fields. A patient
+confirmation must never replace the appointment's `AptStatus` (for example,
+`Scheduled`), because reminder eligibility depends on that appointment status.
 
 ## Appointment reminders
 
 Appointment reminders read only from the locally synchronized `appointments`
-and `patients` tables; the reminders feature does not write to Open Dental.
+and `patients` tables. The email confirmation button is an explicit write path:
+the signed link opens a confirmation page, and only the patient's explicit
+button action calls `PUT /api/v1/appointments/{AptNum}/Confirm` with
+`{"confirmVal":"Confirmed"}`. Open Dental credentials are decrypted server-side
+from the practice-specific credential record. Successful writes set the local
+`confirmation_status` to `Confirmed`; the appointment `status` remains unchanged.
+Before writing, the server re-reads the Open Dental appointment and checks its
+status, patient, and practice-local appointment time against the synchronized
+record. The appointment sync maps Open Dental's `confirmed` value back into
+`confirmation_status`.
 Schedules use the practice IANA timezone. Seven-day and three-day intervals
 preserve the appointment's local wall-clock time, 24-hour reminders use elapsed
 time, and same-day reminders use a configurable local time.
@@ -132,9 +146,7 @@ Active providers (`!IsHidden && ProvStatus === "Active"`) and visible operatorie
 - Alert on consecutive sync failures (threshold TBD in Milestone 2).
 - Surface sync status and last_synced_at in the practice settings UI.
 
-## Future write operations (post-MVP)
-
-- Confirm appointment: `PUT /api/v1/appointments/{AptNum}`
-- Record communication opt-out (if supported by API).
-
-Always verify against official docs before implementing write endpoints.
+The confirmation endpoint requires Open Dental permissions that allow
+appointment confirmation. A missing credential, insufficient permission, or
+failed Open Dental request is surfaced to the patient as a retry/contact-practice
+message; local confirmation is not recorded on a failed remote write.

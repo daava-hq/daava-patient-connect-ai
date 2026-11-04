@@ -6,7 +6,7 @@ describe('ResendEmailAdapter', () => {
     vi.restoreAllMocks();
   });
 
-  it('sends a plain-text email with the sender, reply-to, and idempotency key', async () => {
+  it('sends plain-text and HTML content with the sender, reply-to, and idempotency key', async () => {
     const fetcher = vi.fn(
       async (_input: string, _init?: RequestInit) =>
         new Response(JSON.stringify({ id: 'resend-message-1' }), { status: 200 })
@@ -22,6 +22,7 @@ describe('ResendEmailAdapter', () => {
       to: 'patient@example.test',
       subject: 'Appointment reminder',
       body: 'Your appointment is tomorrow.',
+      html: '<p>Your appointment is tomorrow.</p>',
       idempotencyKey: 'reminder-1',
     });
 
@@ -39,6 +40,7 @@ describe('ResendEmailAdapter', () => {
       to: ['patient@example.test'],
       subject: 'Appointment reminder',
       text: 'Your appointment is tomorrow.',
+      html: '<p>Your appointment is tomorrow.</p>',
       reply_to: 'support@example.test',
     });
   });

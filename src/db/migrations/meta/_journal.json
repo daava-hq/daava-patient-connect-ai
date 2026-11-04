@@ -8,6 +8,13 @@
       "when": 1793585325011,
       "tag": "0004_appointment_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1793811380426,
+      "tag": "0005_appointment_confirmation",
+      "breakpoints": true
     }
   ]
 }

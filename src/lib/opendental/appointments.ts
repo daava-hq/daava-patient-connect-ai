@@ -11,3 +11,32 @@ export async function getOpenDentalAppointments(
     params: params as Record<string, string | number>,
   });
 }
+
+export async function getOpenDentalAppointment(
+  developerKey: string,
+  customerKey: string,
+  appointmentNumber: number
+): Promise<OpenDentalAppointment> {
+  return fetchOpenDental<OpenDentalAppointment>(
+    developerKey,
+    customerKey,
+    `appointments/${appointmentNumber}`
+  );
+}
+
+export async function confirmOpenDentalAppointment(
+  developerKey: string,
+  customerKey: string,
+  appointmentNumber: number
+): Promise<void> {
+  await fetchOpenDental<unknown>(
+    developerKey,
+    customerKey,
+    `appointments/${appointmentNumber}/Confirm`,
+    {
+      method: 'PUT',
+      body: { confirmVal: 'Confirmed' },
+      allowEmptyResponse: true,
+    }
+  );
+}

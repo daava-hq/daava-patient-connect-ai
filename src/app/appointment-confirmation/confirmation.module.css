@@ -1,0 +1,83 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6);
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.card {
+  width: min(100%, 34rem);
+  padding: var(--space-8);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.eyebrow {
+  margin: 0 0 var(--space-2);
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.card h1 {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
+}
+
+.details,
+.help {
+  color: var(--color-text-muted);
+  line-height: var(--line-height-normal);
+}
+
+.actions {
+  margin-top: var(--space-6);
+}
+
+.confirmButton {
+  min-height: 2.75rem;
+  padding: 0 var(--space-5);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-surface);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.confirmButton:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.confirmButton:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.confirmButton:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.success {
+  margin-top: var(--space-6);
+  color: var(--color-success);
+  font-weight: var(--font-weight-semibold);
+}
+
+.error {
+  margin-top: var(--space-3);
+  color: var(--color-error);
+}
+
+@media (max-width: 35rem) {
+  .card {
+    padding: var(--space-6);
+  }
+}

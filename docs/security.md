@@ -14,7 +14,7 @@ Patient Connect handles protected health information (PHI) and dental practice c
 - Use `next-auth` (Credentials provider with bcrypt password hashing at cost ≥ 12).
 - Session tokens are HTTP-only, Secure, SameSite=Strict cookies.
 - MFA (TOTP) planned for Milestone 3.
-- Unauthenticated requests to any `/workspace` or `/api` route must redirect to `/login`.
+- Unauthenticated requests to protected workspace/API routes must redirect to `/login`. The email appointment-confirmation route is intentionally public and is authorized only by its signed, expiring reminder capability.
 - **Password change & recovery**: Password reset tokens are cryptographically generated, hashed in the database, and expire after 15 minutes. Password recovery requires external email delivery integration (e.g., SendGrid or SMTP provider configured via environment variables `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`).
 
 ## Authorisation model
@@ -67,6 +67,8 @@ Every `route.ts` must:
 - Enforce communication consent flags (`sms_consent`, `email_consent`) before any outbound message.
 - Implement opt-out handling: update consent flags and suppress future messages.
 - Appointment reminders re-check consent, practice ownership, appointment status, patient status, and destination immediately before provider dispatch. Only `Scheduled` appointments for active `Patient` records are eligible; this status is not interpreted as attendance confirmation.
+- Appointment confirmation links contain a signed, expiring capability bound to one sent email reminder. They do not include patient identifiers or practice/appointment IDs supplied by the browser. The public confirmation page performs no write on GET; only an explicit POST action can confirm, and the server resolves the reminder, appointment, practice, and encrypted Open Dental credentials from the signed reminder ID.
+- The confirmation capability uses `APPOINTMENT_CONFIRMATION_TOKEN_SECRET` (at least 32 characters; configured in every non-local environment) and expires after 30 days. It can only confirm a future, scheduled appointment for an active patient. The local `confirmation_status` is updated only after Open Dental accepts the dedicated confirmation request; the appointment's `status` is preserved.
 - Reminder occurrences are deduplicated by appointment, schedule, channel, and patient. Provider adapters receive the occurrence ID as an idempotency key.
 - The reminder cron endpoint requires `APPOINTMENT_REMINDERS_CRON_SECRET` as a bearer token and compares it in constant time. Never expose this secret to browser code.
 - SMS remains an unconfigured stub. Email uses Resend only when `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are configured; both values remain server-side.

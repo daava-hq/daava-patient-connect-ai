@@ -45,6 +45,7 @@ export class ResendEmailAdapter implements MessagingAdapter {
       subject: options.subject,
       text: options.body,
     };
+    if (options.html) body.html = options.html;
     if (this.replyTo) body.reply_to = this.replyTo;
 
     const headers: Record<string, string> = {

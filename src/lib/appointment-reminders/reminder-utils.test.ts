@@ -5,6 +5,7 @@ import {
   getReminderSuppressionReason,
   isEligibleAppointment,
   isRenderedAppointmentTemplateValid,
+  isAppointmentDateTimeMatch,
   isProviderSendAccepted,
   renderAppointmentTemplateContent,
   sendReminderWithAdapter,
@@ -162,5 +163,95 @@ describe('appointment reminder utilities', () => {
     expect(result.subject).toBe('Visit at North Dental');
     expect(result.body).toContain('November 15, 2026 at 8:30 AM');
     expect(result.unresolved).toEqual(['appointment.provider']);
+  });
+
+  it('renders confirmation buttons as escaped HTML links with a plain-text alternative', () => {
+    const context = buildAppointmentTemplateContext({
+      patient: {
+        firstName: '<Sam>',
+        lastName: 'Patient',
+        email: null,
+        phone: null,
+        birthDate: null,
+      },
+      practice: { name: 'North Dental', phone: '555-0100', address: null },
+      appointment: {
+        scheduledAt: new Date('2026-11-15T16:30:00.000Z'),
+        providerName: null,
+        status: 'Scheduled',
+        confirmUrl: 'https://patient.example.test/appointment-confirmation?token=signed-token',
+      },
+      timeZone: 'America/Los_Angeles',
+    });
+
+    const rendered = renderAppointmentTemplateContent({
+      subject: 'Confirm your visit',
+      sections: [{
+        blocks: [
+          { type: 'paragraph', properties: { text: 'Hello {{patient.firstName}}' } },
+          {
+            type: 'button',
+            properties: { text: 'Confirm Appointment', url: '{{appointment.confirmUrl}}' },
+          },
+        ],
+      }],
+    }, context);
+
+    expect(rendered.body).toContain('Hello <Sam>');
+    expect(rendered.body).toContain('https://patient.example.test/appointment-confirmation?token=signed-token');
+    expect(rendered.html).toContain('href="https://patient.example.test/appointment-confirmation?token=signed-token"');
+    expect(rendered.html).toContain('Confirm Appointment');
+    expect(rendered.html).toContain('Hello &lt;Sam&gt;');
+    expect(rendered.unresolved).toEqual([]);
+  });
+
+  it('revalidates Open Dental appointment date and time in the practice timezone', () => {
+    const scheduledAt = new Date('2026-11-15T14:00:00.000Z');
+
+    expect(isAppointmentDateTimeMatch(
+      scheduledAt,
+      '2026-11-15 09:00:00',
+      'America/New_York'
+    )).toBe(true);
+    expect(isAppointmentDateTimeMatch(
+      scheduledAt,
+      '2026-11-15T14:00:00Z',
+      'America/New_York'
+    )).toBe(true);
+    expect(isAppointmentDateTimeMatch(
+      scheduledAt,
+      '2026-11-15 10:00:00',
+      'America/New_York'
+    )).toBe(false);
+    expect(isAppointmentDateTimeMatch(
+      scheduledAt,
+      'not-a-date',
+      'America/New_York'
+    )).toBe(false);
+  });
+
+  it('does not render a button for non-HTTP confirmation URLs', () => {
+    const context = buildAppointmentTemplateContext({
+      patient: { firstName: 'Sam', lastName: 'Patient', email: null, phone: null, birthDate: null },
+      practice: { name: 'North Dental', phone: null, address: null },
+      appointment: {
+        scheduledAt: new Date('2026-11-15T16:30:00.000Z'),
+        providerName: null,
+        status: 'Scheduled',
+        confirmUrl: 'javascript:alert(1)',
+      },
+      timeZone: 'America/Los_Angeles',
+    });
+    const rendered = renderAppointmentTemplateContent({
+      sections: [{
+        blocks: [{
+          type: 'button',
+          properties: { text: 'Confirm Appointment', url: '{{appointment.confirmUrl}}' },
+        }],
+      }],
+    }, context);
+
+    expect(rendered.html).not.toContain('javascript:');
+    expect(rendered.html).not.toContain('<a ');
   });
 });

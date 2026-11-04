@@ -1,7 +1,7 @@
 import 'server-only';
 import { db } from '@/db';
 import { templateCategories, templates, NewTemplate } from '@/db/schema/templates';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 export async function seedSystemTemplates() {
   const cats = await db.select().from(templateCategories);
@@ -22,9 +22,6 @@ export async function seedSystemTemplates() {
 
   const categoryMap = new Map((await db.select().from(templateCategories)).map((c) => [c.slug, c.id]));
 
-  const existingSystem = await db.select({ id: templates.id }).from(templates).where(eq(templates.isSystem, true)).limit(1);
-  if (existingSystem.length > 0) return;
-
   const samples: NewTemplate[] = [
     // 1. Appointment Reminders
     {
@@ -35,6 +32,35 @@ export async function seedSystemTemplates() {
       channel: 'sms',
       content: { body: 'Hi {{patient.firstName}}, your appointment at {{practice.name}} is scheduled for {{appointment.date}} at {{appointment.time}}. Please call {{practice.phone}} if you need to make a change.' },
       variables: ['patient.firstName', 'practice.name', 'practice.phone', 'appointment.date', 'appointment.time'],
+      status: 'published',
+      isSystem: true,
+    },
+    {
+      categoryId: categoryMap.get('appointment-reminders')!,
+      name: '24-Hour Appointment Reminder (EMAIL)',
+      description: '24-hour appointment reminder with a secure appointment confirmation link',
+      templateType: 'newsletter',
+      channel: 'email',
+      content: {
+        subject: 'Please confirm your upcoming appointment at {{practice.name}}',
+        sections: [{
+          id: 'appointment-confirmation',
+          blocks: [
+            { id: 'confirmation-greeting', type: 'heading', properties: { text: 'Appointment Reminder' } },
+            { id: 'confirmation-details', type: 'paragraph', properties: { text: 'Hello {{patient.firstName}}, your appointment at {{practice.name}} is scheduled for {{appointment.date}} at {{appointment.time}}.' } },
+            { id: 'confirmation-action', type: 'button', properties: { text: 'Confirm Appointment', url: '{{appointment.confirmUrl}}' } },
+            { id: 'confirmation-contact', type: 'paragraph', properties: { text: 'If you need to make a change, please call {{practice.phone}}.' } },
+          ],
+        }],
+      },
+      variables: [
+        'patient.firstName',
+        'practice.name',
+        'appointment.date',
+        'appointment.time',
+        'appointment.confirmUrl',
+        'practice.phone',
+      ],
       status: 'published',
       isSystem: true,
     },
@@ -220,7 +246,18 @@ export async function seedSystemTemplates() {
 
   for (const s of samples) {
     if (s.categoryId) {
-      await db.insert(templates).values(s).onConflictDoNothing();
+      const [existing] = await db
+        .select({ id: templates.id })
+        .from(templates)
+        .where(
+          and(
+            eq(templates.categoryId, s.categoryId),
+            eq(templates.name, s.name),
+            eq(templates.isSystem, true)
+          )
+        )
+        .limit(1);
+      if (!existing) await db.insert(templates).values(s);
     }
   }
 }

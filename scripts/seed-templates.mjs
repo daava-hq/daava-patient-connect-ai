@@ -1,7 +1,14 @@
 import postgres from 'postgres';
 import 'dotenv/config';
 
-const sql = postgres(process.env.DATABASE_URL || 'postgresql://premkumark@localhost:5432/patient_connect2');
+if (!['local', 'dev'].includes(process.env.APP_ENVIRONMENT)) {
+  throw new Error('Template seeding is restricted to APP_ENVIRONMENT=local or dev');
+}
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL must be explicitly configured');
+}
+
+const sql = postgres(process.env.DATABASE_URL);
 
 async function main() {
   console.log('Seeding template categories and block-based sample system templates...');
@@ -29,10 +36,40 @@ async function main() {
   const catRows = await sql`SELECT id, slug FROM template_categories`;
   const catMap = new Map(catRows.map(r => [r.slug, r.id]));
 
-  // Clear existing system templates to re-seed with block structures
-  await sql`DELETE FROM templates WHERE is_system = true`;
-
   const samples = [
+    {
+      category_slug: 'appointment-reminders',
+      name: '24-Hour Appointment Reminder (EMAIL)',
+      description: '24-hour appointment reminder with a secure appointment confirmation link',
+      template_type: 'newsletter',
+      channel: 'email',
+      content: JSON.stringify({
+        version: 1,
+        subject: 'Please confirm your upcoming appointment at {{practice.name}}',
+        sections: [
+          {
+            id: 'appointment-confirmation',
+            blocks: [
+              { id: 'confirmation-greeting', type: 'heading', properties: { text: 'Appointment Reminder' } },
+              { id: 'confirmation-details', type: 'paragraph', properties: { text: 'Hello {{patient.firstName}}, your appointment at {{practice.name}} is scheduled for {{appointment.date}} at {{appointment.time}}.' } },
+              { id: 'confirmation-action', type: 'button', properties: { text: 'Confirm Appointment', url: '{{appointment.confirmUrl}}' } },
+              { id: 'confirmation-contact', type: 'paragraph', properties: { text: 'If you need to make a change, please call {{practice.phone}}.' } }
+            ]
+          }
+        ]
+      }),
+      variables: JSON.stringify([
+        'patient.firstName',
+        'practice.name',
+        'appointment.date',
+        'appointment.time',
+        'appointment.confirmUrl',
+        'practice.phone'
+      ]),
+      status: 'published',
+      is_system: true,
+      version: 1
+    },
     {
       category_slug: 'appointment-reminders',
       name: '24-Hour Appointment Reminder (SMS)',
@@ -296,9 +333,17 @@ async function main() {
     }
   ];
 
+  const confirmationOnly = process.argv.includes('--appointment-confirmation-only');
   for (const s of samples) {
+    if (confirmationOnly && s.name !== '24-Hour Appointment Reminder (EMAIL)') continue;
     const category_id = catMap.get(s.category_slug);
     if (category_id) {
+      const [existing] = await sql`
+        SELECT id FROM templates
+        WHERE category_id = ${category_id} AND name = ${s.name} AND is_system = true
+        LIMIT 1
+      `;
+      if (existing) continue;
       await sql`
         INSERT INTO templates (category_id, name, description, template_type, channel, content, variables, status, is_system, version)
         VALUES (${category_id}, ${s.name}, ${s.description}, ${s.template_type}, ${s.channel}, ${s.content}::jsonb, ${s.variables}::jsonb, ${s.status}, ${s.is_system}, ${s.version})
@@ -306,7 +351,7 @@ async function main() {
     }
   }
 
-  console.log('Successfully seeded block-based system templates.');
+  console.log('Successfully added missing block-based system templates.');
   process.exit(0);
 }
 
