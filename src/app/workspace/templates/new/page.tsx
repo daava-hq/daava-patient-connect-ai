@@ -6,8 +6,8 @@ import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
 import { createDefaultDocument, extractTemplateBody, renderDocumentToHtml, TemplateDocument, CanvasBlock } from '@/lib/templates/document-schema';
 import { VARIABLE_REGISTRY } from '@/lib/templates/variable-registry';
+import RichEditorToolbar from '@/components/ui/RichEditorToolbar/RichEditorToolbar';
 import {
-  Plus,
   Save,
   Eye,
   Smartphone,
@@ -19,11 +19,6 @@ import {
   Square,
   Layout,
   FileText,
-  MoveUp,
-  MoveDown,
-  Bold,
-  Italic,
-  Link as LinkIcon,
   GripVertical,
 } from 'lucide-react';
 
@@ -223,21 +218,70 @@ export default function NewTemplateEditorPage() {
     }
   }
 
-  function applyFormattingToBlock(bId: string, formatTag: string) {
+  function applyFormattingToBlock(bId: string, formatTag: string, value?: string) {
     const block = doc.sections.flatMap((s) => s.blocks).find((b) => b.id === bId);
     if (block && (block.type === 'heading' || block.type === 'paragraph' || block.type === 'footer')) {
-      const currentText = block.properties.text || '';
-      let formatted = currentText;
-      if (formatTag === 'bold') formatted = `<strong>${currentText}</strong>`;
-      if (formatTag === 'italic') formatted = `<em>${currentText}</em>`;
-      if (formatTag === 'underline') formatted = `<u>${currentText}</u>`;
-      if (formatTag === 'strike') formatted = `<strike>${currentText}</strike>`;
-      if (formatTag === 'link') {
-        const url = prompt('Enter destination URL:', 'https://');
-        if (url) formatted = `<a href="${url}" style="color: #2563eb; text-decoration: underline;">${currentText}</a>`;
+      // Use document.execCommand for proper text selection formatting
+      const selection = window.getSelection();
+      
+      // Check if we have a valid selection
+      if (!selection) {
+        return;
       }
-      updateBlockProperty(bId, 'text', formatted);
-      showToast('Applied rich text formatting', 'success');
+
+      switch (formatTag) {
+        case 'bold':
+          document.execCommand('bold', false);
+          break;
+        case 'italic':
+          document.execCommand('italic', false);
+          break;
+        case 'underline':
+          document.execCommand('underline', false);
+          break;
+        case 'strike':
+        case 'strikethrough':
+          document.execCommand('strikeThrough', false);
+          break;
+        case 'insertUnorderedList':
+          document.execCommand('insertUnorderedList', false);
+          break;
+        case 'insertOrderedList':
+          document.execCommand('insertOrderedList', false);
+          break;
+        case 'createLink': {
+          const url = value || prompt('Enter URL:', 'https://');
+          if (url) {
+            document.execCommand('createLink', false, url);
+            // Style the newly created link
+            setTimeout(() => {
+              const editableDiv = document.querySelector(`[contenteditable="true"]`);
+              if (editableDiv) {
+                const links = editableDiv.querySelectorAll('a[href]');
+                links.forEach((link) => {
+                  if (!(link as HTMLElement).style.color) {
+                    (link as HTMLElement).style.color = '#2563eb';
+                    (link as HTMLElement).style.textDecoration = 'underline';
+                  }
+                });
+              }
+            }, 10);
+          }
+          break;
+        }
+        default:
+          if (value !== undefined) {
+            document.execCommand(formatTag, false, value);
+          }
+      }
+
+      // Update the block's text property with the new HTML after formatting
+      setTimeout(() => {
+        const editableDiv = document.querySelector(`[contenteditable="true"]`) as HTMLElement;
+        if (editableDiv) {
+          updateBlockProperty(bId, 'text', editableDiv.innerHTML);
+        }
+      }, 10);
     }
   }
 
@@ -493,75 +537,14 @@ export default function NewTemplateEditorPage() {
             </div>
           ) : (
             <>
-          {/* Screenshot-inspired Rich Formatting Toolbar (Always Visible) */}
+          {/* Modern WYSIWYG Rich Text Toolbar */}
           {!showHtmlPreview && activeBlock && (
-            <div style={{ width: '100%', maxWidth: previewMode === 'desktop' ? '650px' : '380px', background: '#fff', border: '1px solid #cbd5e1', borderBottom: 'none', borderTopLeftRadius: '8px', borderTopRightRadius: '8px', padding: '0.5rem 1rem', display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', marginRight: '4px' }}>Rich Editor:</span>
-              {(activeBlock.type === 'heading' || activeBlock.type === 'paragraph' || activeBlock.type === 'footer') && (
-                <>
-                  <button type="button" title="Bold" onClick={() => applyFormattingToBlock(activeBlock.id, 'bold')} style={{ padding: '4px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>B</button>
-                  <button type="button" title="Italic" onClick={() => applyFormattingToBlock(activeBlock.id, 'italic')} style={{ padding: '4px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', fontStyle: 'italic', fontSize: '0.85rem' }}>I</button>
-                  <button type="button" title="Underline" onClick={() => applyFormattingToBlock(activeBlock.id, 'underline')} style={{ padding: '4px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.85rem' }}>U</button>
-                  <button type="button" title="Strikethrough" onClick={() => applyFormattingToBlock(activeBlock.id, 'strike')} style={{ padding: '4px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', textDecoration: 'line-through', fontSize: '0.85rem' }}>S</button>
-                  <button type="button" title="Insert Link" onClick={() => applyFormattingToBlock(activeBlock.id, 'link')} style={{ padding: '4px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.85rem' }}><LinkIcon size={14} /> Link</button>
-
-                  <select
-                    value={activeBlock.properties.fontFamily || 'sans-serif'}
-                    onChange={(e) => updateBlockProperty(activeBlock.id, 'fontFamily', e.target.value)}
-                    style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem', background: '#fff' }}
-                  >
-                    <option value="sans-serif">Sans Serif</option>
-                    <option value="serif">Serif</option>
-                    <option value="monospace">Monospace</option>
-                    <option value="Arial, sans-serif">Arial</option>
-                    <option value="Georgia, serif">Georgia</option>
-                  </select>
-
-                  <select
-                    value={activeBlock.properties.fontSize || '16px'}
-                    onChange={(e) => updateBlockProperty(activeBlock.id, 'fontSize', e.target.value)}
-                    style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem', background: '#fff' }}
-                  >
-                    <option value="12px">12px</option>
-                    <option value="14px">14px</option>
-                    <option value="16px">16px</option>
-                    <option value="18px">18px</option>
-                    <option value="24px">24px</option>
-                    <option value="32px">32px</option>
-                  </select>
-
-                  <input
-                    type="color"
-                    title="Text Color"
-                    value={activeBlock.properties.color || '#475569'}
-                    onChange={(e) => updateBlockProperty(activeBlock.id, 'color', e.target.value)}
-                    style={{ width: '28px', height: '28px', padding: '0', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer' }}
-                  />
-                </>
-              )}
-
-              {(activeBlock.type === 'image' || activeBlock.type === 'logo' || activeBlock.type === 'button') && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748b' }}>Width:</label>
-                  <select
-                    value={activeBlock.properties.width || '100%'}
-                    onChange={(e) => updateBlockProperty(activeBlock.id, 'width', e.target.value)}
-                    style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem', background: '#fff' }}
-                  >
-                    <option value="25%">25%</option>
-                    <option value="50%">50%</option>
-                    <option value="75%">75%</option>
-                    <option value="100%">100%</option>
-                  </select>
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: '2px', marginLeft: 'auto' }}>
-                <button type="button" title="Align Left" onClick={() => updateBlockProperty(activeBlock.id, 'alignment', 'left')} style={{ padding: '4px 8px', background: activeBlock.properties.alignment === 'left' ? '#e2e8f0' : '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer' }}>⫷</button>
-                <button type="button" title="Align Center" onClick={() => updateBlockProperty(activeBlock.id, 'alignment', 'center')} style={{ padding: '4px 8px', background: activeBlock.properties.alignment === 'center' ? '#e2e8f0' : '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer' }}>≡</button>
-                <button type="button" title="Align Right" onClick={() => updateBlockProperty(activeBlock.id, 'alignment', 'right')} style={{ padding: '4px 8px', background: activeBlock.properties.alignment === 'right' ? '#e2e8f0' : '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer' }}>⫸</button>
-                <button type="button" title="Justify" onClick={() => updateBlockProperty(activeBlock.id, 'alignment', 'justify')} style={{ padding: '4px 8px', background: activeBlock.properties.alignment === 'justify' ? '#e2e8f0' : '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer' }}>☷</button>
-              </div>
+            <div style={{ width: '100%', maxWidth: previewMode === 'desktop' ? '650px' : '380px' }}>
+              <RichEditorToolbar
+                activeBlock={activeBlock}
+                onFormat={applyFormattingToBlock}
+                onPropChange={updateBlockProperty}
+              />
             </div>
           )}
 
@@ -573,7 +556,7 @@ export default function NewTemplateEditorPage() {
               </pre>
             </div>
           ) : (
-            <div style={{ width: '100%', maxWidth: previewMode === 'desktop' ? '650px' : '380px', background: '#fff', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px', borderTopLeftRadius: selectedBlock ? '0' : '8px', borderTopRightRadius: selectedBlock ? '0' : '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', padding: '2rem', transition: 'width 0.2s ease', minHeight: '600px' }}>
+            <div style={{ width: '100%', maxWidth: previewMode === 'desktop' ? '650px' : '380px', background: '#fff', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px', borderTopLeftRadius: activeBlock ? '0' : '8px', borderTopRightRadius: activeBlock ? '0' : '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', padding: '2rem', transition: 'width 0.2s ease', minHeight: '600px' }}>
               {doc.subject && (
                 <div style={{ fontSize: '0.85rem', fontWeight: 500, color: '#64748b', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
                   Subject: {doc.subject}
@@ -617,7 +600,7 @@ export default function NewTemplateEditorPage() {
                           borderRadius: '6px',
                           border: selectedBlockId === b.id ? '2px solid #2563eb' : '1px solid #e2e8f0',
                           background: selectedBlockId === b.id ? '#eff6ff' : '#f8fafc',
-                          cursor: 'grab',
+                          cursor: selectedBlockId === b.id ? 'default' : 'grab',
                           position: 'relative',
                         }}
                       >
@@ -629,12 +612,27 @@ export default function NewTemplateEditorPage() {
 
                         {b.type === 'heading' && (
                           selectedBlockId === b.id ? (
-                            <textarea
-                              rows={2}
-                              value={b.properties.text || ''}
-                              onChange={(e) => updateBlockProperty(b.id, 'text', e.target.value)}
+                            <div
+                              contentEditable
+                              suppressContentEditableWarning
+                              onInput={(e) => updateBlockProperty(b.id, 'text', e.currentTarget.innerHTML)}
+                              onBlur={(e) => updateBlockProperty(b.id, 'text', e.currentTarget.innerHTML)}
                               onClick={(e) => e.stopPropagation()}
-                              style={{ width: '100%', padding: '0.4rem', border: '1px dashed #2563eb', borderRadius: '4px', fontSize: b.properties.fontSize || '22px', fontFamily: b.properties.fontFamily || 'sans-serif', color: b.properties.color || '#1e293b', background: '#fff', resize: 'vertical' }}
+                              dangerouslySetInnerHTML={{ __html: b.properties.text || '' }}
+                              style={{ 
+                                width: '100%', 
+                                padding: '12px', 
+                                border: 'none',
+                                borderRadius: '6px', 
+                                fontSize: b.properties.fontSize || '22px', 
+                                fontFamily: b.properties.fontFamily || 'sans-serif', 
+                                color: b.properties.color || '#1e293b', 
+                                background: 'transparent', 
+                                outline: 'none',
+                                minHeight: '60px',
+                                textAlign: b.properties.alignment || 'left',
+                                cursor: 'text'
+                              }}
                             />
                           ) : (
                             <h3 style={{ color: b.properties.color || '#1e293b', textAlign: b.properties.alignment || 'left', fontFamily: b.properties.fontFamily || 'sans-serif', fontSize: b.properties.fontSize || '22px', margin: 0 }} dangerouslySetInnerHTML={{ __html: b.properties.text || '' }} />
@@ -642,12 +640,28 @@ export default function NewTemplateEditorPage() {
                         )}
                         {b.type === 'paragraph' && (
                           selectedBlockId === b.id ? (
-                            <textarea
-                              rows={3}
-                              value={b.properties.text || ''}
-                              onChange={(e) => updateBlockProperty(b.id, 'text', e.target.value)}
+                            <div
+                              contentEditable
+                              suppressContentEditableWarning
+                              onInput={(e) => updateBlockProperty(b.id, 'text', e.currentTarget.innerHTML)}
+                              onBlur={(e) => updateBlockProperty(b.id, 'text', e.currentTarget.innerHTML)}
                               onClick={(e) => e.stopPropagation()}
-                              style={{ width: '100%', padding: '0.4rem', border: '1px dashed #2563eb', borderRadius: '4px', fontSize: b.properties.fontSize || '15px', fontFamily: b.properties.fontFamily || 'sans-serif', color: b.properties.color || '#475569', background: '#fff', resize: 'vertical' }}
+                              dangerouslySetInnerHTML={{ __html: b.properties.text || '' }}
+                              style={{ 
+                                width: '100%', 
+                                padding: '12px', 
+                                border: 'none',
+                                borderRadius: '6px', 
+                                fontSize: b.properties.fontSize || '15px', 
+                                fontFamily: b.properties.fontFamily || 'sans-serif', 
+                                color: b.properties.color || '#475569', 
+                                background: 'transparent', 
+                                outline: 'none',
+                                minHeight: '80px',
+                                lineHeight: '1.7',
+                                textAlign: b.properties.alignment || 'left',
+                                cursor: 'text'
+                              }}
                             />
                           ) : (
                             <p style={{ color: b.properties.color || '#475569', textAlign: b.properties.alignment || 'left', fontFamily: b.properties.fontFamily || 'sans-serif', fontSize: b.properties.fontSize || '15px', margin: 0, lineHeight: 1.4 }} dangerouslySetInnerHTML={{ __html: b.properties.text || '' }} />
@@ -700,12 +714,27 @@ export default function NewTemplateEditorPage() {
                         )}
                         {b.type === 'footer' && (
                           selectedBlockId === b.id ? (
-                            <textarea
-                              rows={2}
-                              value={b.properties.text || ''}
-                              onChange={(e) => updateBlockProperty(b.id, 'text', e.target.value)}
+                            <div
+                              contentEditable
+                              suppressContentEditableWarning
+                              onInput={(e) => updateBlockProperty(b.id, 'text', e.currentTarget.innerHTML)}
+                              onBlur={(e) => updateBlockProperty(b.id, 'text', e.currentTarget.innerHTML)}
                               onClick={(e) => e.stopPropagation()}
-                              style={{ width: '100%', padding: '0.4rem', border: '1px dashed #2563eb', borderRadius: '4px', fontSize: '12px', fontFamily: b.properties.fontFamily || 'sans-serif', color: '#94a3b8', background: '#fff', resize: 'vertical' }}
+                              dangerouslySetInnerHTML={{ __html: b.properties.text || '' }}
+                              style={{ 
+                                width: '100%', 
+                                padding: '12px', 
+                                border: 'none',
+                                borderRadius: '6px', 
+                                fontSize: '12px', 
+                                fontFamily: b.properties.fontFamily || 'sans-serif', 
+                                color: '#94a3b8', 
+                                background: 'transparent', 
+                                outline: 'none',
+                                minHeight: '60px',
+                                textAlign: 'center',
+                                cursor: 'text'
+                              }}
                             />
                           ) : (
                             <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center', fontFamily: b.properties.fontFamily || 'sans-serif' }} dangerouslySetInnerHTML={{ __html: b.properties.text || '' }} />

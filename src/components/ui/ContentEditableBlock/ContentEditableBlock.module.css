@@ -1,0 +1,86 @@
+.editable {
+  outline: none;
+  width: 100%;
+  min-height: 80px;
+  padding: 16px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: #ffffff;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  cursor: text;
+  line-height: 1.7;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), inset 0 0 0 1px #e5e7eb;
+}
+
+.editable:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1), inset 0 0 0 1px #cbd5e1;
+}
+
+.editable:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15), 0 2px 8px rgba(59, 130, 246, 0.12);
+  background: #ffffff;
+}
+
+.editable:empty::before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+  position: absolute;
+  font-style: italic;
+}
+
+.editable[contenteditable='false'] {
+  cursor: default;
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+/* Style formatting within the editor */
+.editable strong,
+.editable b {
+  font-weight: 700;
+}
+
+.editable em,
+.editable i {
+  font-style: italic;
+}
+
+.editable u {
+  text-decoration: underline;
+}
+
+.editable s,
+.editable strike {
+  text-decoration: line-through;
+}
+
+.editable a {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.editable a:hover {
+  color: #1d4ed8;
+}
+
+.editable ul,
+.editable ol {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.editable li {
+  margin: 4px 0;
+}
+
+.editable ul {
+  list-style-type: disc;
+}
+
+.editable ol {
+  list-style-type: decimal;
+}
