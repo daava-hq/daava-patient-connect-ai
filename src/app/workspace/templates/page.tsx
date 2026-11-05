@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
-import { FileText, Plus, Search, X, Image as ImageIcon, Eye, Edit3 } from 'lucide-react';
+import { FileText, Plus, Search, X, Image as ImageIcon, Eye, Edit3, Copy, Trash2 } from 'lucide-react';
 import EmailMessagePreview from '@/components/feature/EmailMessagePreview/EmailMessagePreview';
 import { extractTemplateBody, renderDocumentToHtml } from '@/lib/templates/document-schema';
 
@@ -77,6 +77,46 @@ export default function TemplatesLibraryPage() {
       showToast('Failed to load templates', 'error');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleCloneTemplate(templateId: string) {
+    try {
+      const res = await fetch(`/api/templates/${templateId}/clone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ practiceId }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        showToast('Template cloned successfully', 'success');
+        router.push(`/workspace/templates/${json.data.id}/edit`);
+      } else {
+        showToast(json.error || 'Failed to clone template', 'error');
+      }
+    } catch {
+      showToast('Failed to clone template', 'error');
+    }
+  }
+
+  async function handleDeleteTemplate(templateId: string, templateName: string) {
+    if (!confirm(`Are you sure you want to delete "${templateName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/templates/${templateId}?practiceId=${practiceId}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (res.ok) {
+        showToast('Template deleted successfully', 'success');
+        fetchTemplates(practiceId, selectedCategory);
+      } else {
+        showToast(json.error || 'Failed to delete template', 'error');
+      }
+    } catch {
+      showToast('Failed to delete template', 'error');
     }
   }
 
@@ -204,7 +244,7 @@ export default function TemplatesLibraryPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
           {filteredTemplates.map((t) => (
             <div key={t.id} style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', transition: 'transform 0.15s ease' }}>
-              {/* Top: Direct Visual Preview Frame */}
+              {/* Top: Direct Visual Preview Frame with Tags */}
               <div
                 style={{ width: '100%', height: '170px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', position: 'relative', overflow: 'hidden', cursor: 'pointer' }}
                 onClick={() => setPreviewTemplate(t)}
@@ -213,6 +253,18 @@ export default function TemplatesLibraryPage() {
                   html={getInterpolatedContent(t, true)}
                   style={{ height: '170px', minHeight: 0, border: 0, borderRadius: 0, pointerEvents: 'none' }}
                 />
+                {/* Tags: Top Left */}
+                <div style={{ position: 'absolute', top: '8px', left: '8px', display: 'flex', gap: '0.4rem', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#1e293b', textTransform: 'uppercase', background: '#fff', padding: '0.25rem 0.6rem', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                    {t.channel}
+                  </span>
+                  {t.isSystem && (
+                    <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#2563eb', textTransform: 'uppercase', background: '#dbeafe', padding: '0.25rem 0.6rem', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                      System Template
+                    </span>
+                  )}
+                </div>
+                {/* Preview Hint: Bottom Right */}
                 <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(0,0,0,0.75)', color: '#fff', padding: '0.25rem 0.6rem', borderRadius: '4px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 500 }}>
                   <Eye size={12} /> Click to preview
                 </div>
@@ -225,22 +277,31 @@ export default function TemplatesLibraryPage() {
                   <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem', lineHeight: '1.4' }}>{t.description || 'No description provided.'}</p>
                 </div>
 
-                {/* Bottom: Channel and Action Buttons */}
-                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', background: '#f1f5f9', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
-                      {t.channel}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {/* Bottom: Action Buttons Only */}
+                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                  {t.isSystem ? (
                     <button
-                      onClick={() => router.push(`/workspace/templates/${t.id}/edit`)}
-                      style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '0.4rem 0.85rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                      onClick={() => handleCloneTemplate(t.id)}
+                      style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '0.4rem 0.85rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                     >
-                      <Edit3 size={14} /> Edit Template
+                      <Copy size={14} /> Clone
                     </button>
-                  </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => router.push(`/workspace/templates/${t.id}/edit`)}
+                        style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '0.4rem 0.85rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                      >
+                        <Edit3 size={14} /> Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTemplate(t.id, t.name)}
+                        style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '0.4rem 0.85rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                      >
+                        <Trash2 size={14} /> Delete
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
