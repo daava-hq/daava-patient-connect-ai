@@ -3,6 +3,7 @@ import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import StatCard from '@/components/ui/StatCard/StatCard';
 import SectionCard from '@/components/ui/SectionCard/SectionCard';
 import { Users, Calendar, Bell, DollarSign } from 'lucide-react';
+import SampleDataReset from './SampleDataReset';
 
 export default function DashboardPage() {
   return (
@@ -12,6 +13,8 @@ export default function DashboardPage() {
         description="Overview of your practice engagement and appointments."
         breadcrumbs={[{ label: 'Workspace' }, { label: 'Dashboard' }]}
       />
+
+      <SampleDataReset />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
         <StatCard label="Active Patients" value="1,428" change="+12% this month" trend="up" icon={<Users size={20} />} />

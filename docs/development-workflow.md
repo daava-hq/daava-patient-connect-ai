@@ -45,23 +45,28 @@ Keep `APP_ENVIRONMENT` aligned with the database and deployment you are using.
 The appointment-reminder sample-data seeder requires `APP_ENVIRONMENT` to be
 explicitly set to `local` or `dev` (it does not use the application default),
 requires an explicit `DATABASE_URL`, and only writes to its dedicated sample
-practice. It clears reminder history and disables other schedules only within
-that dedicated sample practice; it does not create synthetic delivery history.
-Use it after migrations and after a published appointment-reminder email
-template is available:
+practice. It does not create synthetic delivery history or reminder schedules.
+Use it after migrations:
 
 ```bash
 pnpm seed:reminders-test-data
 ```
 
-The script loads `.env.local` when present. It creates six eligible synthetic
-appointments for `prem@daava.ai`, clears previous reminder history for the
-sample practice, and enables only its 24-hour email schedule. The reminder
-occurrences are scheduled 10 minutes after the seed/reset operation, preventing
-an immediate cron poll from sending them unexpectedly. After that buffer, the
-next cron run may send all six in one batch. Rerun the same command or use
-**Reset sample data** on the sample practice's reminders page to clear history
-and reset the six appointments before another team test.
+The script loads `.env.local` when present. It creates ten synthetic patients
+and appointments for the sample practice, all with `prem@daava.ai`, and clears
+previous reminder history. It does not create, enable, or disable configured
+reminder schedules. Prefer **Refresh / reset sample data** on the sample
+practice's dashboard for this workflow. The reminders page derives upcoming
+reminders from these patient and appointment records and the practice's enabled
+schedules; without an enabled schedule, Upcoming reminders remains empty.
+Appointments are scheduled across five consecutive local calendar days,
+starting eight days ahead, with two appointments per day at 9:00 AM and 10:00 AM.
+This keeps all reminder intervals in the future. Every sample appointment has
+`Scheduled` status. Only appointments created by the refresh
+action are shown or processed in the dedicated sample practice. Reset also removes
+non-sample patient and appointment rows in that office; do not use it for
+non-test data. It removes the legacy sample-only reminder schedule and
+preserves all other configured schedules.
 Both reset paths are restricted to the dedicated sample practice in local/dev.
 
 To run a local sample-only cron poll immediately and then every two minutes:
@@ -73,8 +78,9 @@ pnpm reminders:cron:local
 Keep the process running during the test and stop it with Ctrl+C. It requires
 `APPOINTMENT_REMINDERS_CRON_SECRET`, calls only the local server and only
 processes the dedicated sample practice. With Resend configured, due reminders
-send real email to `prem@daava.ai`; resetting the sample data allows those six
-messages to be sent again. The seeder itself never sends email.
+send real email to `prem@daava.ai`; resetting the sample data clears history
+and lets enabled schedules create new reminder occurrences. The seeder itself
+never sends email.
 
 Email dispatch uses Resend when both `RESEND_API_KEY` and `RESEND_FROM_EMAIL`
 are configured. Verify the sender domain in Resend, set these values in
@@ -94,7 +100,9 @@ the external scheduler. Each schedule creates one occurrence per eligible
 appointment; the cron sends only occurrences whose calculated reminder time
 has arrived, and repeated runs do not resend completed occurrences. Thus,
 24-hour, 3-day, and 7-day reminders are sent relative to each appointment,
-not as a daily digest of every future appointment. For local sample testing,
+not as a daily digest of every future appointment. Seven-day and three-day
+reminders use the configured local send time on the target calendar date;
+24-hour reminders use the exact elapsed-time offset. For local sample testing,
 use the sample-only runner above. The cron response reports reminder counts (`sent`, `failed`, and
 `skipped`) separately from practice-level job failures. For same-day schedules,
 appointments dated today become due immediately on the next poll; future-date
@@ -122,7 +130,7 @@ All scripts are defined in `package.json`. Use only these — do not invent new 
 | `pnpm db:studio` | `drizzle-kit studio` | Open Drizzle Studio |
 | `pnpm seed:templates` | `node --env-file-if-exists=.env.local scripts/seed-templates.mjs` | Add missing system templates in local/dev without deleting existing templates |
 | `pnpm seed:appointment-confirmation-template` | `node --env-file-if-exists=.env.local scripts/seed-templates.mjs --appointment-confirmation-only` | Safely add the email confirmation template in local/dev |
-| `pnpm seed:reminders-test-data` | `node --env-file-if-exists=.env.local scripts/seed-appointment-reminders-test-data.mjs` | Reset and seed six local reminder test appointments |
+| `pnpm seed:reminders-test-data` | `node --env-file-if-exists=.env.local scripts/seed-appointment-reminders-test-data.mjs` | Reset and seed ten local reminder test patients and appointments across five days |
 | `pnpm reminders:cron:local` | `node --env-file-if-exists=.env.local scripts/run-appointment-reminders-cron.mjs` | Poll the local sample-only reminder cron every two minutes |
 
 ## After every change

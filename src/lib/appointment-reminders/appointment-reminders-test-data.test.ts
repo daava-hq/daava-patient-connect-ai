@@ -65,7 +65,7 @@ describe('Appointment Reminders Test Data & Scenarios', () => {
     const patient = {
       firstName: 'Sarah',
       lastName: 'Jenkins',
-      email: 'sarah.jenkins@example.com',
+      email: 'prem@daava.ai',
       phone: '(555) 234-5678',
       birthDate: '1985-06-15',
     };
@@ -102,7 +102,7 @@ describe('Appointment Reminders Test Data & Scenarios', () => {
     const patient = {
       firstName: 'Michael',
       lastName: 'Chen',
-      email: 'michael.chen@example.com',
+      email: 'prem@daava.ai',
       phone: '(555) 345-6789',
       birthDate: '1990-08-20',
     };
@@ -118,7 +118,7 @@ describe('Appointment Reminders Test Data & Scenarios', () => {
     expect(suppressionReason).toBeNull();
 
     const reminderTime = calculateReminderTime(scheduledAt, '3_days', practiceTimezone, '09:00');
-    expect(reminderTime.toISOString()).toBe('2026-11-09T15:00:00.000Z');
+    expect(reminderTime.toISOString()).toBe('2026-11-09T14:00:00.000Z');
 
     const context = buildAppointmentTemplateContext({
       patient,
@@ -196,7 +196,8 @@ describe('Appointment Reminders Test Data & Scenarios', () => {
       appointmentAt,
       'same_day',
       'America/New_York',
-      '08:00'
+      '08:00',
+      new Date('2026-11-04T12:00:00.000Z')
     );
 
     // 8:00 AM EST on 2026-11-05 is 13:00:00.000Z

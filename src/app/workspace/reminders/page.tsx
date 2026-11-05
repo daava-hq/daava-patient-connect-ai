@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Bell, Eye, Plus, RotateCcw, Send, Settings2, X } from 'lucide-react';
+import { Bell, Eye, Plus, Send, Settings2, Trash2, X } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
 import EmailMessagePreview from '@/components/feature/EmailMessagePreview/EmailMessagePreview';
@@ -144,7 +144,7 @@ export default function RemindersPage() {
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [resettingSampleData, setResettingSampleData] = useState(false);
+  const [deletingScheduleId, setDeletingScheduleId] = useState<string | null>(null);
   const scheduleDialogRef = useRef<HTMLElement | null>(null);
   const templateDialogRef = useRef<HTMLElement | null>(null);
 
@@ -298,6 +298,32 @@ export default function RemindersPage() {
     }
   }
 
+  async function deleteSchedule(schedule: ReminderSchedule) {
+    if (!practiceId) return;
+    const confirmed = window.confirm(
+      `Delete "${schedule.name}"? Its reminder occurrences and delivery history will also be permanently deleted.`
+    );
+    if (!confirmed) return;
+
+    setDeletingScheduleId(schedule.id);
+    try {
+      const response = await fetch(`/api/appointment-reminders/${schedule.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ practiceId }),
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || 'Unable to delete reminder schedule');
+      setFilterSchedule('all');
+      showToast('Reminder schedule deleted', 'success');
+      await loadDashboard(practiceId);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to delete reminder schedule', 'error');
+    } finally {
+      setDeletingScheduleId(null);
+    }
+  }
+
   async function requestPreview() {
     if (!practiceId || !form.templateId || !previewAppointmentId) return;
     setPreviewing(true);
@@ -358,31 +384,6 @@ export default function RemindersPage() {
       await loadDashboard(practiceId);
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Unable to execute reminder', 'error');
-    }
-  }
-
-  async function resetSampleData() {
-    if (!practiceId || !dashboard?.sampleDataResetAvailable) return;
-    const confirmed = window.confirm(
-      'Clear all reminder history for this sample practice and reset its six test appointments? The automatic cron test can send six emails to prem@daava.ai.'
-    );
-    if (!confirmed) return;
-
-    setResettingSampleData(true);
-    try {
-      const response = await fetch('/api/appointment-reminders/sample-data/reset', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ practiceId }),
-      });
-      const json = await response.json();
-      if (!response.ok) throw new Error(json.error || 'Unable to reset sample reminder data');
-      showToast('Sample reminders reset. The six 24-hour test reminders are due now; run the cron to send them.', 'success');
-      await loadDashboard(practiceId);
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to reset sample reminder data', 'error');
-    } finally {
-      setResettingSampleData(false);
     }
   }
 
@@ -464,9 +465,31 @@ export default function RemindersPage() {
                     </div>
                     <p className={styles.templateSummary}>Template: {schedule.templateName ?? 'Unavailable'}</p>
                     <div className={styles.cardActions}>
-                      <button type="button" className={styles.textButton} onClick={() => openEditForm(schedule)}>Edit</button>
-                      <button type="button" className={styles.textButton} onClick={() => void toggleSchedule(schedule)}>
+                      <button
+                        type="button"
+                        className={styles.textButton}
+                        onClick={() => openEditForm(schedule)}
+                        disabled={deletingScheduleId !== null}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.textButton}
+                        onClick={() => void toggleSchedule(schedule)}
+                        disabled={deletingScheduleId !== null}
+                      >
                         {schedule.enabled ? 'Pause' : 'Enable'}
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.textButton}
+                        onClick={() => void deleteSchedule(schedule)}
+                        disabled={deletingScheduleId !== null}
+                        aria-label={`Delete ${schedule.name}`}
+                      >
+                        <Trash2 size={15} aria-hidden="true" />
+                        {deletingScheduleId === schedule.id ? 'Deleting…' : 'Delete'}
                       </button>
                     </div>
                   </article>
@@ -479,19 +502,11 @@ export default function RemindersPage() {
             <div className={styles.sectionHeader}>
               <div>
                 <h2 id="upcoming-heading">Upcoming reminders</h2>
-                <p>Appointment status is checked again immediately before dispatch; “Scheduled” does not mean attendance is confirmed.</p>
+                <p>
+                  Future appointments appear here only for enabled schedules. Sample appointments are loaded from the dashboard reset;
+                  appointment status is checked again before dispatch.
+                </p>
               </div>
-              {dashboard.sampleDataResetAvailable && (
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  onClick={() => void resetSampleData()}
-                  disabled={resettingSampleData}
-                >
-                  <RotateCcw size={16} aria-hidden="true" />
-                  {resettingSampleData ? 'Resetting…' : 'Reset sample data'}
-                </button>
-              )}
             </div>
             <div className={styles.filters}>
               <label>

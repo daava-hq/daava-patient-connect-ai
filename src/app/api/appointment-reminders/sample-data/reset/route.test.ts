@@ -76,10 +76,8 @@ describe('sample appointment reminder reset route', () => {
     mocks.requirePracticeAdmin.mockResolvedValue(undefined);
     mocks.resetSampleAppointmentReminderData.mockResolvedValue({
       deletedReminders: 6,
-      resetPatients: 6,
-      resetAppointments: 6,
-      scheduleName: 'Sample 24-Hour Email Reminder',
-      reminderAt: new Date('2026-01-01T10:00:00.000Z'),
+      resetPatients: 10,
+      resetAppointments: 10,
     });
 
     const response = await POST(
@@ -94,9 +92,8 @@ describe('sample appointment reminder reset route', () => {
     expect(mocks.requirePracticeAdmin).toHaveBeenCalledWith('user-id', practiceId);
     expect(body.data).toMatchObject({
       deletedReminders: 6,
-      resetPatients: 6,
-      resetAppointments: 6,
-      scheduleName: 'Sample 24-Hour Email Reminder',
+      resetPatients: 10,
+      resetAppointments: 10,
     });
   });
 });

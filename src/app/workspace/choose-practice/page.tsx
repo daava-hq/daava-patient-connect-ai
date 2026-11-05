@@ -139,6 +139,21 @@ export default function ChooseClinicPage() {
                       {clinic.name}
                     </h3>
                     {renderRoleBadge(clinic.role)}
+                    {clinic.slug === 'appointment-reminder-sample' && (
+                      <span
+                        aria-label="Test practice"
+                        style={{
+                          backgroundColor: 'var(--color-warning)',
+                          color: 'var(--color-surface)',
+                          borderRadius: 'var(--radius-full)',
+                          padding: '0.15rem 0.5rem',
+                          fontSize: 'var(--font-size-xs)',
+                          fontWeight: 'var(--font-weight-semibold)',
+                        }}
+                      >
+                        Test Practice
+                      </span>
+                    )}
                   </div>
                   {clinic.organisationName && (
                     <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-primary)', fontWeight: 'var(--font-weight-medium)', margin: 0 }}>

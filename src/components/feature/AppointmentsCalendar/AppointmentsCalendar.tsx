@@ -9,7 +9,6 @@ import {
   ChevronRight,
   Calendar as CalendarIcon,
   RefreshCw,
-  Database,
   X,
   Key,
   Mail,
@@ -181,28 +180,56 @@ export default function AppointmentsCalendar() {
   const [hoveredApptId, setHoveredApptId] = useState<number | null>(null);
 
   const [loading, setLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
 
   const fetchedRef = useRef(false);
 
-  const fetchCalendarData = useCallback(async (dateStr: string, refresh = false) => {
+  const fetchCalendarData = useCallback(async (
+    dateStr: string,
+    autoNavigateToNextAppointment = false
+  ) => {
     setLoading(true);
     setError('');
     try {
-      const practiceId = typeof window !== 'undefined' ? localStorage.getItem('selectedClinicId') || '' : '';
-      const query = new URLSearchParams({
-        date: dateStr,
-      });
-      if (practiceId) query.set('practiceId', practiceId);
-      if (refresh) query.set('refresh', 'true');
+      let practiceId = typeof window !== 'undefined' ? localStorage.getItem('selectedClinicId') || '' : '';
+      if (!practiceId) {
+        const practicesResponse = await fetch('/api/practices');
+        const practicesJson = await practicesResponse.json();
+        if (!practicesResponse.ok) {
+          throw new Error(practicesJson.error || 'Failed to load practices');
+        }
 
-      const res = await fetch(`/api/opendental/appointments?${query.toString()}`);
-      const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.error || 'Failed to fetch daily schedule from Open Dental API');
+        practiceId = practicesJson.data?.[0]?.id || '';
+        if (practiceId) {
+          localStorage.setItem('selectedClinicId', practiceId);
+        }
       }
+      if (!practiceId) {
+        throw new Error('No practice selected. Please choose a practice.');
+      }
+      const requestDate = async (targetDate: string) => {
+        const query = new URLSearchParams({ date: targetDate });
+        query.set('practiceId', practiceId);
+
+        const res = await fetch(`/api/opendental/appointments?${query.toString()}`);
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json.error || 'Failed to fetch daily schedule from Open Dental API');
+        }
+        return json;
+      };
+
+      let json = await requestDate(dateStr);
+      if (
+        autoNavigateToNextAppointment &&
+        json.data?.length === 0 &&
+        json.nextAppointmentDate &&
+        json.nextAppointmentDate !== dateStr
+      ) {
+        setSelectedDate(json.nextAppointmentDate);
+        json = await requestDate(json.nextAppointmentDate);
+      }
+
       setAppointments(json.data || []);
       if (Array.isArray(json.columns) && json.columns.length > 0) {
         setColumns(json.columns);
@@ -219,7 +246,7 @@ export default function AppointmentsCalendar() {
   useEffect(() => {
     if (!fetchedRef.current) {
       fetchedRef.current = true;
-      fetchCalendarData(selectedDate);
+      fetchCalendarData(selectedDate, true);
     }
   }, [selectedDate, fetchCalendarData]);
 
@@ -239,49 +266,6 @@ export default function AppointmentsCalendar() {
     const todayStr = getTodayString();
     setSelectedDate(todayStr);
     fetchCalendarData(todayStr);
-  };
-
-  const handleSyncToDatabase = async (e?: React.MouseEvent) => {
-    if (e) e.preventDefault();
-    setSyncing(true);
-    setError('');
-    try {
-      let practiceId = typeof window !== 'undefined' ? localStorage.getItem('selectedClinicId') || '' : '';
-      if (!practiceId) {
-        const resList = await fetch('/api/practices');
-        if (resList.ok) {
-          const jsonList = await resList.json();
-          if (jsonList.data && jsonList.data.length > 0) {
-            practiceId = jsonList.data[0].id;
-            localStorage.setItem('selectedClinicId', practiceId);
-          }
-        }
-      }
-      if (!practiceId) {
-        throw new Error('No practice selected. Please choose a practice.');
-      }
-
-      const res = await fetch(
-        `/api/practices/${practiceId}/sync-appointments`,
-        {
-          method: 'POST',
-        }
-      );
-      const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.error || 'Appointment sync failed');
-      }
-      setSuccessMsg(
-        `Successfully synchronized ${json.data.count} appointments to database!`
-      );
-      setTimeout(() => setSuccessMsg(''), 4000);
-      fetchCalendarData(selectedDate, true);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Sync failed';
-      setError(message);
-    } finally {
-      setSyncing(false);
-    }
   };
 
   // Helper to parse appointment start time and height
@@ -338,52 +322,6 @@ export default function AppointmentsCalendar() {
         title="Appointment Calendar"
         description={`Operatory Schedule | Date: ${selectedDate}`}
         breadcrumbs={[{ label: 'Workspace' }, { label: 'Appointments' }]}
-        actions={
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            <button
-              type="button"
-              onClick={handleSyncToDatabase}
-              disabled={syncing}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                backgroundColor: 'var(--color-primary)',
-                color: 'var(--color-surface)',
-                border: 'none',
-                borderRadius: 'var(--radius-md)',
-                padding: '0.5rem 1rem',
-                fontSize: 'var(--font-size-sm)',
-                fontWeight: 'var(--font-weight-medium)',
-                cursor: 'pointer',
-              }}
-            >
-              <Database size={16} />
-              <span>{syncing ? 'Syncing...' : 'Sync to Database'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => fetchCalendarData(selectedDate, true)}
-              disabled={loading}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                backgroundColor: 'var(--color-surface)',
-                color: 'var(--color-text)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                padding: '0.5rem 1rem',
-                fontSize: 'var(--font-size-sm)',
-                fontWeight: 'var(--font-weight-medium)',
-                cursor: 'pointer',
-              }}
-            >
-              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-              <span>{loading ? 'Refreshing...' : 'Refresh API'}</span>
-            </button>
-          </div>
-        }
       />
 
       {error && (
@@ -403,12 +341,6 @@ export default function AppointmentsCalendar() {
               </a>
             </div>
           )}
-        </div>
-      )}
-
-      {successMsg && (
-        <div className={`${styles.alertBox} ${styles.alertSuccess}`} role="status">
-          {successMsg}
         </div>
       )}
 

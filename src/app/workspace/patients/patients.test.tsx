@@ -77,6 +77,9 @@ describe('PatientsPage', () => {
 
     render(<PatientsPage />);
 
+    expect(screen.queryByRole('button', { name: 'Sync to Database' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Refresh API' })).toBeNull();
+
     // Verify column headers exist
     await waitFor(() => {
       expect(screen.getByText('OD PatNum')).toBeDefined();

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildAppointmentTemplateContext,
   calculateReminderTime,
+  getSampleAppointmentTimes,
   getReminderSuppressionReason,
   isEligibleAppointment,
   isRenderedAppointmentTemplateValid,
@@ -12,15 +13,74 @@ import {
 } from './reminder-utils';
 
 describe('appointment reminder utilities', () => {
-  it('calculates fixed reminder intervals before the appointment instant', () => {
+  it('creates ten sample appointment times across five days at two appointments per day', () => {
+    const now = new Date('2026-11-05T14:49:00.000Z');
+    const times = getSampleAppointmentTimes(
+      now,
+      'America/New_York',
+      10
+    );
+    const localSlots = times.map((time) => new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).format(time));
+
+    expect(localSlots).toEqual([
+      '2026-11-13, 09:00',
+      '2026-11-13, 10:00',
+      '2026-11-14, 09:00',
+      '2026-11-14, 10:00',
+      '2026-11-15, 09:00',
+      '2026-11-15, 10:00',
+      '2026-11-16, 09:00',
+      '2026-11-16, 10:00',
+      '2026-11-17, 09:00',
+      '2026-11-17, 10:00',
+    ]);
+    expect(times.every((time) => time.getTime() > now.getTime())).toBe(true);
+    expect(times.every((time) =>
+      calculateReminderTime(time, '7_days', 'America/New_York', '09:00').getTime() > now.getTime()
+    )).toBe(true);
+  });
+
+  it('uses the configured local send time for calendar-day intervals and elapsed time for 24 hours', () => {
     const appointmentAt = new Date('2026-11-15T16:30:00.000Z');
 
     expect(calculateReminderTime(appointmentAt, '7_days', 'America/Los_Angeles', '09:00').toISOString())
-      .toBe('2026-11-08T16:30:00.000Z');
+      .toBe('2026-11-08T17:00:00.000Z');
     expect(calculateReminderTime(appointmentAt, '3_days', 'America/Los_Angeles', '09:00').toISOString())
-      .toBe('2026-11-12T16:30:00.000Z');
+      .toBe('2026-11-12T17:00:00.000Z');
     expect(calculateReminderTime(appointmentAt, '24_hours', 'America/Los_Angeles', '09:00').toISOString())
       .toBe('2026-11-14T16:30:00.000Z');
+  });
+
+  it('uses the configured send time even when appointments have different local times', () => {
+    const appointmentAtNine = new Date('2026-11-13T14:00:00.000Z');
+    const appointmentAtTen = new Date('2026-11-13T15:00:00.000Z');
+    for (const interval of ['7_days', '3_days'] as const) {
+      const reminderAtNine = calculateReminderTime(
+        appointmentAtNine,
+        interval,
+        'America/New_York',
+        '09:00'
+      );
+      const reminderAtTen = calculateReminderTime(
+        appointmentAtTen,
+        interval,
+        'America/New_York',
+        '09:00'
+      );
+
+      expect(reminderAtNine.toISOString()).toBe(
+        interval === '7_days' ? '2026-11-06T14:00:00.000Z' : '2026-11-10T14:00:00.000Z'
+      );
+      expect(reminderAtTen).toEqual(reminderAtNine);
+    }
   });
 
   it('schedules same-day reminders at the configured practice-local time across DST', () => {
@@ -67,7 +127,7 @@ describe('appointment reminder utilities', () => {
     expect(reminderAt.toISOString()).toBe('2026-11-01T08:30:00.000Z');
   });
 
-  it('keeps 7-day intervals at the same local appointment time when daylight saving changes', () => {
+  it('uses the configured send time across daylight-saving boundaries', () => {
     const appointmentAt = new Date('2026-03-09T16:30:00.000Z');
     const reminderAt = calculateReminderTime(
       appointmentAt,
@@ -76,7 +136,7 @@ describe('appointment reminder utilities', () => {
       '09:00'
     );
 
-    expect(reminderAt.toISOString()).toBe('2026-03-02T17:30:00.000Z');
+    expect(reminderAt.toISOString()).toBe('2026-03-02T17:00:00.000Z');
   });
 
   it('requires an active patient and a scheduled appointment', () => {

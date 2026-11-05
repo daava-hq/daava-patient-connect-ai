@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, desc, eq, gt, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNull, like, lte, ne, notInArray, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { appointmentReminders, appointmentReminderSchedules } from '@/db/schema/appointment_reminders';
 import { appointments } from '@/db/schema/appointments';
@@ -23,6 +23,7 @@ import {
 import {
   buildAppointmentTemplateContext,
   calculateReminderTime,
+  getSampleAppointmentTimes,
   getReminderSuppressionReason,
   isAppointmentDateTimeMatch,
   isEligibleAppointment,
@@ -44,8 +45,26 @@ export interface ReminderScheduleInput {
 const SAMPLE_PRACTICE_SLUG = 'appointment-reminder-sample';
 const SAMPLE_REMINDER_SCHEDULE_NAME = 'Sample 24-Hour Email Reminder';
 const SAMPLE_EMAIL = 'prem@daava.ai';
-const SAMPLE_PATIENT_NUMBERS = [8901, 8902, 8903, 8904, 8905, 8906];
-const SAMPLE_APPOINTMENT_NUMBERS = [7801, 7802, 7803, 7804, 7805, 7806];
+const SAMPLE_PATIENTS = [
+  { patientNumber: 8901, appointmentNumber: 7801, firstName: 'William', lastName: 'Clark', description: 'Routine dental cleaning' },
+  { patientNumber: 8902, appointmentNumber: 7802, firstName: 'Sarah', lastName: 'Jenkins', description: 'Dental examination' },
+  { patientNumber: 8903, appointmentNumber: 7803, firstName: 'Michael', lastName: 'Chen', description: 'Preventive care visit' },
+  { patientNumber: 8904, appointmentNumber: 7804, firstName: 'Jessica', lastName: 'Taylor', description: 'Dental cleaning' },
+  { patientNumber: 8905, appointmentNumber: 7805, firstName: 'Emily', lastName: 'Davis', description: 'Follow-up appointment' },
+  { patientNumber: 8906, appointmentNumber: 7806, firstName: 'Robert', lastName: 'Wilson', description: 'Routine dental examination' },
+  { patientNumber: 8907, appointmentNumber: 7807, firstName: 'Olivia', lastName: 'Anderson', description: 'Preventive dental visit' },
+  { patientNumber: 8908, appointmentNumber: 7808, firstName: 'James', lastName: 'Martinez', description: 'Dental examination' },
+  { patientNumber: 8909, appointmentNumber: 7809, firstName: 'Ava', lastName: 'Robinson', description: 'Routine dental cleaning' },
+  { patientNumber: 8910, appointmentNumber: 7810, firstName: 'Benjamin', lastName: 'Lee', description: 'Follow-up dental visit' },
+];
+const SAMPLE_APPOINTMENT_NUMBERS = SAMPLE_PATIENTS.map(({ appointmentNumber }) => appointmentNumber);
+
+function refreshedSampleAppointmentCondition() {
+  return or(
+    notInArray(appointments.opendentalApptId, SAMPLE_APPOINTMENT_NUMBERS),
+    like(appointments.description, 'Sample data: %')
+  )!;
+}
 
 interface AppointmentConfirmationContext {
   reminderId: string;
@@ -249,7 +268,12 @@ export async function getReminderDashboard(practiceId: string, now = new Date())
     })
     .from(appointmentReminderSchedules)
     .leftJoin(templates, eq(appointmentReminderSchedules.templateId, templates.id))
-    .where(eq(appointmentReminderSchedules.practiceId, practiceId))
+    .where(
+      and(
+        eq(appointmentReminderSchedules.practiceId, practiceId),
+        ne(appointmentReminderSchedules.name, SAMPLE_REMINDER_SCHEDULE_NAME)
+      )
+    )
     .orderBy(asc(appointmentReminderSchedules.createdAt));
 
   const appointmentRows = await db
@@ -273,7 +297,8 @@ export async function getReminderDashboard(practiceId: string, now = new Date())
       and(
         eq(appointments.practiceId, practiceId),
         gt(appointments.scheduledAt, now),
-        lte(appointments.scheduledAt, new Date(now.getTime() + 30 * 24 * 60 * 60_000))
+        lte(appointments.scheduledAt, new Date(now.getTime() + 30 * 24 * 60 * 60_000)),
+        ...(practice.slug === SAMPLE_PRACTICE_SLUG ? [refreshedSampleAppointmentCondition()] : [])
       )
     )
     .orderBy(asc(appointments.scheduledAt))
@@ -290,6 +315,7 @@ export async function getReminderDashboard(practiceId: string, now = new Date())
             scheduleId: appointmentReminders.scheduleId,
             status: appointmentReminders.status,
             scheduledFor: appointmentReminders.scheduledFor,
+            manual: appointmentReminders.manual,
             lastErrorMessage: appointmentReminders.lastErrorMessage,
           })
           .from(appointmentReminders)
@@ -330,7 +356,9 @@ export async function getReminderDashboard(practiceId: string, now = new Date())
           scheduleName: schedule.name,
           interval: schedule.interval,
           channel: schedule.channel,
-          reminderAt: existing?.scheduledFor ?? scheduledFor,
+          reminderAt: existing && (existing.status !== 'pending' || existing.manual)
+            ? existing.scheduledFor
+            : scheduledFor,
           reminderStatus: existing?.status ?? (scheduledFor <= now ? 'due' : 'scheduled'),
           lastErrorMessage: existing?.lastErrorMessage ?? null,
           eligible: hasConsent && hasContact && appointment.patientStatus === 'Patient',
@@ -420,22 +448,14 @@ export async function resetSampleAppointmentReminderData(practiceId: string) {
   }
 
   const [practice] = await db
-    .select({ id: practices.id })
+    .select({ id: practices.id, timezone: practices.timezone })
     .from(practices)
     .where(and(eq(practices.id, practiceId), eq(practices.slug, SAMPLE_PRACTICE_SLUG)))
     .limit(1);
   if (!practice) throw new NotFoundError('Sample practice not found');
 
-  const schedules = await db
-    .select({ id: appointmentReminderSchedules.id, name: appointmentReminderSchedules.name })
-    .from(appointmentReminderSchedules)
-    .where(eq(appointmentReminderSchedules.practiceId, practiceId));
-  const testSchedule = schedules.find((schedule) => schedule.name === SAMPLE_REMINDER_SCHEDULE_NAME);
-  if (!testSchedule) throw new NotFoundError('Sample 24-hour reminder schedule not found');
-
   const now = new Date();
-  const appointmentStart = new Date(now.getTime() + 24 * 60 * 60_000 + 10 * 60_000);
-  const reminderAt = new Date(appointmentStart.getTime() - 24 * 60 * 60_000);
+  const appointmentTimes = getSampleAppointmentTimes(now, practice.timezone, SAMPLE_PATIENTS.length);
 
   const reset = await db.transaction(async (tx) => {
     const deletedReminders = await tx
@@ -443,43 +463,87 @@ export async function resetSampleAppointmentReminderData(practiceId: string) {
       .where(eq(appointmentReminders.practiceId, practiceId))
       .returning({ id: appointmentReminders.id });
 
-    const updatedPatients = await tx
-      .update(patients)
-      .set({
-        email: SAMPLE_EMAIL,
-        phoneMobile: null,
-        status: 'Patient',
-        smsConsent: false,
-        emailConsent: true,
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(patients.practiceId, practiceId),
-          inArray(patients.opendentalPatientId, SAMPLE_PATIENT_NUMBERS)
-        )
-      )
-      .returning({ id: patients.id });
-    if (updatedPatients.length !== SAMPLE_PATIENT_NUMBERS.length) {
-      throw new AppError(409, 'Expected six sample patients before reset', 'SAMPLE_DATA_INCOMPLETE');
-    }
-
-    const updatedAppointments = await tx
-      .update(appointments)
-      .set({
-        scheduledAt: appointmentStart,
-        status: 'Scheduled',
-        updatedAt: now,
-      })
+    await tx
+      .delete(appointments)
       .where(
         and(
           eq(appointments.practiceId, practiceId),
-          inArray(appointments.opendentalApptId, SAMPLE_APPOINTMENT_NUMBERS)
+          notInArray(
+            appointments.opendentalApptId,
+            SAMPLE_PATIENTS.map(({ appointmentNumber }) => appointmentNumber)
+          )
         )
-      )
-      .returning({ id: appointments.id });
-    if (updatedAppointments.length !== SAMPLE_APPOINTMENT_NUMBERS.length) {
-      throw new AppError(409, 'Expected six sample appointments before reset', 'SAMPLE_DATA_INCOMPLETE');
+      );
+    await tx
+      .delete(patients)
+      .where(
+        and(
+          eq(patients.practiceId, practiceId),
+          notInArray(
+            patients.opendentalPatientId,
+            SAMPLE_PATIENTS.map(({ patientNumber }) => patientNumber)
+          )
+        )
+      );
+
+    for (const [index, sample] of SAMPLE_PATIENTS.entries()) {
+      const scheduledAt = appointmentTimes[index];
+      const [patient] = await tx
+        .insert(patients)
+        .values({
+          practiceId,
+          opendentalPatientId: sample.patientNumber,
+          firstName: sample.firstName,
+          lastName: sample.lastName,
+          email: SAMPLE_EMAIL,
+          phoneMobile: null,
+          status: 'Patient',
+          smsConsent: false,
+          emailConsent: true,
+          dateOfBirth: '1985-06-15',
+          syncedAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [patients.practiceId, patients.opendentalPatientId],
+          set: {
+            firstName: sample.firstName,
+            lastName: sample.lastName,
+            email: SAMPLE_EMAIL,
+            phoneMobile: null,
+            status: 'Patient',
+            smsConsent: false,
+            emailConsent: true,
+            dateOfBirth: '1985-06-15',
+            syncedAt: now,
+            updatedAt: now,
+          },
+        })
+        .returning({ id: patients.id });
+
+      await tx
+        .insert(appointments)
+        .values({
+          practiceId,
+          patientId: patient.id,
+          opendentalApptId: sample.appointmentNumber,
+          scheduledAt,
+          status: 'Scheduled',
+          description: `Sample data: ${sample.description}`,
+          syncedAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [appointments.practiceId, appointments.opendentalApptId],
+          set: {
+            patientId: patient.id,
+            scheduledAt,
+            status: 'Scheduled',
+            description: `Sample data: ${sample.description}`,
+            syncedAt: now,
+            updatedAt: now,
+          },
+        });
     }
 
     await tx
@@ -491,33 +555,45 @@ export async function resetSampleAppointmentReminderData(practiceId: string) {
       })
       .where(eq(practices.id, practiceId));
 
-    for (const schedule of schedules) {
-      await tx
-        .update(appointmentReminderSchedules)
-        .set({
-          enabled: schedule.id === testSchedule.id,
-          updatedAt: now,
-        })
-        .where(
-          and(
-            eq(appointmentReminderSchedules.id, schedule.id),
-            eq(appointmentReminderSchedules.practiceId, practiceId)
+    await tx
+      .delete(appointmentReminderSchedules)
+      .where(
+        and(
+          eq(appointmentReminderSchedules.practiceId, practiceId),
+          eq(appointmentReminderSchedules.name, SAMPLE_REMINDER_SCHEDULE_NAME)
+        )
+      );
+
+    const patientRows = await tx
+      .select({ id: patients.id })
+      .from(patients)
+      .where(
+        and(
+          eq(patients.practiceId, practiceId),
+          inArray(patients.opendentalPatientId, SAMPLE_PATIENTS.map(({ patientNumber }) => patientNumber))
+        )
+      );
+    const appointmentRows = await tx
+      .select({ id: appointments.id })
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.practiceId, practiceId),
+          inArray(
+            appointments.opendentalApptId,
+            SAMPLE_PATIENTS.map(({ appointmentNumber }) => appointmentNumber)
           )
-        );
-    }
+        )
+      );
 
     return {
       deletedReminders: deletedReminders.length,
-      resetPatients: updatedPatients.length,
-      resetAppointments: updatedAppointments.length,
+      resetPatients: patientRows.length,
+      resetAppointments: appointmentRows.length,
     };
   });
 
-  return {
-    ...reset,
-    scheduleName: SAMPLE_REMINDER_SCHEDULE_NAME,
-    reminderAt,
-  };
+  return reset;
 }
 
 export async function createReminderSchedule(
@@ -557,6 +633,20 @@ export async function updateReminderSchedule(
     )
     .returning();
   return updated;
+}
+
+export async function deleteReminderSchedule(practiceId: string, scheduleId: string) {
+  const [deleted] = await db
+    .delete(appointmentReminderSchedules)
+    .where(
+      and(
+        eq(appointmentReminderSchedules.practiceId, practiceId),
+        eq(appointmentReminderSchedules.id, scheduleId)
+      )
+    )
+    .returning({ id: appointmentReminderSchedules.id });
+  if (!deleted) throw new NotFoundError('Reminder schedule not found');
+  return deleted;
 }
 
 export async function getReminderTemplateOptions(practiceId: string) {
@@ -749,14 +839,15 @@ export async function processDueAppointmentReminders(input: {
     .where(
       and(
         eq(appointmentReminderSchedules.practiceId, input.practiceId),
-        eq(appointmentReminderSchedules.enabled, true)
+        eq(appointmentReminderSchedules.enabled, true),
+        ne(appointmentReminderSchedules.name, SAMPLE_REMINDER_SCHEDULE_NAME)
       )
     );
 
   let upserted = 0;
   for (const schedule of schedules) {
     const [practice] = await db
-      .select({ timezone: practices.timezone })
+      .select({ timezone: practices.timezone, slug: practices.slug })
       .from(practices)
       .where(eq(practices.id, schedule.practiceId))
       .limit(1);
@@ -780,7 +871,8 @@ export async function processDueAppointmentReminders(input: {
             eq(appointments.status, 'Scheduled'),
             eq(patients.status, 'Patient'),
             gt(appointments.scheduledAt, now),
-            lte(appointments.scheduledAt, new Date(now.getTime() + 30 * 24 * 60 * 60_000))
+            lte(appointments.scheduledAt, new Date(now.getTime() + 30 * 24 * 60 * 60_000)),
+            ...(practice.slug === SAMPLE_PRACTICE_SLUG ? [refreshedSampleAppointmentCondition()] : [])
           )
         )
         .orderBy(asc(appointments.scheduledAt), asc(appointments.id))
@@ -833,12 +925,23 @@ export async function processDueAppointmentReminders(input: {
     eq(appointmentReminders.status, 'pending'),
     lte(appointmentReminders.scheduledFor, now),
   ];
-  const pending = await db
-    .select({ id: appointmentReminders.id, practiceId: appointmentReminders.practiceId })
-    .from(appointmentReminders)
-    .where(and(...pendingConditions))
-    .orderBy(asc(appointmentReminders.scheduledFor))
-    .limit(500);
+  const pending =
+    schedules.length > 0
+      ? await db
+          .select({ id: appointmentReminders.id, practiceId: appointmentReminders.practiceId })
+          .from(appointmentReminders)
+          .where(
+            and(
+              ...pendingConditions,
+              inArray(
+                appointmentReminders.scheduleId,
+                schedules.map((schedule) => schedule.id)
+              )
+            )
+          )
+          .orderBy(asc(appointmentReminders.scheduledFor))
+          .limit(500)
+      : [];
 
   let sent = 0;
   let failed = 0;

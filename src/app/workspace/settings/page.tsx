@@ -60,6 +60,7 @@ const TIMEZONES = [
   { value: 'America/Chicago', label: 'Central Time (CT)' },
   { value: 'America/Denver', label: 'Mountain Time (MT)' },
   { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+  { value: 'Asia/Kolkata', label: 'India Standard Time (IST)' },
   { value: 'America/Phoenix', label: 'Arizona (MST)' },
   { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
   { value: 'Pacific/Honolulu', label: 'Hawaii Time (HT)' },

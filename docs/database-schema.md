@@ -184,4 +184,6 @@ PII-minimized failure reason.
 The unique key on `(appointment_id, schedule_id, channel, patient_id)` prevents
 duplicate occurrences. The due index supports the cron worker. Provider
 delivery confirmation is not implemented yet, so `delivered_at` remains unset
-until a provider webhook or polling integration is added.
+until a provider webhook or polling integration is added. Deleting a schedule
+cascades to its reminder occurrences and history; the reminders UI confirms
+this before deletion.

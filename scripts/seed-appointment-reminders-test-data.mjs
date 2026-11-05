@@ -55,153 +55,144 @@ async function getSamplePractice() {
       `;
     }
 
-    const [membership] = await tx`
+    await tx`
       INSERT INTO practice_members (practice_id, user_id, role)
       SELECT ${practice.id}, id, 'admin'
       FROM users
       ON CONFLICT (practice_id, user_id) DO NOTHING
-      RETURNING user_id
     `;
     const [user] = await tx`SELECT id FROM users LIMIT 1`;
     if (!user) throw new Error('Create a local user account before seeding reminder sample data.');
 
-    return { ...practice, createdBy: membership?.user_id ?? user.id };
+    return practice;
   });
 }
 
-async function getEmailTemplate() {
-  const [template] = await sql`
-    SELECT t.id, t.name
-    FROM templates t
-    JOIN template_categories c ON c.id = t.category_id
-    WHERE c.slug = 'appointment-reminders'
-      AND t.status = 'published'
-      AND t.channel = 'email'
-      AND t.is_system = true
-      AND t.deleted_at IS NULL
-      AND t.name <> '24-Hour Appointment Reminder (EMAIL)'
-    ORDER BY t.is_system DESC, t.name
-    LIMIT 1
-  `;
-  if (!template) {
-    throw new Error('No published appointment-reminder email template found. Seed or publish one first.');
-  }
-  return template;
-}
-
-async function upsertSchedules(practice, template) {
-  const definitions = [{ name: 'Sample 24-Hour Email Reminder', interval: '24_hours', localSendTime: '09:00' }];
-  const schedules = [];
-
-  await sql`
-    UPDATE appointment_reminder_schedules
-    SET enabled = false, updated_at = NOW()
-    WHERE practice_id = ${practice.id}
-  `;
-
-  for (const definition of definitions) {
-    const [existing] = await sql`
-      SELECT id
-      FROM appointment_reminder_schedules
-      WHERE practice_id = ${practice.id} AND name = ${definition.name}
-      LIMIT 1
-    `;
-    if (existing) {
-      const [updated] = await sql`
-        UPDATE appointment_reminder_schedules
-        SET interval = ${definition.interval},
-            channel = 'email',
-            local_send_time = ${definition.localSendTime},
-            template_id = ${template.id},
-            enabled = true,
-            updated_at = NOW()
-        WHERE id = ${existing.id} AND practice_id = ${practice.id}
-        RETURNING id, name, interval
-      `;
-      schedules.push(updated);
-    } else {
-      const [inserted] = await sql`
-        INSERT INTO appointment_reminder_schedules (
-          practice_id, name, interval, channel, local_send_time, template_id, enabled, created_by
-        )
-        VALUES (
-          ${practice.id}, ${definition.name}, ${definition.interval}, 'email',
-          ${definition.localSendTime}, ${template.id}, true, ${practice.createdBy}
-        )
-        RETURNING id, name, interval
-      `;
-      schedules.push(inserted);
-    }
-  }
-
-  return schedules;
-}
-
 async function upsertAppointments(practiceId) {
-  const now = Date.now();
-  const appointmentAt = new Date(now + 24 * 60 * 60_000 + 10 * 60_000);
-  const scenarios = [
+  const [{ timezone }] = await sql`
+    SELECT timezone FROM practices WHERE id = ${practiceId} LIMIT 1
+  `;
+  const now = new Date();
+  const localToday = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const localDate = new Map(localToday.map(({ type, value }) => [type, value]));
+  const sampleDate = new Date(Date.UTC(
+    Number(localDate.get('year')),
+    Number(localDate.get('month')) - 1,
+    Number(localDate.get('day')) + 8
+  ));
+  const sampleScenarios = [
     {
       patientId: 8901,
       appointmentId: 7801,
       firstName: 'William',
       lastName: 'Clark',
-      appointmentAt,
-      description: 'Automatic reminder test 1',
+      description: 'Routine dental cleaning',
     },
     {
       patientId: 8902,
       appointmentId: 7802,
       firstName: 'Sarah',
       lastName: 'Jenkins',
-      appointmentAt,
-      description: 'Automatic reminder test 2',
+      description: 'Dental examination',
     },
     {
       patientId: 8903,
       appointmentId: 7803,
       firstName: 'Michael',
       lastName: 'Chen',
-      appointmentAt,
-      description: 'Automatic reminder test 3',
+      description: 'Preventive care visit',
     },
     {
       patientId: 8904,
       appointmentId: 7804,
       firstName: 'Jessica',
       lastName: 'Taylor',
-      appointmentAt,
-      description: 'Automatic reminder test 4',
+      description: 'Dental cleaning',
     },
     {
       patientId: 8905,
       appointmentId: 7805,
       firstName: 'Emily',
       lastName: 'Davis',
-      appointmentAt,
-      description: 'Automatic reminder test 5',
+      description: 'Follow-up appointment',
     },
     {
       patientId: 8906,
       appointmentId: 7806,
       firstName: 'Robert',
       lastName: 'Wilson',
-      appointmentAt,
-      description: 'Automatic reminder test 6',
+      description: 'Routine dental examination',
+    },
+    {
+      patientId: 8907,
+      appointmentId: 7807,
+      firstName: 'Olivia',
+      lastName: 'Anderson',
+      description: 'Preventive dental visit',
+    },
+    {
+      patientId: 8908,
+      appointmentId: 7808,
+      firstName: 'James',
+      lastName: 'Martinez',
+      description: 'Dental examination',
+    },
+    {
+      patientId: 8909,
+      appointmentId: 7809,
+      firstName: 'Ava',
+      lastName: 'Robinson',
+      description: 'Routine dental cleaning',
+    },
+    {
+      patientId: 8910,
+      appointmentId: 7810,
+      firstName: 'Benjamin',
+      lastName: 'Lee',
+      description: 'Follow-up dental visit',
     },
   ];
+  const scenarios = sampleScenarios.map((sample, index) => {
+    const appointmentDate = new Date(Date.UTC(
+      sampleDate.getUTCFullYear(),
+      sampleDate.getUTCMonth(),
+      sampleDate.getUTCDate() + Math.floor(index / 2)
+    ));
+    return {
+      ...sample,
+      appointmentAt: localDateTimeToInstant(
+        {
+          year: appointmentDate.getUTCFullYear(),
+          month: appointmentDate.getUTCMonth() + 1,
+          day: appointmentDate.getUTCDate(),
+        },
+        index % 2 === 0 ? '09:00' : '10:00',
+        timezone
+      ),
+    };
+  });
 
   await sql.begin(async (tx) => {
     await tx`DELETE FROM appointment_reminders WHERE practice_id = ${practiceId}`;
     await tx`
+      DELETE FROM appointment_reminder_schedules
+      WHERE practice_id = ${practiceId}
+        AND name = 'Sample 24-Hour Email Reminder'
+    `;
+    await tx`
       DELETE FROM appointments
       WHERE practice_id = ${practiceId}
-        AND opendental_appt_id NOT IN (7801, 7802, 7803, 7804, 7805, 7806)
+        AND opendental_appt_id NOT IN (7801, 7802, 7803, 7804, 7805, 7806, 7807, 7808, 7809, 7810)
     `;
     await tx`
       DELETE FROM patients
       WHERE practice_id = ${practiceId}
-        AND opendental_patient_id NOT IN (8901, 8902, 8903, 8904, 8905, 8906)
+        AND opendental_patient_id NOT IN (8901, 8902, 8903, 8904, 8905, 8906, 8907, 8908, 8909, 8910)
     `;
 
     for (const sample of scenarios) {
@@ -233,7 +224,7 @@ async function upsertAppointments(practiceId) {
         )
         VALUES (
           ${practiceId}, ${patient.id}, ${sample.appointmentId}, ${sample.appointmentAt},
-          'Scheduled', ${sample.description}
+          'Scheduled', ${`Sample data: ${sample.description}`}
         )
         ON CONFLICT (practice_id, opendental_appt_id) DO UPDATE SET
           patient_id = EXCLUDED.patient_id,
@@ -248,18 +239,57 @@ async function upsertAppointments(practiceId) {
   return scenarios;
 }
 
+function localDateTimeToInstant(date, time, timeZone) {
+  const [hour, minute] = time.split(':').map(Number);
+  const target = Date.UTC(date.year, date.month - 1, date.day, hour, minute);
+  const offsetProbe = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+  const offsets = new Set();
+  for (const hours of [-24, -12, 0, 12, 24]) {
+    const probe = target + hours * 60 * 60_000;
+    const parts = new Map(offsetProbe.formatToParts(new Date(probe)).map(({ type, value }) => [type, value]));
+    const localAsUtc = Date.UTC(
+      Number(parts.get('year')),
+      Number(parts.get('month')) - 1,
+      Number(parts.get('day')),
+      Number(parts.get('hour')),
+      Number(parts.get('minute'))
+    );
+    offsets.add(localAsUtc - probe);
+  }
+  const instant = target - [...offsets][0];
+  for (const offset of offsets) {
+    const candidate = target - offset;
+    const parts = new Map(offsetProbe.formatToParts(new Date(candidate)).map(({ type, value }) => [type, value]));
+    if (
+      Number(parts.get('year')) === date.year &&
+      Number(parts.get('month')) === date.month &&
+      Number(parts.get('day')) === date.day &&
+      Number(parts.get('hour')) === hour &&
+      Number(parts.get('minute')) === minute
+    ) {
+      return new Date(candidate);
+    }
+  }
+  return new Date(instant);
+}
+
 async function main() {
-  const template = await getEmailTemplate();
   const practice = await getSamplePractice();
-  const schedules = await upsertSchedules(practice, template);
   const scenarios = await upsertAppointments(practice.id);
 
-  console.log(`Cleared prior sample history and seeded ${scenarios.length} eligible appointments.`);
+  console.log(`Cleared prior reminder history and refreshed ${scenarios.length} sample patients and appointments across five days.`);
   console.log(`Practice: ${practice.name} (${practice.id})`);
-  console.log(`Template: ${template.name}`);
-  console.log(`Schedules: ${schedules.map(({ name }) => name).join(', ')}`);
-  console.log(`All six consenting sample patients use ${sampleEmail}. Their 24-hour reminders are due now.`);
-  console.log('The seeder does not send emails. Use `pnpm reminders:cron:local` to start the two-minute sample-only cron runner.');
+  console.log(`All ten email-consenting sample patients use ${sampleEmail}.`);
+  console.log('Existing reminder schedules are preserved. Upcoming reminders are derived from enabled schedules and these appointments.');
+  console.log('The data seeder does not send emails. Use `pnpm reminders:cron:local` to start the two-minute sample-only cron runner.');
 }
 
 main()

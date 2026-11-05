@@ -5,9 +5,126 @@ import AppointmentsCalendar from './AppointmentsCalendar';
 describe('AppointmentsCalendar', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it('navigates to the next local appointment date when today has no appointments', async () => {
+    localStorage.setItem('selectedClinicId', 'c2bc15a1-926b-42f8-b9f7-ecb2a1e8e1ae');
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({
+          data: [],
+          columns: [],
+          nextAppointmentDate: '2026-11-12',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ data: [], columns: [] }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<AppointmentsCalendar />);
+
+    expect(screen.queryByRole('button', { name: 'Sync to Database' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Refresh API' })).toBeNull();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', {
+        name: 'Thursday, November 12, 2026',
+      })).toBeDefined();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][0]).toContain('date=2026-11-12');
+  });
+
+  it('resolves and stores the first practice when the calendar loads before practice selection', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({
+          data: [{ id: 'c2bc15a1-926b-42f8-b9f7-ecb2a1e8e1ae' }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({
+          data: [],
+          columns: [],
+          nextAppointmentDate: '2026-11-13',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ data: [], columns: [] }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<AppointmentsCalendar />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', {
+        name: 'Friday, November 13, 2026',
+      })).toBeDefined();
+    });
+    expect(fetchMock.mock.calls[1][0]).toContain(
+      'practiceId=c2bc15a1-926b-42f8-b9f7-ecb2a1e8e1ae'
+    );
+    expect(localStorage.getItem('selectedClinicId')).toBe('c2bc15a1-926b-42f8-b9f7-ecb2a1e8e1ae');
+  });
+
+  it('renders the two scheduled sample appointments for a selected sample day', async () => {
+    localStorage.setItem('selectedClinicId', 'c2bc15a1-926b-42f8-b9f7-ecb2a1e8e1ae');
+    const appointments = [
+      { patientName: 'Clark, William', time: '09:00:00', appointmentId: 7801, patientId: 8901 },
+      { patientName: 'Jenkins, Sarah', time: '10:00:00', appointmentId: 7802, patientId: 8902 },
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({
+            data: [],
+            columns: [],
+            nextAppointmentDate: '2026-11-13',
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({
+            data: appointments.map(({ patientName, time, appointmentId, patientId }) => ({
+              AptNum: appointmentId,
+              PatNum: patientId,
+              AptDateTime: `2026-11-13 ${time}`,
+              Op: 3,
+              AptStatus: 'Scheduled',
+              patientName,
+              durationMinutes: 30,
+            })),
+            columns: [],
+          }),
+        })
+    );
+
+    render(<AppointmentsCalendar />);
+
+    for (const { patientName } of appointments) {
+      expect(await screen.findByText(patientName)).toBeDefined();
+    }
+    expect(screen.getAllByText('30 min · Scheduled')).toHaveLength(2);
   });
 
   it('renders today date by default without clinic parameter, and shows hover details', async () => {
+    localStorage.setItem('selectedClinicId', 'c2bc15a1-926b-42f8-b9f7-ecb2a1e8e1ae');
     let capturedUrl = '';
 
     vi.stubGlobal(

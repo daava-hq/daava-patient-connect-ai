@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { z } from 'zod';
+import { authOptions } from '@/lib/auth/options';
+import { requirePracticeMembership } from '@/lib/auth/guards';
+import { AppError } from '@/lib/errors';
 import { env } from '@/lib/env';
 import { getOpenDentalAppointments } from '@/lib/opendental/appointments';
 import { getOpenDentalPatients } from '@/lib/opendental/patients';
@@ -15,11 +20,41 @@ import {
 } from '@/lib/opendental/types';
 import { fetchOpenDental } from '@/lib/opendental/client';
 import { db } from '@/db';
-import { practices } from '@/db/schema/practices';
 import { practiceOpendentalCredentials } from '@/db/schema/practice_credentials';
+import { practices } from '@/db/schema/practices';
 import { and, eq, inArray } from 'drizzle-orm';
 import { decrypt } from '@/lib/opendental/crypto';
 import { patients as patientsTable } from '@/db/schema/patients';
+import {
+  getNextPracticeAppointmentDate,
+  getPracticeAppointments,
+} from '@/lib/appointments/appointment-repository';
+
+const querySchema = z.object({
+  practiceId: z.string().uuid(),
+  date: z.string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine((value) => {
+      const parsed = new Date(`${value}T00:00:00.000Z`);
+      return Number.isFinite(parsed.getTime()) && parsed.toISOString().startsWith(value);
+    }),
+  offset: z.coerce.number().int().nonnegative().default(0),
+});
+
+function formatPracticeDateTime(value: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(value);
+  const fields = new Map(parts.map(({ type, value: partValue }) => [type, partValue]));
+  return `${fields.get('year')}-${fields.get('month')}-${fields.get('day')} ${fields.get('hour')}:${fields.get('minute')}:${fields.get('second')}`;
+}
 
 // In-memory cache for providers, operatories, and patient details (valid for 2 minutes)
 interface CachedData {
@@ -31,36 +66,70 @@ interface CachedData {
 
 let cache: CachedData | null = null;
 const CACHE_TTL_MS = 2 * 60 * 1000;
+const SAMPLE_PRACTICE_SLUG = 'appointment-reminder-sample';
 
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    let practiceId = searchParams.get('practiceId');
-
-    if (!practiceId) {
-      const [defaultPractice] = await db
-        .select({ id: practices.id })
-        .from(practices)
-        .limit(1);
-      practiceId = defaultPractice?.id || 'c678c32c-2eeb-47ae-95ff-3938bc40e54b';
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
-    const date = searchParams.get('date') || todayStr;
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const { searchParams } = new URL(req.url);
+    const parsedQuery = querySchema.safeParse(Object.fromEntries(searchParams));
+    if (!parsedQuery.success) {
+      return NextResponse.json({ error: 'A valid practiceId and date are required' }, { status: 400 });
+    }
+    const { practiceId, date, offset } = parsedQuery.data;
+    await requirePracticeMembership(session.user.id, practiceId);
+
     const refresh = searchParams.get('refresh') === 'true';
 
+    const [practice] = await db
+      .select({ slug: practices.slug })
+      .from(practices)
+      .where(eq(practices.id, practiceId))
+      .limit(1);
     const [creds] = await db
       .select()
       .from(practiceOpendentalCredentials)
       .where(eq(practiceOpendentalCredentials.practiceId, practiceId))
       .limit(1);
 
-    if (!creds) {
-      return NextResponse.json(
-        { error: 'Open Dental integration keys have not been added for this practice. Please configure them in Practice Settings.' },
-        { status: 400 }
-      );
+    if (!creds || practice?.slug === SAMPLE_PRACTICE_SLUG) {
+      const result = await getPracticeAppointments(practiceId, { date, limit: 500, offset });
+      return NextResponse.json({
+        data: result.appointments.map((appointment) => ({
+          AptNum: appointment.opendentalApptId,
+          PatNum: appointment.patientOpendentalId,
+          AptDateTime: formatPracticeDateTime(appointment.scheduledAt, appointment.practiceTimezone),
+          AptStatus: appointment.status,
+          ProcDescript: appointment.description ?? '',
+          Op: 3,
+          Pattern: 'XXXXXX',
+          IsNewPatient: appointment.patientStatus === 'Prospective',
+          confirmed: appointment.confirmationStatus ?? 'Unconfirmed',
+          patientName: `${appointment.patientLastName}, ${appointment.patientFirstName}`.trim(),
+          durationMinutes: 30,
+          patientDetails: {
+            PatNum: appointment.patientOpendentalId,
+            LName: appointment.patientLastName,
+            FName: appointment.patientFirstName,
+            PatStatus: appointment.patientStatus,
+            Birthdate: appointment.patientDateOfBirth ?? undefined,
+            HmPhone: appointment.patientPhoneHome ?? undefined,
+            WirelessPhone: appointment.patientPhoneMobile ?? undefined,
+            Email: appointment.patientEmail ?? undefined,
+            smsConsent: appointment.patientSmsConsent,
+            emailConsent: appointment.patientEmailConsent,
+          },
+          diseases: [],
+        })),
+        columns: [],
+        ...(result.appointments.length === 0
+          ? { nextAppointmentDate: await getNextPracticeAppointmentDate(practiceId) }
+          : {}),
+      });
     }
 
     const devKey = decrypt(creds.developerKeyEnc);
@@ -215,6 +284,9 @@ export async function GET(req: NextRequest) {
       { status: 200 }
     );
   } catch (err: unknown) {
+    if (err instanceof AppError) {
+      return NextResponse.json({ error: err.message }, { status: err.statusCode });
+    }
     const error = err instanceof Error ? err : new Error(String(err));
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

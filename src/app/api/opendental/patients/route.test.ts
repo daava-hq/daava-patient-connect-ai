@@ -5,10 +5,7 @@ import { AppError } from '@/lib/errors';
 const mocks = vi.hoisted(() => ({
   getServerSession: vi.fn(),
   requirePracticeMembership: vi.fn(),
-  getOpenDentalPatients: vi.fn(),
-  decrypt: vi.fn(),
-  upsertPatient: vi.fn(),
-  select: vi.fn(),
+  getPracticePatients: vi.fn(),
 }));
 
 vi.mock('next-auth', () => ({ getServerSession: mocks.getServerSession }));
@@ -16,20 +13,15 @@ vi.mock('@/lib/auth/options', () => ({ authOptions: {} }));
 vi.mock('@/lib/auth/guards', () => ({
   requirePracticeMembership: mocks.requirePracticeMembership,
 }));
-vi.mock('@/lib/opendental/patients', () => ({
-  getOpenDentalPatients: mocks.getOpenDentalPatients,
-}));
-vi.mock('@/lib/opendental/crypto', () => ({ decrypt: mocks.decrypt }));
 vi.mock('@/lib/patients/patient-repository', () => ({
-  upsertPatient: mocks.upsertPatient,
+  getPracticePatients: mocks.getPracticePatients,
 }));
-vi.mock('@/db', () => ({ db: { select: mocks.select } }));
 
 import { GET } from './route';
 
 const practiceId = 'c2bc15a1-926b-42f8-b9f7-ecb2a1e8e1ae';
 
-describe('Open Dental patients route', () => {
+describe('Patients route', () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
@@ -56,40 +48,27 @@ describe('Open Dental patients route', () => {
     );
 
     expect(response.status).toBe(403);
-    expect(mocks.select).not.toHaveBeenCalled();
+    expect(mocks.getPracticePatients).not.toHaveBeenCalled();
   });
 
-  it('includes the persisted consent flags in each patient result', async () => {
+  it('returns practice patients and consent flags from the database', async () => {
     mocks.getServerSession.mockResolvedValue({ user: { id: 'user-id' } });
     mocks.requirePracticeMembership.mockResolvedValue({});
-    mocks.decrypt.mockReturnValue('decrypted-key');
-    mocks.getOpenDentalPatients.mockResolvedValue([
-      {
-        PatNum: 101,
-        FName: 'Alex',
-        LName: 'Taylor',
-        Email: 'alex@example.com',
-        WirelessPhone: '555-0101',
-      },
-    ]);
-    mocks.upsertPatient.mockResolvedValue({ smsConsent: false, emailConsent: true });
-
-    const credentialsQuery = {
-      from: vi.fn(),
-      where: vi.fn(),
-      limit: vi.fn().mockResolvedValue([
-        { developerKeyEnc: 'encrypted-developer-key', customerKeyEnc: 'encrypted-customer-key' },
-      ]),
-    };
-    credentialsQuery.from.mockReturnValue(credentialsQuery);
-    credentialsQuery.where.mockReturnValue(credentialsQuery);
-
-    const countQuery = {
-      from: vi.fn(),
-      where: vi.fn().mockResolvedValue([{ count: 1 }]),
-    };
-    countQuery.from.mockReturnValue(countQuery);
-    mocks.select.mockReturnValueOnce(credentialsQuery).mockReturnValueOnce(countQuery);
+    mocks.getPracticePatients.mockResolvedValue({
+      patients: [{
+        opendentalPatientId: 101,
+        firstName: 'Alex',
+        lastName: 'Taylor',
+        dateOfBirth: '1985-04-12',
+        phoneHome: '555-0102',
+        phoneMobile: '555-0101',
+        email: 'alex@example.com',
+        status: 'Patient',
+        smsConsent: false,
+        emailConsent: true,
+      }],
+      total: 1,
+    });
 
     const response = await GET(
       new NextRequest(`http://localhost/api/opendental/patients?practiceId=${practiceId}&limit=20`)
@@ -97,7 +76,61 @@ describe('Open Dental patients route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.data[0]).toMatchObject({ emailConsent: true, smsConsent: false });
+    expect(body).toMatchObject({
+      total: 1,
+      data: [{
+        PatNum: 101,
+        FName: 'Alex',
+        LName: 'Taylor',
+        Birthdate: '1985-04-12',
+        HmPhone: '555-0102',
+        WirelessPhone: '555-0101',
+        Email: 'alex@example.com',
+        PatStatus: 'Patient',
+        emailConsent: true,
+        smsConsent: false,
+      }],
+    });
+    expect(mocks.getPracticePatients).toHaveBeenCalledWith(practiceId, { limit: 20, offset: 0 });
     expect(mocks.requirePracticeMembership).toHaveBeenCalledWith('user-id', practiceId);
+  });
+
+  it('returns sample patients from the database', async () => {
+    mocks.getServerSession.mockResolvedValue({ user: { id: 'user-id' } });
+    mocks.requirePracticeMembership.mockResolvedValue({});
+    mocks.getPracticePatients.mockResolvedValue({
+      patients: [
+        {
+          opendentalPatientId: 8901,
+          firstName: 'William',
+          lastName: 'Clark',
+          dateOfBirth: '1985-06-15',
+          phoneHome: null,
+          phoneMobile: null,
+          email: 'prem@daava.ai',
+          status: 'Patient',
+          smsConsent: false,
+          emailConsent: true,
+        },
+      ],
+      total: 1,
+    });
+    const response = await GET(
+      new NextRequest(`http://localhost/api/opendental/patients?practiceId=${practiceId}&limit=20`)
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      total: 1,
+      data: [{
+        PatNum: 8901,
+        FName: 'William',
+        LName: 'Clark',
+        Email: 'prem@daava.ai',
+        emailConsent: true,
+      }],
+    });
+    expect(mocks.getPracticePatients).toHaveBeenCalledWith(practiceId, { limit: 20, offset: 0 });
   });
 });

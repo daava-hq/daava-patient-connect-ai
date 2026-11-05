@@ -2,11 +2,41 @@ import 'server-only';
 import { db } from '@/db';
 import { appointments, Appointment, NewAppointment } from '@/db/schema/appointments';
 import { patients } from '@/db/schema/patients';
-import { eq, and, sql, desc } from 'drizzle-orm';
+import { practices } from '@/db/schema/practices';
+import { eq, and, sql, asc, desc } from 'drizzle-orm';
+
+export async function getNextPracticeAppointmentDate(practiceId: string) {
+  const [appointment] = await db
+    .select({
+      scheduledAt: appointments.scheduledAt,
+      practiceTimezone: practices.timezone,
+    })
+    .from(appointments)
+    .innerJoin(practices, eq(appointments.practiceId, practices.id))
+    .where(and(
+      eq(appointments.practiceId, practiceId),
+      sql`${appointments.scheduledAt} >= now()`
+    ))
+    .orderBy(asc(appointments.scheduledAt))
+    .limit(1);
+
+  if (!appointment) {
+    return null;
+  }
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: appointment.practiceTimezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(appointment.scheduledAt);
+  const fields = new Map(parts.map(({ type, value }) => [type, value]));
+  return `${fields.get('year')}-${fields.get('month')}-${fields.get('day')}`;
+}
 
 export async function getPracticeAppointments(
   practiceId: string,
-  options: { status?: string; limit?: number; offset?: number } = {}
+  options: { status?: string; date?: string; limit?: number; offset?: number } = {}
 ) {
   const limit = options.limit || 50;
   const offset = options.offset || 0;
@@ -14,6 +44,11 @@ export async function getPracticeAppointments(
   const conditions = [eq(appointments.practiceId, practiceId)];
   if (options.status) {
     conditions.push(eq(appointments.status, options.status));
+  }
+  if (options.date) {
+    conditions.push(
+      sql`(${appointments.scheduledAt} AT TIME ZONE ${practices.timezone})::date = ${options.date}::date`
+    );
   }
 
   const whereClause = conditions.length > 1 ? and(...conditions) : conditions[0];
@@ -31,9 +66,19 @@ export async function getPracticeAppointments(
       syncedAt: appointments.syncedAt,
       patientFirstName: patients.firstName,
       patientLastName: patients.lastName,
+      patientOpendentalId: patients.opendentalPatientId,
+      patientDateOfBirth: patients.dateOfBirth,
+      patientPhoneHome: patients.phoneHome,
+      patientPhoneMobile: patients.phoneMobile,
+      patientEmail: patients.email,
+      patientStatus: patients.status,
+      patientSmsConsent: patients.smsConsent,
+      patientEmailConsent: patients.emailConsent,
+      practiceTimezone: practices.timezone,
     })
     .from(appointments)
     .innerJoin(patients, eq(appointments.patientId, patients.id))
+    .innerJoin(practices, eq(appointments.practiceId, practices.id))
     .where(whereClause)
     .orderBy(desc(appointments.scheduledAt))
     .limit(limit)
@@ -42,6 +87,7 @@ export async function getPracticeAppointments(
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)` })
     .from(appointments)
+    .innerJoin(practices, eq(appointments.practiceId, practices.id))
     .where(whereClause);
 
   return {

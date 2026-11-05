@@ -36,7 +36,7 @@ function getDateParts(date: Date, timeZone: string) {
   };
 }
 
-function localDateTimeToInstant(
+export function localDateTimeToInstant(
   dateParts: { year: number; month: number; day: number },
   time: string,
   timeZone: string
@@ -73,6 +73,33 @@ function localDateTimeToInstant(
   throw new RangeError(`Could not resolve local reminder time in timezone ${timeZone}`);
 }
 
+export function getSampleAppointmentTimes(now: Date, timeZone: string, count: number): Date[] {
+  const localToday = getDateParts(now, timeZone);
+  const sampleDate = new Date(Date.UTC(localToday.year, localToday.month - 1, localToday.day + 8));
+
+  return Array.from(
+    { length: count },
+    (_, index) => {
+      const appointmentDate = new Date(
+        Date.UTC(
+          sampleDate.getUTCFullYear(),
+          sampleDate.getUTCMonth(),
+          sampleDate.getUTCDate() + Math.floor(index / 2)
+        )
+      );
+      return localDateTimeToInstant(
+        {
+          year: appointmentDate.getUTCFullYear(),
+          month: appointmentDate.getUTCMonth() + 1,
+          day: appointmentDate.getUTCDate(),
+        },
+        index % 2 === 0 ? '09:00' : '10:00',
+        timeZone
+      );
+    }
+  );
+}
+
 export function calculateReminderTime(
   appointmentAt: Date,
   interval: ReminderIntervalValue,
@@ -104,7 +131,7 @@ export function calculateReminderTime(
     month: priorLocalDate.getUTCMonth() + 1,
     day: priorLocalDate.getUTCDate(),
   };
-  return localDateTimeToInstant(priorDate, `${String(localDate.hour).padStart(2, '0')}:${String(localDate.minute).padStart(2, '0')}`, timeZone);
+  return localDateTimeToInstant(priorDate, localSendTime, timeZone);
 }
 
 export function isEligibleAppointment(status: string, patientStatus: string): boolean {

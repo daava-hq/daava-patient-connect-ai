@@ -95,6 +95,21 @@ Key fields to store locally:
 confirmation must never replace the appointment's `AptStatus` (for example,
 `Scheduled`), because reminder eligibility depends on that appointment status.
 
+The Patients Directory always reads from the authenticated user's
+practice-scoped local patient records. Open Dental patient data appears there
+after it has been synchronized into the database; configuring credentials alone
+does not make the directory fetch live API results. Patient synchronization is
+available through the practice sync workflow.
+
+The Appointment Calendar uses the Open Dental API when practice credentials
+are configured. When credentials are absent, it reads practice-scoped local
+appointments instead. The dedicated `appointment-reminder-sample` practice
+always uses local records, even if credentials exist, so its synthetic
+appointments are displayed instead of unrelated Open Dental data. The calendar
+resolves the user's first assigned practice if the selected practice has not
+loaded yet. This does not provision or imply an Open Dental integration for the
+sample practice.
+
 ## Appointment reminders
 
 Appointment reminders read only from the locally synchronized `appointments`
@@ -108,9 +123,10 @@ Before writing, the server re-reads the Open Dental appointment and checks its
 status, patient, and practice-local appointment time against the synchronized
 record. The appointment sync maps Open Dental's `confirmed` value back into
 `confirmation_status`.
-Schedules use the practice IANA timezone. Seven-day and three-day intervals
-preserve the appointment's local wall-clock time, 24-hour reminders use elapsed
-time, and same-day reminders use a configurable local time.
+Schedules use the practice IANA timezone. Seven-day and three-day reminders are
+scheduled on the corresponding local calendar date at the schedule's configured
+send time. Twenty-four-hour reminders use elapsed time before the appointment;
+same-day reminders use the configured local send time.
 
 The worker targets appointments whose local status is `Scheduled` and whose
 patient status is `Patient`, then rechecks both immediately before dispatch.

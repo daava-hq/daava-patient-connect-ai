@@ -7,7 +7,7 @@ import FilterBar from '@/components/ui/FilterBar/FilterBar';
 import SearchInput from '@/components/ui/SearchInput/SearchInput';
 import StatusBadge from '@/components/ui/StatusBadge/StatusBadge';
 import Pagination from '@/components/ui/Pagination/Pagination';
-import { RefreshCw, Database, Key, Mail, Phone } from 'lucide-react';
+import { Key, Mail, Phone } from 'lucide-react';
 import SectionCard from '@/components/ui/SectionCard/SectionCard';
 import EmptyState from '@/components/feedback/EmptyState/EmptyState';
 import Link from 'next/link';
@@ -31,9 +31,7 @@ const PAGE_SIZE = 20;
 export default function PatientsPage() {
   const [patients, setPatients] = useState<OpenDentalPatientRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -87,44 +85,6 @@ export default function PatientsPage() {
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
     fetchOpenDentalPatients(newPage);
-  };
-
-  const handleSyncToDatabase = async (e?: React.MouseEvent) => {
-    if (e) e.preventDefault();
-    setSyncing(true);
-    setError('');
-    try {
-      let practiceId = typeof window !== 'undefined' ? localStorage.getItem('selectedClinicId') || '' : '';
-      if (!practiceId) {
-        const resList = await fetch('/api/practices');
-        if (resList.ok) {
-          const jsonList = await resList.json();
-          if (jsonList.data && jsonList.data.length > 0) {
-            practiceId = jsonList.data[0].id;
-            localStorage.setItem('selectedClinicId', practiceId);
-          }
-        }
-      }
-      if (!practiceId) {
-        throw new Error('No practice selected. Please choose a practice.');
-      }
-
-      const res = await fetch(`/api/practices/${practiceId}/sync`, {
-        method: 'POST',
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.error || 'Sync failed');
-      }
-      setSuccessMsg(`Successfully synchronized ${json.data.count} patients to database!`);
-      setTimeout(() => setSuccessMsg(''), 4000);
-      fetchOpenDentalPatients(currentPage);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Sync failed';
-      setError(message);
-    } finally {
-      setSyncing(false);
-    }
   };
 
   const filteredPatients = patients.filter((p) => {
@@ -228,52 +188,6 @@ export default function PatientsPage() {
         title="Patients Directory"
         description="Patients retrieved live from Open Dental API (/patients/Simple?Offset=N) with server-side offset pagination."
         breadcrumbs={[{ label: 'Workspace' }, { label: 'Patients' }]}
-        actions={
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={handleSyncToDatabase}
-              disabled={syncing}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                backgroundColor: 'var(--color-primary)',
-                color: 'var(--color-surface)',
-                border: 'none',
-                borderRadius: 'var(--radius-md)',
-                padding: '0.5rem 1rem',
-                fontSize: 'var(--font-size-sm)',
-                fontWeight: 'var(--font-weight-medium)',
-                cursor: 'pointer',
-              }}
-            >
-              <Database size={16} />
-              <span>{syncing ? 'Syncing...' : 'Sync to Database'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => fetchOpenDentalPatients(currentPage)}
-              disabled={loading}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                backgroundColor: 'var(--color-surface)',
-                color: 'var(--color-text)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                padding: '0.5rem 1rem',
-                fontSize: 'var(--font-size-sm)',
-                fontWeight: 'var(--font-weight-medium)',
-                cursor: 'pointer',
-              }}
-            >
-              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-              <span>{loading ? 'Refreshing...' : 'Refresh API'}</span>
-            </button>
-          </div>
-        }
       />
 
       {error && (
@@ -293,12 +207,6 @@ export default function PatientsPage() {
               </a>
             </div>
           )}
-        </div>
-      )}
-
-      {successMsg && (
-        <div style={{ padding: '1rem', marginBottom: '1rem', backgroundColor: 'rgb(22 163 74 / 0.1)', color: 'var(--color-success)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)' }}>
-          {successMsg}
         </div>
       )}
 

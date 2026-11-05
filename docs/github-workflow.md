@@ -15,6 +15,8 @@ Never force-push or rewrite history on `main` or `develop` without explicit team
 
 ## Commit conventions (Conventional Commits)
 
+Do not add `Co-authored-by` trailers unless the user explicitly requests them.
+
 ```
 <type>(<scope>): <short summary>
 

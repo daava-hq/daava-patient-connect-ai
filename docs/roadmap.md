@@ -145,8 +145,10 @@ provider, delivery confirmation, and deployment cron are configured.
 - [x] Published 24-hour email confirmation template with an explicit, signed patient action.
 - [x] Open Dental appointment confirmation write path and separate local confirmation status.
 - [x] Protected cron endpoint, two-minute local sample runner, and manual execution endpoint.
-- [x] Local/dev-only six-appointment sample seed/reset workflow and sample-practice isolation.
-- [x] Sample 24-hour reminder occurrence is scheduled 10 minutes after seeding/reset to avoid accidental immediate sends.
+- [x] Local/dev-only ten-patient/ten-appointment sample seed/reset workflow across five days and sample-practice isolation.
+- [x] Dashboard-only sample patient/appointment refresh action for the dedicated sample practice; Upcoming reminders is derived from these database records and the practice's enabled schedules.
+- [x] Delete configured reminder schedules with confirmation that their occurrence history is also deleted.
+- [x] Sample reset preserves configured schedules and removes the legacy auto-created sample schedule; it does not create reminder schedules or occurrences.
 - [x] Consent, contact, patient, appointment status, and ownership rechecks before dispatch.
 - [x] Unit tests for DST boundaries, suppression rules, provider errors, template validity, occurrence uniqueness, and practice membership.
 - [x] Add Resend email adapter; production API key and verified sender configuration remain deployment-specific.
