@@ -61,6 +61,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { templateId
 
     const existing = await getTemplateById(practiceId, params.templateId);
     if (!existing) return NextResponse.json({ error: 'Template not found' }, { status: 404 });
+    if (rest.channel && rest.channel !== existing.channel) {
+      return NextResponse.json({ error: 'Template channel cannot be changed after creation' }, { status: 400 });
+    }
     const nextChannel = rest.channel ?? existing.channel;
     const nextContent = rest.content ?? existing.content;
     const nextSubject = typeof nextContent === 'object' && nextContent !== null &&

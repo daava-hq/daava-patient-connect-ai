@@ -150,6 +150,7 @@ provider, delivery confirmation, and deployment cron are configured.
 - [x] Delete configured reminder schedules with confirmation that their occurrence history is also deleted.
 - [x] Sample reset preserves configured schedules and removes the legacy auto-created sample schedule; it does not create reminder schedules or occurrences.
 - [x] Consent, contact, patient, appointment status, and ownership rechecks before dispatch.
+- [x] Filter upcoming reminders by practice-local reminder date and show appointment status in the table.
 - [x] Unit tests for DST boundaries, suppression rules, provider errors, template validity, occurrence uniqueness, and practice membership.
 - [x] Add Resend email adapter; production API key and verified sender configuration remain deployment-specific.
 - [ ] Configure production SMS provider and delivery callbacks/polling.

@@ -8,6 +8,7 @@ import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
 import EmailMessagePreview from '@/components/feature/EmailMessagePreview/EmailMessagePreview';
 import {
   REMINDER_INTERVAL_OPTIONS,
+  getDateKeyInTimeZone,
   type ReminderIntervalValue,
 } from '@/lib/appointment-reminders/reminder-utils';
 import styles from './RemindersPage.module.css';
@@ -137,6 +138,7 @@ export default function RemindersPage() {
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [form, setForm] = useState<ScheduleForm>(EMPTY_FORM);
   const [filterSchedule, setFilterSchedule] = useState('all');
+  const [filterReminderDate, setFilterReminderDate] = useState('');
   const [audienceFilter, setAudienceFilter] = useState<'all' | 'eligible' | 'ineligible'>('all');
   const [historyFilter, setHistoryFilter] = useState<'all' | 'failed'>('all');
   const [search, setSearch] = useState('');
@@ -214,21 +216,25 @@ export default function RemindersPage() {
     );
     return Array.from(appointmentsById.values());
   }, [dashboard]);
+  const selectedPracticeTimezone = dashboard?.practice.timezone ?? 'UTC';
   const filteredUpcoming = useMemo(() => {
     if (!dashboard) return [];
     return dashboard.upcoming.filter((reminder) => {
       if (filterSchedule !== 'all' && reminder.scheduleId !== filterSchedule) return false;
+      if (
+        filterReminderDate &&
+        getDateKeyInTimeZone(new Date(reminder.reminderAt), selectedPracticeTimezone) !== filterReminderDate
+      ) return false;
       if (audienceFilter === 'eligible' && !reminder.eligible) return false;
       if (audienceFilter === 'ineligible' && reminder.eligible) return false;
       return reminder.patientName.toLowerCase().includes(search.toLowerCase());
     });
-  }, [audienceFilter, dashboard, filterSchedule, search]);
+  }, [audienceFilter, dashboard, filterReminderDate, filterSchedule, search, selectedPracticeTimezone]);
   const filteredHistory = useMemo(
     () => dashboard?.history.filter((reminder) => historyFilter === 'all' || reminder.status === 'failed') ?? [],
     [dashboard, historyFilter]
   );
   const selectedTemplate = templates.find((template) => template.id === form.templateId);
-  const selectedPracticeTimezone = dashboard?.practice.timezone ?? 'UTC';
 
   function openCreateForm() {
     setEditingScheduleId(null);
@@ -519,6 +525,15 @@ export default function RemindersPage() {
                 </select>
               </label>
               <label>
+                Reminder date
+                <input
+                  type="date"
+                  value={filterReminderDate}
+                  onChange={(event) => setFilterReminderDate(event.target.value)}
+                  aria-label="Filter reminders by reminder date"
+                />
+              </label>
+              <label>
                 Audience
                 <select value={audienceFilter} onChange={(event) => setAudienceFilter(event.target.value as typeof audienceFilter)}>
                   <option value="all">All patients</option>
@@ -540,6 +555,7 @@ export default function RemindersPage() {
                     <tr>
                       <th>Patient</th>
                       <th>Appointment</th>
+                      <th>Appointment status</th>
                       <th>Reminder</th>
                       <th>Channel</th>
                       <th>Eligibility</th>
@@ -554,6 +570,7 @@ export default function RemindersPage() {
                           <span className={styles.tableSubtext}>{reminder.scheduleName}</span>
                         </td>
                         <td>{formatDate(reminder.scheduledAt, selectedPracticeTimezone)}</td>
+                        <td><span className={styles.statusBadge}>{reminder.appointmentStatus}</span></td>
                         <td>{formatDate(reminder.reminderAt, selectedPracticeTimezone)}</td>
                         <td>{reminder.channel.toUpperCase()}</td>
                         <td>

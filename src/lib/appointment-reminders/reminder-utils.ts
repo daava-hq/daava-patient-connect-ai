@@ -36,6 +36,11 @@ function getDateParts(date: Date, timeZone: string) {
   };
 }
 
+export function getDateKeyInTimeZone(date: Date, timeZone: string): string {
+  const { year, month, day } = getDateParts(date, timeZone);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 export function localDateTimeToInstant(
   dateParts: { year: number; month: number; day: number },
   time: string,

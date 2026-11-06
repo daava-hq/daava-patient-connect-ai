@@ -332,7 +332,6 @@ export default function EditTemplateEditorPage() {
           name: templateName,
           description: templateDescription,
           templateType,
-          channel,
           content: {
             ...doc,
             subject: channel === 'email' ? doc.subject : undefined,
@@ -377,28 +376,30 @@ export default function EditTemplateEditorPage() {
             aria-label="Template name"
             style={{ fontSize: '1rem', fontWeight: 600, border: '1px solid #cbd5e1', padding: '0.35rem 0.6rem', borderRadius: '4px', background: '#fff', width: '220px' }}
           />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Starter Layout:</label>
-            <select
-              onChange={(e) => {
-                if (e.target.value) {
-                  setDoc(createDefaultDocument(e.target.value));
-                  showToast('Loaded starter layout', 'success');
-                }
-              }}
-              defaultValue="newsletter"
-              style={{ padding: '0.35rem 0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
-            >
-              <option value="newsletter">Dental Newsletter</option>
-              <option value="announcement">Practice Announcement</option>
-              <option value="appointment">Appointment Reminder</option>
-              <option value="birthday">Birthday Greeting</option>
-              <option value="payment">Payment Reminder</option>
-              <option value="recall">Recall Reminder</option>
-              <option value="referral">Referral Thank-You</option>
-              <option value="survey">Survey Invitation</option>
-            </select>
-          </div>
+          {channel === 'email' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Starter Layout:</label>
+              <select
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setDoc(createDefaultDocument(e.target.value));
+                    showToast('Loaded starter layout', 'success');
+                  }
+                }}
+                defaultValue="newsletter"
+                style={{ padding: '0.35rem 0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
+              >
+                <option value="newsletter">Dental Newsletter</option>
+                <option value="announcement">Practice Announcement</option>
+                <option value="appointment">Appointment Reminder</option>
+                <option value="birthday">Birthday Greeting</option>
+                <option value="payment">Payment Reminder</option>
+                <option value="recall">Recall Reminder</option>
+                <option value="referral">Referral Thank-You</option>
+                <option value="survey">Survey Invitation</option>
+              </select>
+            </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <label style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Category:</label>
             <select
@@ -413,20 +414,22 @@ export default function EditTemplateEditorPage() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ display: 'flex', background: '#f1f5f9', padding: '2px', borderRadius: '6px' }}>
-            <button
-              onClick={() => setPreviewMode('desktop')}
-              style={{ background: previewMode === 'desktop' ? '#fff' : 'none', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
-            >
-              <Monitor size={16} /> Desktop
-            </button>
-            <button
-              onClick={() => setPreviewMode('mobile')}
-              style={{ background: previewMode === 'mobile' ? '#fff' : 'none', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
-            >
-              <Smartphone size={16} /> Mobile
-            </button>
-          </div>
+          {channel === 'email' && (
+            <div style={{ display: 'flex', background: '#f1f5f9', padding: '2px', borderRadius: '6px' }}>
+              <button
+                onClick={() => setPreviewMode('desktop')}
+                style={{ background: previewMode === 'desktop' ? '#fff' : 'none', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
+              >
+                <Monitor size={16} /> Desktop
+              </button>
+              <button
+                onClick={() => setPreviewMode('mobile')}
+                style={{ background: previewMode === 'mobile' ? '#fff' : 'none', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
+              >
+                <Smartphone size={16} /> Mobile
+              </button>
+            </div>
+          )}
           {channel === 'email' && (
             <button
               onClick={() => setShowHtmlPreview(!showHtmlPreview)}
@@ -451,22 +454,9 @@ export default function EditTemplateEditorPage() {
         <aside style={{ width: '300px', background: '#fff', borderRight: '1px solid #e2e8f0', padding: '1.25rem', overflowY: 'auto' }}>
           <div style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid #e2e8f0' }}>
             <h4 style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Message Settings</h4>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginBottom: '0.75rem', fontSize: '0.8rem', color: '#475569', fontWeight: 500 }}>
-              Template channel
-              <select
-                value={channel}
-                onChange={(e) => {
-                  const nextChannel = e.target.value as 'sms' | 'email';
-                  setChannel(nextChannel);
-                  setTemplateType(nextChannel);
-                }}
-                aria-label="Template channel"
-                style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff' }}
-              >
-                <option value="email">Email template</option>
-                <option value="sms">SMS template</option>
-              </select>
-            </label>
+            <div style={{ marginBottom: '0.75rem', fontSize: '0.8rem', color: '#475569', fontWeight: 500 }}>
+              Template type: {channel === 'sms' ? 'SMS' : 'Email'}
+            </div>
             {channel === 'email' && (
               <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem', color: '#475569', fontWeight: 500 }}>
                 Email subject <span aria-hidden="true">*</span>

@@ -3,6 +3,7 @@ import {
   buildAppointmentTemplateContext,
   calculateReminderTime,
   getSampleAppointmentTimes,
+  getDateKeyInTimeZone,
   getReminderSuppressionReason,
   isEligibleAppointment,
   isRenderedAppointmentTemplateValid,
@@ -13,6 +14,14 @@ import {
 } from './reminder-utils';
 
 describe('appointment reminder utilities', () => {
+  it('returns the calendar date in the selected timezone', () => {
+    const instant = new Date('2026-11-06T01:30:00.000Z');
+
+    expect(getDateKeyInTimeZone(instant, 'America/Los_Angeles')).toBe('2026-11-05');
+    expect(getDateKeyInTimeZone(instant, 'America/New_York')).toBe('2026-11-05');
+    expect(getDateKeyInTimeZone(instant, 'Asia/Tokyo')).toBe('2026-11-06');
+  });
+
   it('creates ten sample appointment times across five days at two appointments per day', () => {
     const now = new Date('2026-11-05T14:49:00.000Z');
     const times = getSampleAppointmentTimes(

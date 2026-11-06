@@ -193,6 +193,7 @@
 .bodyContainer {
   display: flex;
   position: relative;
+  z-index: 1;
 }
 
 /* Time Column */
