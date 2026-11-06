@@ -134,26 +134,28 @@ export default function ChooseClinicPage() {
                   <Building2 size={24} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
                     <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 'var(--font-weight-bold)', color: 'var(--color-text)', margin: 0 }}>
                       {clinic.name}
                     </h3>
-                    {renderRoleBadge(clinic.role)}
-                    {clinic.slug === 'appointment-reminder-sample' && (
-                      <span
-                        aria-label="Test practice"
-                        style={{
-                          backgroundColor: 'var(--color-warning)',
-                          color: 'var(--color-surface)',
-                          borderRadius: 'var(--radius-full)',
-                          padding: '0.15rem 0.5rem',
-                          fontSize: 'var(--font-size-xs)',
-                          fontWeight: 'var(--font-weight-semibold)',
-                        }}
-                      >
-                        Test Practice
-                      </span>
-                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
+                      {renderRoleBadge(clinic.role)}
+                      {clinic.slug === 'appointment-reminder-sample' && (
+                        <span
+                          aria-label="Test practice"
+                          style={{
+                            backgroundColor: 'var(--color-warning)',
+                            color: 'var(--color-surface)',
+                            borderRadius: 'var(--radius-full)',
+                            padding: '0.15rem 0.5rem',
+                            fontSize: 'var(--font-size-xs)',
+                            fontWeight: 'var(--font-weight-semibold)',
+                          }}
+                        >
+                          Test Practice
+                        </span>
+                      )}
+                    </div>
                   </div>
                   {clinic.organisationName && (
                     <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-primary)', fontWeight: 'var(--font-weight-medium)', margin: 0 }}>
