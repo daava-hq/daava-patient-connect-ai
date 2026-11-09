@@ -40,7 +40,7 @@ export default function NewTemplateEditorPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    let pId = localStorage.getItem('selected_practice_id') || localStorage.getItem('selectedClinicId');
+    let pId = localStorage.getItem('selectedClinicId');
     if (pId) {
       setPracticeId(pId);
       fetchCategories(pId);

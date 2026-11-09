@@ -21,9 +21,7 @@ export default function SampleDataReset() {
 
   const syncSelectedPractice = useCallback(() => {
     const selectedPracticeId =
-      localStorage.getItem('selectedClinicId') ||
-      localStorage.getItem('selected_practice_id') ||
-      '';
+      localStorage.getItem('selectedClinicId') || '';
     setAvailable(false);
     setCheckError('');
     setPracticeId(selectedPracticeId);

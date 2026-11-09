@@ -12,7 +12,7 @@ export default function ReferralsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem('selected_practice_id');
+    const saved = localStorage.getItem('selectedClinicId');
     if (saved) {
       setPracticeId(saved);
       fetchReferrals(saved);

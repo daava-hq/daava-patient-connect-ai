@@ -43,7 +43,7 @@ export default function EditTemplateEditorPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let pId = localStorage.getItem('selected_practice_id') || localStorage.getItem('selectedClinicId');
+    let pId = localStorage.getItem('selectedClinicId');
     if (pId && templateId) {
       setPracticeId(pId);
       fetchTemplateAndCategories(pId, templateId);

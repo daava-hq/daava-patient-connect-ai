@@ -176,9 +176,7 @@ export default function RemindersPage() {
   useEffect(() => {
     const syncSelectedPractice = () => {
       const selectedPracticeId =
-        localStorage.getItem('selectedClinicId') ||
-        localStorage.getItem('selected_practice_id') ||
-        '';
+        localStorage.getItem('selectedClinicId') || '';
       setPracticeId(selectedPracticeId);
       if (!selectedPracticeId) setLoading(false);
     };

@@ -15,7 +15,7 @@ export default function BirthdaysPage() {
   const [month, setMonth] = useState('1');
 
   useEffect(() => {
-    const saved = localStorage.getItem('selected_practice_id');
+    const saved = localStorage.getItem('selectedClinicId');
     if (saved) {
       setPracticeId(saved);
       fetchCampaigns(saved);

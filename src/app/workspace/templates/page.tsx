@@ -38,14 +38,15 @@ export default function TemplatesLibraryPage() {
 
   useEffect(() => {
     async function init() {
-      let pId = localStorage.getItem('selected_practice_id') || localStorage.getItem('selectedClinicId');
+      let pId = localStorage.getItem('selectedClinicId');
       if (!pId) {
         try {
           const res = await fetch('/api/practices');
           const json = await res.json();
-          if (res.ok && json.data && json.data.length > 0) {
-            pId = json.data[0].id;
-            localStorage.setItem('selected_practice_id', pId!);
+          const firstPracticeId: unknown = json.data?.[0]?.id;
+          if (res.ok && typeof firstPracticeId === 'string') {
+            pId = firstPracticeId;
+            localStorage.setItem('selectedClinicId', firstPracticeId);
           }
         } catch {
           // ignore

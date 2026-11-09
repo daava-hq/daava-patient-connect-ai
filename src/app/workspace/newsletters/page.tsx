@@ -14,7 +14,7 @@ export default function NewslettersPage() {
   const [name, setName] = useState('');
 
   useEffect(() => {
-    const saved = localStorage.getItem('selected_practice_id');
+    const saved = localStorage.getItem('selectedClinicId');
     if (saved) {
       setPracticeId(saved);
       fetchNewsletters(saved);

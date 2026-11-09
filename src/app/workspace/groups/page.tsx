@@ -15,7 +15,7 @@ export default function GroupsPage() {
   const [description, setDescription] = useState('');
 
   useEffect(() => {
-    const saved = localStorage.getItem('selected_practice_id');
+    const saved = localStorage.getItem('selectedClinicId');
     if (saved) {
       setPracticeId(saved);
       fetchGroups(saved);
