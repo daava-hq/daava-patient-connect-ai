@@ -71,8 +71,8 @@ Every `route.ts` must:
 - The confirmation capability uses `APPOINTMENT_CONFIRMATION_TOKEN_SECRET` (at least 32 characters; configured in every non-local environment) and expires after 30 days. It can only confirm a future, scheduled appointment for an active patient. The local `confirmation_status` is updated only after Open Dental accepts the dedicated confirmation request; the appointment's `status` is preserved.
 - Reminder occurrences are deduplicated by appointment, schedule, channel, and patient. Provider adapters receive the occurrence ID as an idempotency key.
 - The reminder cron endpoint requires `APPOINTMENT_REMINDERS_CRON_SECRET` as a bearer token and compares it in constant time. Never expose this secret to browser code.
-- SMS remains an unconfigured stub. Email uses Resend only when `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are configured; both values remain server-side.
-- Appointment and campaign email content is sent to Resend. Before sending patient data, verify applicable privacy, consent, contractual, and regulatory requirements with the provider and your organization.
+- SMS remains an unconfigured stub. Email uses AWS SES only when `AWS_REGION`, `AWS_SES_FROM_EMAIL`, and AWS SDK credentials are available; the SDK client and credentials remain server-side.
+- Appointment and campaign email content is sent to AWS SES. Before sending patient data, verify applicable privacy, consent, contractual, and regulatory requirements with AWS and your organization.
 - `APP_ENVIRONMENT` identifies `local`, `dev`, `stage`, or `production`. The appointment-reminder sample-data seeder fails closed unless the value is `local` or `dev`, requires an explicit database URL, and uses an isolated sample practice.
 
 ## Webhook verification

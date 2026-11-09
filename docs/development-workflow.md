@@ -35,9 +35,16 @@ pnpm dev
 | `NEXTAUTH_URL` | App base URL (e.g. `http://localhost:3000`) |
 | `APPOINTMENT_CONFIRMATION_TOKEN_SECRET` | Random secret of at least 32 characters used to sign email confirmation links; required outside local |
 | `APPOINTMENT_REMINDERS_CRON_SECRET` | Bearer secret for the appointment-reminder cron endpoint |
-| `RESEND_API_KEY` | Server-side Resend API key |
-| `RESEND_FROM_EMAIL` | Sender address on a domain verified with Resend |
-| `RESEND_REPLY_TO` | Optional reply-to address |
+| `AWS_REGION` | AWS region where SES is configured |
+| `AWS_SES_FROM_EMAIL` | Verified SES sender address |
+| `AWS_SES_REPLY_TO` | Optional reply-to address |
+
+AWS SES authentication uses the AWS SDK credential provider chain. Prefer an
+IAM role in deployed environments; for local development, use a configured AWS
+profile or environment credentials. Grant only the SES `ses:SendEmail`
+permission needed by the application. Do not commit credentials or expose them
+to browser code. SES must be out of the sandbox and the sender identity verified
+before sending to unrestricted recipients.
 
 Practice-specific Open Dental keys are stored **in the database**, not in `.env`.
 
@@ -77,17 +84,19 @@ pnpm reminders:cron:local
 
 Keep the process running during the test and stop it with Ctrl+C. It requires
 `APPOINTMENT_REMINDERS_CRON_SECRET`, calls only the local server and only
-processes the dedicated sample practice. With Resend configured, due reminders
+processes the dedicated sample practice. With AWS SES configured, due reminders
 send real email to `prem@daava.ai`; resetting the sample data clears history
 and lets enabled schedules create new reminder occurrences. The seeder itself
 never sends email.
 
-Email dispatch uses Resend when both `RESEND_API_KEY` and `RESEND_FROM_EMAIL`
-are configured. Verify the sender domain in Resend, set these values in
-`.env.local` or the deployment secret manager, then restart/redeploy the app.
-The key is server-only and must never use a `NEXT_PUBLIC_` prefix.
-The adapter sends plain-text messages via
-https://resend.com/docs/api-reference/emails/send-email.
+Email dispatch uses AWS SES when `AWS_REGION` and `AWS_SES_FROM_EMAIL` are
+configured and the AWS SDK can resolve credentials. Verify the sender identity
+in SES, configure credentials and these settings in `.env.local` or the
+deployment environment, then restart/redeploy the app. The AWS SDK client and
+credentials are server-side only. SES does not support provider-side
+idempotency keys; reminder occurrence deduplication remains application-side.
+If SES accepts a message but its response is lost, the application cannot
+determine that acceptance and a later retry may send a duplicate.
 
 ### Appointment reminder scheduler
 

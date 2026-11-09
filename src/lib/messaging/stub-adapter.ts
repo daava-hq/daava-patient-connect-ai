@@ -1,7 +1,7 @@
 import 'server-only';
 import { MessagingAdapter, SendMessageOptions, SendMessageResult } from './adapter';
 import { logInfo } from '@/lib/logger';
-import { ResendEmailAdapter } from './resend-adapter';
+import { AwsSesEmailAdapter } from './aws-ses-adapter';
 
 /**
  * Stub SMS adapter used until a real provider (e.g., Twilio) is configured.
@@ -23,7 +23,7 @@ export class StubSmsAdapter implements MessagingAdapter {
 }
 
 /**
- * Stub email adapter used until a real provider (e.g., SendGrid) is configured.
+ * Stub email adapter used until AWS SES is configured.
  */
 export class StubEmailAdapter implements MessagingAdapter {
   readonly channel = 'email' as const;
@@ -42,9 +42,9 @@ export class StubEmailAdapter implements MessagingAdapter {
   }
 }
 
-/** Returns the configured adapter for a channel. Swap for real providers when credentials are set. */
+/** Returns the configured adapter for a channel. */
 export function getAdapter(channel: 'sms' | 'email'): MessagingAdapter {
   if (channel === 'sms') return new StubSmsAdapter();
-  const resendAdapter = new ResendEmailAdapter();
-  return resendAdapter.configured ? resendAdapter : new StubEmailAdapter();
+  const sesAdapter = new AwsSesEmailAdapter();
+  return sesAdapter.configured ? sesAdapter : new StubEmailAdapter();
 }

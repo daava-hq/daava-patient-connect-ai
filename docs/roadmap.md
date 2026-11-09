@@ -152,15 +152,16 @@ provider, delivery confirmation, and deployment cron are configured.
 - [x] Consent, contact, patient, appointment status, and ownership rechecks before dispatch.
 - [x] Filter upcoming reminders by practice-local reminder date and show appointment status in the table.
 - [x] Unit tests for DST boundaries, suppression rules, provider errors, template validity, occurrence uniqueness, and practice membership.
-- [x] Add Resend email adapter; production API key and verified sender configuration remain deployment-specific.
+- [x] Add AWS SES email adapter; AWS credentials and verified sender configuration remain deployment-specific.
 - [ ] Configure production SMS provider and delivery callbacks/polling.
 - [ ] Configure the deployment scheduler to call the protected cron endpoint.
 - [ ] Add database-backed tests for concurrent duplicate claims and cross-practice access.
 
 ### Known limitations
 
-- SMS remains a stub. Resend email is enabled only when its API key and verified sender are configured.
+- SMS remains a stub. AWS SES email is enabled only when AWS credentials, region, and verified sender are configured.
 - `delivered` reporting requires provider delivery data; there are no provider webhooks yet.
+- AWS SES does not support provider-side idempotency keys. Application occurrence deduplication does not prevent duplicates after an ambiguous provider timeout.
 - Provider/operatory values are not in the local appointment schema, so templates requiring those variables are blocked.
 - The migration has been applied to the database configured for this workspace. Other environments must run `pnpm db:migrate`.
 - Verification: `pnpm test` passed (38 tests), `pnpm typecheck` passed, `pnpm lint` passed with pre-existing warnings, and `pnpm build` succeeded. The migration was not applied.

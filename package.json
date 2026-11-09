@@ -22,6 +22,7 @@
     "gen:register-link": "node scripts/gen-register-link.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.1163.0",
     "@auth/drizzle-adapter": "^1.1.0",
     "bcryptjs": "^2.4.3",
     "clsx": "^2.1.0",
