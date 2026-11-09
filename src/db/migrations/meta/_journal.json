@@ -15,6 +15,20 @@
       "when": 1793811380426,
       "tag": "0005_appointment_confirmation",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1794205944798,
+      "tag": "0002_colossal_iron_fist",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1794213527142,
+      "tag": "0003_aromatic_morph",
+      "breakpoints": true
     }
   ]
 }

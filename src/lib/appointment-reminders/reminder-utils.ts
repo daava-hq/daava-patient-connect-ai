@@ -242,6 +242,8 @@ export interface AppointmentTemplateContext {
     name: string;
     phone: string;
     address: string;
+    email?: string;
+    website?: string;
   };
   appointment: {
     date: string;
@@ -260,7 +262,13 @@ export function buildAppointmentTemplateContext(input: {
     phone: string | null;
     birthDate: string | null;
   };
-  practice: { name: string; phone: string | null; address: string | null };
+  practice: {
+    name: string;
+    phone: string | null;
+    address: string | null;
+    email?: string | null;
+    website?: string | null;
+  };
   appointment: {
     scheduledAt: Date;
     providerName: string | null;
@@ -292,6 +300,8 @@ export function buildAppointmentTemplateContext(input: {
       name: input.practice.name,
       phone: input.practice.phone ?? '',
       address: input.practice.address ?? '',
+      email: (input.practice as any).email ?? undefined,
+      website: (input.practice as any).website ?? undefined,
     },
     appointment: {
       date: dateFormatter.format(input.appointment.scheduledAt),
@@ -305,12 +315,16 @@ export function buildAppointmentTemplateContext(input: {
 
 export function renderAppointmentTemplateContent(
   content: Record<string, unknown>,
-  context: AppointmentTemplateContext
+  context: AppointmentTemplateContext,
+  additionalVariables: Record<string, string> = {}
 ): { subject: string; body: string; html: string; unresolved: string[] } {
   const variables: Record<string, string> = {};
   for (const [key, value] of Object.entries(context.patient)) variables[`patient.${key}`] = value;
-  for (const [key, value] of Object.entries(context.practice)) variables[`practice.${key}`] = value;
+  for (const [key, value] of Object.entries(context.practice)) {
+    if (value !== undefined) variables[`practice.${key}`] = value;
+  }
   for (const [key, value] of Object.entries(context.appointment)) variables[`appointment.${key}`] = value;
+  Object.assign(variables, additionalVariables);
 
   const unresolved = new Set<string>();
   const interpolate = (value: string): string =>

@@ -41,6 +41,8 @@ export default function RegisterForm({ orgToken, orgName }: Props) {
 
   const [practiceName, setPracticeName] = useState('');
   const [practicePhone, setPracticePhone] = useState('');
+  const [practiceEmail, setPracticeEmail] = useState('');
+  const [practiceWebsite, setPracticeWebsite] = useState('');
   const [practiceAddress, setPracticeAddress] = useState('');
   const [timezone, setTimezone] = useState('America/New_York');
   const [adminName, setAdminName] = useState('');
@@ -76,6 +78,8 @@ export default function RegisterForm({ orgToken, orgName }: Props) {
           orgToken,
           practiceName,
           practicePhone: practicePhone || undefined,
+          practiceEmail: practiceEmail || undefined,
+          practiceWebsite: practiceWebsite || undefined,
           practiceAddress: practiceAddress || undefined,
           timezone,
           adminName,
@@ -172,7 +176,36 @@ export default function RegisterForm({ orgToken, orgName }: Props) {
             </FormField>
           </div>
 
-          <FormField label="Address" htmlFor="practiceAddress">
+          <div className={styles.row}>
+            <FormField label="Practice Email" htmlFor="practiceEmail">
+              <div className={styles.inputWrapper}>
+                <Mail size={18} className={styles.inputIcon} />
+                <input
+                  id="practiceEmail"
+                  type="email"
+                  value={practiceEmail}
+                  onChange={(e) => setPracticeEmail(e.target.value)}
+                  placeholder="contact@practice.com"
+                  className={styles.input}
+                />
+              </div>
+            </FormField>
+
+            <FormField label="Practice Website" htmlFor="practiceWebsite">
+              <div className={styles.inputWrapper}>
+                <Globe size={18} className={styles.inputIcon} />
+                <input
+                  id="practiceWebsite"
+                  type="url"
+                  value={practiceWebsite}
+                  onChange={(e) => setPracticeWebsite(e.target.value)}
+                  placeholder="https://practice.com"
+                  className={styles.input}
+                />
+              </div>
+            </FormField>
+          </div>
+            <FormField label="Address" htmlFor="practiceAddress">
             <div className={styles.inputWrapper}>
               <MapPin size={18} className={styles.inputIcon} />
               <input

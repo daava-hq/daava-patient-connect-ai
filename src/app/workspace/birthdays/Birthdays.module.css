@@ -1,0 +1,764 @@
+.page {
+  display: grid;
+  gap: var(--space-6);
+  padding: var(--space-8);
+  color: var(--color-text);
+}
+
+.headerActions,
+.toolbar,
+.rangeControls,
+.customRange,
+.sectionHeading,
+.monthControls,
+.campaignActions,
+.modalActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.headerActions {
+  flex-wrap: wrap;
+}
+
+.primaryButton,
+.secondaryButton,
+.iconButton,
+.deleteButton,
+.monthControls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 2.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.primaryButton {
+  background: var(--color-primary);
+  color: var(--color-surface);
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.primaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.secondaryButton {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.secondaryButton:hover:not(:disabled),
+.monthControls button:hover {
+  background: var(--color-background);
+}
+
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible,
+.iconButton:focus-visible,
+.deleteButton:focus-visible,
+.monthControls button:focus-visible,
+.tab:focus-visible,
+.activeTab:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.metricGrid,
+.reportGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.metricCard,
+.reportCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 6rem;
+  padding: var(--space-5);
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.metricIcon {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: #eff6ff;
+  color: var(--color-primary);
+}
+
+.metricIcon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.metricCard > div {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.metricLabel {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.metricValue,
+.reportCard strong {
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
+}
+
+.toolbar {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.tab,
+.activeTab {
+  min-height: 2.75rem;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.activeTab {
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.rangeControls {
+  padding: var(--space-2) 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.rangeControls select,
+.customRange input,
+.field input,
+.field select {
+  min-height: 2.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-3);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.rangeControls select:focus-visible,
+.customRange input:focus-visible,
+.field input:focus-visible,
+.field select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.customRange {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.customRange label,
+.field {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.customRange input {
+  min-width: 10rem;
+}
+
+.contentPanel {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+  padding: var(--space-6);
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.sectionHeading {
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.sectionHeading h2,
+.modalHeader h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-xl);
+}
+
+.sectionHeading p,
+.modalHeader p {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.subheading {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text);
+  font-size: var(--font-size-md);
+}
+
+.timezoneBadge {
+  border-radius: var(--radius-full);
+  background: var(--color-background);
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.birthdayList,
+.campaignList {
+  display: grid;
+}
+
+.birthdayRow,
+.campaignCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 4.5rem;
+  border-bottom: 1px solid #eef2f7;
+  padding: var(--space-3) 0;
+}
+
+.birthdayRow:last-child,
+.campaignCard:last-child {
+  border-bottom: 0;
+}
+
+.avatar {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-full);
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-weight: var(--font-weight-bold);
+}
+
+.birthdayPerson,
+.campaignInfo {
+  display: grid;
+  flex: 1 1 auto;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.birthdayPerson span,
+.campaignInfo p {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.campaignInfo h3 {
+  margin: 0;
+  font-size: var(--font-size-md);
+}
+
+.campaignInfo p {
+  margin: 0;
+}
+
+.eligibility {
+  display: flex;
+  gap: var(--space-3);
+  font-size: var(--font-size-xs);
+}
+
+.allowed,
+.unavailable {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.allowed {
+  color: #15803d;
+}
+
+.unavailable {
+  color: #94a3b8;
+}
+
+.emptyState,
+.emptyInline {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  padding: var(--space-12);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.emptyState h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-xl);
+}
+
+.emptyState p,
+.emptyInline span {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.emptyState svg,
+.emptyInline svg {
+  color: var(--color-primary);
+}
+
+.emptyInline {
+  padding: var(--space-8);
+}
+
+.emptyInline strong {
+  color: var(--color-text);
+}
+
+.monthControls {
+  gap: var(--space-3);
+}
+
+.monthControls button,
+.iconButton {
+  width: 2.5rem;
+  min-width: 2.5rem;
+  padding: 0;
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border-top: 1px solid #e2e8f0;
+  border-left: 1px solid #e2e8f0;
+}
+
+.weekday,
+.calendarBlank,
+.calendarDay {
+  min-width: 0;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.weekday {
+  padding: var(--space-2);
+  background: var(--color-background);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+
+.calendarBlank,
+.calendarDay {
+  min-height: 6.5rem;
+  padding: var(--space-2);
+}
+
+.calendarDay {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.dayNumber {
+  margin-bottom: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.calendarName,
+.moreNames {
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  padding: 0.15rem var(--space-1);
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moreNames {
+  background: var(--color-background);
+  color: var(--color-text-muted);
+}
+
+.enabledBadge,
+.disabledBadge,
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-full);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: capitalize;
+}
+
+.enabledBadge,
+.sent,
+.delivered {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.disabledBadge,
+.pending,
+.processing {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.failed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.skipped {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.campaignActions {
+  flex: 0 0 auto;
+}
+
+.deleteButton {
+  min-height: 2.25rem;
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  color: var(--color-error);
+}
+
+.deleteButton:hover {
+  background: #fef2f2;
+}
+
+.notice,
+.footerNote {
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+.notice {
+  margin: 0;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.historyTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  text-align: left;
+}
+
+.historyTable th,
+.historyTable td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: var(--space-3);
+  vertical-align: top;
+}
+
+.historyTable th {
+  background: var(--color-background);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.reportCard {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.reportCard > span:nth-child(2) {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.loading {
+  color: var(--color-text-muted);
+}
+
+.errorBanner,
+.previewWarning {
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.footerNote {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  background: transparent;
+  padding: 0;
+  color: var(--color-text-muted);
+}
+
+.footerNote a,
+.templateHint a {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.modalBackdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  padding: var(--space-4);
+  background: rgb(15 23 42 / 0.45);
+}
+
+.modal {
+  width: min(100%, 42rem);
+  max-height: min(90vh, 58rem);
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.modalHeader .iconButton {
+  font-size: var(--font-size-xl);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.rulesFieldset {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.rulesFieldset legend {
+  padding: 0 var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.enableControl {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: var(--color-background);
+}
+
+.enableControl input {
+  margin-top: 0.2rem;
+  accent-color: var(--color-primary);
+}
+
+.enableControl span {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.enableControl small,
+.templateHint {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.templateHint {
+  margin: 0;
+}
+
+.modalActions {
+  margin-top: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.actionSpacer {
+  flex: 1 1 auto;
+}
+
+.preview {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: #f8fbff;
+}
+
+.preview h3 {
+  margin: 0;
+}
+
+.preview pre {
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--color-text);
+  font: inherit;
+  white-space: pre-wrap;
+}
+
+.previewWarning {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .metricGrid,
+  .reportGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    gap: var(--space-4);
+    padding: var(--space-4);
+  }
+
+  .metricGrid,
+  .reportGrid,
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+
+  .metricCard {
+    min-height: 5rem;
+  }
+
+  .contentPanel {
+    padding: var(--space-4);
+  }
+
+  .birthdayRow,
+  .campaignCard {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .eligibility {
+    width: 100%;
+    padding-left: 3.25rem;
+  }
+
+  .campaignActions {
+    margin-left: auto;
+  }
+
+  .calendarBlank,
+  .calendarDay {
+    min-height: 4.5rem;
+    padding: var(--space-1);
+  }
+
+  .calendarName,
+  .moreNames {
+    font-size: 0.6rem;
+  }
+
+  .weekday {
+    padding: var(--space-1);
+    font-size: 0.65rem;
+  }
+
+  .modal {
+    padding: var(--space-4);
+  }
+}

@@ -187,3 +187,28 @@ delivery confirmation is not implemented yet, so `delivered_at` remains unset
 until a provider webhook or polling integration is added. Deleting a schedule
 cascades to its reminder occurrences and history; the reminders UI confirms
 this before deletion.
+
+## Birthday engagement
+
+### `birthday_campaigns`
+
+Practice-owned campaign settings reference a published shared birthday
+template. They store the channel, days before the birthday, practice-local
+delivery time, optional age eligibility rules and offer text. New campaigns
+default to `enabled = false`; an owner or admin must explicitly enable sending.
+The practice timezone is read from `practices.timezone`.
+
+### `birthday_message_occurrences`
+
+The durable worker creates one occurrence per campaign, patient, and birthday
+year. The unique constraint on `(campaign_id, patient_id, birthday_year)`
+provides idempotent materialization; atomic `pending` to `processing` claims
+prevent concurrent cron runs from dispatching the same occurrence. Occurrences
+store the scheduled instant, attempt/status fields, provider message ID, and a
+generic failure or suppression reason. A missing or invalid patient birthdate
+does not create an occurrence. February 29 birthdays are observed on February
+28 in non-leap years.
+
+Dashboard queries use practice-local birthday dates and return month/day and
+the current celebration date only; the synchronized birth year is not returned
+to the browser. History is retained when a campaign is soft-deleted.

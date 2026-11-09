@@ -14,6 +14,8 @@ export const VARIABLE_REGISTRY: TemplateVariableDefinition[] = [
   { key: 'patient.email', label: 'Patient Email', category: 'patient', description: "Patient's email address", example: 'jane@example.com' },
   { key: 'patient.phone', label: 'Patient Phone', category: 'patient', description: "Patient's mobile phone", example: '(555) 019-2834' },
   { key: 'patient.birthDate', label: 'Patient Birth Date', category: 'patient', description: "Patient's date of birth", example: '1990-05-12' },
+  { key: 'birthday.date', label: 'Birthday Date', category: 'other', description: "Patient's birthday in the current birthday year, without birth year", example: 'May 12' },
+  { key: 'birthday.offer', label: 'Birthday Offer', category: 'other', description: 'Optional offer configured for the birthday campaign', example: 'enjoy a complimentary whitening consultation' },
 
   // Practice
   { key: 'practice.name', label: 'Practice Name', category: 'practice', description: 'Dental practice name', example: 'Smile Dental Care' },

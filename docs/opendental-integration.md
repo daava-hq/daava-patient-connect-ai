@@ -75,6 +75,11 @@ practice-scoped patient records; it does not treat Open Dental as the source
 of consent. Calendar icons are shown only when the matching email/mobile
 contact detail and a saved consent value are available.
 
+Birthday engagement reads `date_of_birth` only from these synchronized local
+patient records. A missing/invalid birthdate is excluded rather than inferred.
+The UI does not display the patient's birth year; birthday scheduling and
+campaign delivery use the practice's configured IANA timezone.
+
 ## Appointment sync
 
 Endpoint: `GET /api/v1/appointments`

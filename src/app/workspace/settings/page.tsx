@@ -11,6 +11,7 @@ import {
   Users,
   KeyRound,
   Phone,
+  Mail,
   MapPin,
   Globe,
   ImageIcon,
@@ -31,6 +32,8 @@ interface PracticeData {
   name: string;
   slug: string;
   phone: string | null;
+  email: string | null;
+  website: string | null;
   address: string | null;
   logoUrl: string | null;
   timezone: string;
@@ -83,6 +86,8 @@ export default function SettingsPage() {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [website, setWebsite] = useState('');
   const [address, setAddress] = useState('');
   const [timezone, setTimezone] = useState('America/New_York');
   const [logoUrl, setLogoUrl] = useState('');
@@ -124,17 +129,21 @@ export default function SettingsPage() {
         setName(p.name || '');
         setSlug(p.slug || '');
         setPhone(p.phone || '');
+        setEmail(p.email || '');
+        setWebsite(p.website || '');
         setAddress(p.address || '');
         setTimezone(p.timezone || 'America/New_York');
         setLogoUrl(p.logoUrl || '');
-      }
 
-      if (resMembers.ok) {
-        const json = await resMembers.json();
-        setMembers(json.data || []);
-        if (json.currentUserId) {
-          setCurrentUserId(json.currentUserId);
+        if (resMembers.ok) {
+          const membersJson = await resMembers.json();
+          setMembers(membersJson.data || []);
+          if (membersJson.currentUserId) {
+            setCurrentUserId(membersJson.currentUserId);
+          }
         }
+      } else {
+        setPractice(null);
       }
     } catch {
       showToast('Failed to load practice settings.', 'error');
@@ -145,43 +154,32 @@ export default function SettingsPage() {
 
   // Initial resolve of practice ID
   useEffect(() => {
-    async function resolveCurrentPractice() {
-      let currentId = typeof window !== 'undefined' ? localStorage.getItem('selectedClinicId') : null;
-      if (!currentId) {
-        try {
-          const res = await fetch('/api/practices');
-          if (res.ok) {
-            const json = await res.json();
-            if (json.data && json.data.length > 0) {
-              currentId = json.data[0].id;
-              localStorage.setItem('selectedClinicId', currentId!);
-            }
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      if (currentId) {
+    const resolveCurrentPractice = () => {
+      const currentId = typeof window !== 'undefined' ? localStorage.getItem('selectedClinicId') || '' : '';
+      if (currentId && currentId !== 'null' && currentId !== 'undefined') {
         setPracticeId(currentId);
-        fetchPracticeData(currentId);
+        void fetchPracticeData(currentId);
       } else {
         setLoading(false);
       }
-    }
+    };
 
     resolveCurrentPractice();
 
     const handlePracticeChange = () => {
-      const updatedId = localStorage.getItem('selectedClinicId');
-      if (updatedId) {
+      const updatedId = localStorage.getItem('selectedClinicId') || '';
+      if (updatedId && updatedId !== 'null' && updatedId !== 'undefined') {
         setPracticeId(updatedId);
-        fetchPracticeData(updatedId);
+        void fetchPracticeData(updatedId);
       }
     };
 
     window.addEventListener('practiceChanged', handlePracticeChange);
-    return () => window.removeEventListener('practiceChanged', handlePracticeChange);
+    window.addEventListener('storage', handlePracticeChange);
+    return () => {
+      window.removeEventListener('practiceChanged', handlePracticeChange);
+      window.removeEventListener('storage', handlePracticeChange);
+    };
   }, [fetchPracticeData]);
 
   // Save practice details
@@ -198,6 +196,8 @@ export default function SettingsPage() {
           name: name.trim(),
           slug: slug.trim().toLowerCase(),
           phone: phone.trim() || null,
+          email: email.trim() || null,
+          website: website.trim() || null,
           address: address.trim() || null,
           timezone,
           logoUrl: logoUrl.trim() || null,
@@ -412,33 +412,6 @@ export default function SettingsPage() {
         <div className={styles.emptyState}>
           No practice found or you do not have permission to view this practice.
         </div>
-      ) : practice.userRole?.toLowerCase() === 'member' ? (
-        <div className={styles.card} style={{ textAlign: 'center', padding: 'var(--space-12)', alignItems: 'center' }}>
-          <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-bold)', color: 'var(--color-text)', marginBottom: 'var(--space-2)' }}>
-            Access Denied
-          </h2>
-          <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', maxWidth: '28rem', margin: '0 auto var(--space-6)' }}>
-            Practice settings and configuration are restricted to practice administrators and owners. Regular staff members do not have permission to view or edit practice settings.
-          </p>
-          <a
-            href="/workspace/dashboard"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              backgroundColor: 'var(--color-primary)',
-              color: 'var(--color-surface)',
-              padding: '0.6rem 1.25rem',
-              borderRadius: 'var(--radius-md)',
-              fontSize: 'var(--font-size-sm)',
-              fontWeight: 'var(--font-weight-medium)',
-              textDecoration: 'none',
-              width: 'fit-content',
-            }}
-          >
-            Back to Dashboard
-          </a>
-        </div>
       ) : (
         <>
           {/* Tabs */}
@@ -541,6 +514,36 @@ export default function SettingsPage() {
                             </option>
                           ))}
                         </select>
+                      </div>
+                    </FormField>
+                  </div>
+
+                  <div className={styles.formGrid}>
+                    <FormField label="Practice Email" htmlFor="practice-email">
+                      <div className={styles.inputWrapper}>
+                        <Mail size={18} className={styles.inputIcon} />
+                        <input
+                          id="practice-email"
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="contact@practice.com"
+                          className={styles.input}
+                        />
+                      </div>
+                    </FormField>
+
+                    <FormField label="Practice Website" htmlFor="practice-website">
+                      <div className={styles.inputWrapper}>
+                        <Globe size={18} className={styles.inputIcon} />
+                        <input
+                          id="practice-website"
+                          type="url"
+                          value={website}
+                          onChange={(e) => setWebsite(e.target.value)}
+                          placeholder="https://practice.com"
+                          className={styles.input}
+                        />
                       </div>
                     </FormField>
                   </div>

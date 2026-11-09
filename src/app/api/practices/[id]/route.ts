@@ -16,6 +16,8 @@ const updateSchema = z.object({
   name: z.string().min(2).max(120).trim().optional(),
   slug: z.string().min(2).max(120).trim().regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens').optional(),
   phone: z.string().max(30).trim().optional().nullable(),
+  email: z.string().max(255).trim().optional().nullable().or(z.literal('')),
+  website: z.string().max(255).trim().optional().nullable().or(z.literal('')),
   address: z.string().max(255).trim().optional().nullable(),
   timezone: z.string().max(60).trim().optional(),
   logoUrl: z.string().max(500).trim().optional().nullable(),
@@ -44,6 +46,8 @@ export async function GET(
         name: practices.name,
         slug: practices.slug,
         phone: practices.phone,
+        email: practices.email,
+        website: practices.website,
         address: practices.address,
         logoUrl: practices.logoUrl,
         timezone: practices.timezone,
@@ -180,6 +184,8 @@ export async function PATCH(
     if (data.name !== undefined) updates.name = data.name;
     if (data.slug !== undefined) updates.slug = data.slug;
     if (data.phone !== undefined) updates.phone = data.phone;
+    if (data.email !== undefined) updates.email = data.email ? data.email.trim() : null;
+    if (data.website !== undefined) updates.website = data.website ? data.website.trim() : null;
     if (data.address !== undefined) updates.address = data.address;
     if (data.timezone !== undefined) updates.timezone = data.timezone;
     if (data.logoUrl !== undefined) updates.logoUrl = data.logoUrl;

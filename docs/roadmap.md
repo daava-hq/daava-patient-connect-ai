@@ -168,6 +168,36 @@ provider, delivery confirmation, and deployment cron are configured.
 
 ---
 
+## Task 16 — Birthday Engagement
+
+**Status: Feature implementation complete.** The feature uses synchronized
+patient records and the shared categorized Templates module. Production cron
+registration, SMS delivery, and provider delivery receipts remain deployment /
+provider work.
+
+### Deliverables
+
+- [x] Practice-scoped dashboard counts, today's/upcoming lists, calendar, custom date range, delivery history, and engagement report.
+- [x] Central birthday template selection and preview; the template library opens filtered to Birthdays and supports cloning/editing/saving.
+- [x] Admin-only campaign configuration for channel, birthday-relative send date, practice-local time, optional age rules and offer text.
+- [x] New campaigns default disabled; the protected five-minute worker materializes durable occurrences only for explicitly enabled campaigns.
+- [x] Birthday-year occurrence uniqueness, atomic worker claims, bounded retries, and send-time checks for patient status, birthdate, template, destination, and opt-out.
+- [x] Leap-day policy uses February 28 in non-leap years; date filters and scheduled delivery use the practice timezone.
+- [x] Omit full birthdates from browser responses and exclude missing/invalid birthdates.
+- [x] Unit/API tests for leap years, timezone boundaries, custom date ranges, missing birthdates, opt-outs, idempotency constraint, authentication, and practice isolation.
+- [ ] Configure the deployment scheduler to call `/api/cron/birthdays` using `APPOINTMENT_REMINDERS_CRON_SECRET`.
+- [ ] Configure a production SMS provider and provider delivery callbacks/polling.
+- [ ] Add database-backed concurrent worker and provider-timeout recovery tests.
+
+### Known limitations
+
+- The existing SMS adapter remains a stub; scheduled SMS occurrences are tracked as failed until a provider is configured.
+- The AWS SES adapter has no provider-side idempotency. A crash after provider acceptance but before persistence can make a retry ambiguous.
+- `sent` means accepted by the messaging provider; it is not proof of final delivery.
+- The birthday schema migration (`0002_colossal_iron_fist.sql`) has been applied to the local development database. Tables are named `birthday_engagement_campaigns` and `birthday_engagement_occurrences` to avoid collision with a legacy birthday schema present in the database.
+
+---
+
 **Goal**: Financial outreach, preventive-care recall, referral tracking, and post-visit surveys.
 
 ### Deliverables

@@ -10,6 +10,8 @@ export const practices = pgTable('practices', {
   slug: text('slug').notNull().unique(),
   phone: text('phone'),
   address: text('address'),
+  email: text('email'),
+  website: text('website'),
   logoUrl: text('logo_url'),
   timezone: text('timezone').default('UTC').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

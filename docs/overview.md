@@ -14,7 +14,7 @@ Patient Connect is a multi-organisation dental practice patient engagement platf
 | Patients | Synchronized from Open Dental. Search, filter, view demographics. |
 | Appointments | Synchronized from Open Dental. Calendar and list views. |
 | Appointment Reminders | Automated SMS/email reminders before appointments. |
-| Birthdays | Birthday greeting campaigns. |
+| Birthdays | Practice-scoped birthday dashboard and calendar, consent-aware SMS/email campaigns, templates, scheduled delivery, history, and reports. |
 | Groups | Patient segmentation into custom groups. |
 | Newsletters | Compose and send practice newsletters to group segments. |
 | Payment Reminders & Requests | Prompt patients for outstanding balances. |

@@ -54,7 +54,7 @@ export default function TemplatesLibraryPage() {
       }
       if (pId) {
         setPracticeId(pId);
-        fetchTemplates(pId);
+        fetchTemplates(pId, undefined, new URLSearchParams(window.location.search).get('category') ?? undefined);
       } else {
         setLoading(false);
       }
@@ -62,7 +62,7 @@ export default function TemplatesLibraryPage() {
     init();
   }, []);
 
-  async function fetchTemplates(pId: string, catId?: string) {
+  async function fetchTemplates(pId: string, catId?: string, categorySlug?: string) {
     try {
       let url = `/api/templates?practiceId=${pId}`;
       if (catId) url += `&categoryId=${catId}`;
@@ -70,6 +70,15 @@ export default function TemplatesLibraryPage() {
       const json = await res.json();
       if (res.ok) {
         setCategories(json.data.categories || []);
+        if (categorySlug && !catId) {
+          const category = json.data.categories?.find((item: { slug: string; id: string }) => item.slug === categorySlug);
+          if (category) {
+            setSelectedCategory(category.id);
+            await fetchTemplates(pId, category.id);
+            return;
+          }
+        }
+        setSelectedCategory(catId ?? '');
         setTemplates(json.data.templates || []);
       } else {
         showToast(json.error || 'Failed to load templates', 'error');
