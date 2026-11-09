@@ -1,0 +1,638 @@
+.workspace {
+  display: grid;
+  gap: var(--space-6);
+  padding: var(--space-8);
+  color: var(--color-text);
+}
+
+.primaryButton,
+.secondaryButton,
+.backButton,
+.iconButton,
+.previewControls button,
+.rowActions button,
+.pagination button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 2.5rem;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.primaryButton {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-surface);
+  font-weight: var(--font-weight-semibold);
+}
+
+.primaryButton:hover {
+  border-color: var(--color-primary-hover);
+  background: var(--color-primary-hover);
+}
+
+.secondaryButton:hover,
+.backButton:hover,
+.iconButton:hover,
+.previewControls button:hover,
+.rowActions button:hover,
+.pagination button:hover {
+  border-color: var(--color-primary);
+  background: var(--color-background);
+}
+
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible,
+.backButton:focus-visible,
+.iconButton:focus-visible,
+.previewControls button:focus-visible,
+.rowActions button:focus-visible,
+.pagination button:focus-visible,
+.field input:focus-visible,
+.field select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled,
+.pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.statCard,
+.historyCard,
+.reportCard,
+.stateCard {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.statCard {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-5, var(--space-4));
+}
+
+.statCard span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.statCard strong {
+  font-size: var(--font-size-2xl);
+}
+
+.historyCard,
+.reportCard {
+  padding: var(--space-6);
+}
+
+.historyHeader,
+.editorHeader,
+.previewHeader,
+.pagination,
+.editorActions,
+.audienceSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.historyHeader h2,
+.editorHeader h2,
+.reportCard h2 {
+  margin: 0;
+  font-size: var(--font-size-xl);
+}
+
+.historyHeader p,
+.previewHeader p {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.historyHeader > span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  margin-top: var(--space-4);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: var(--font-size-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.table th {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+}
+
+.statusBadge {
+  display: inline-flex;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  text-transform: capitalize;
+}
+
+.status_completed {
+  background: color-mix(in srgb, var(--color-success) 14%, var(--color-surface));
+  color: var(--color-success);
+}
+
+.status_failed,
+.status_partially_failed {
+  background: color-mix(in srgb, var(--color-error) 12%, var(--color-surface));
+  color: var(--color-error);
+}
+
+.status_scheduled,
+.status_processing {
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+  color: var(--color-primary);
+}
+
+.rowActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.rowActions button {
+  min-height: 2rem;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.emptyState,
+.stateCard {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  padding: var(--space-12) var(--space-4);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.emptyState h3,
+.emptyState p {
+  margin: 0;
+}
+
+.emptyState h3 {
+  color: var(--color-text);
+}
+
+.pagination {
+  justify-content: flex-end;
+  margin-top: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.reportCard {
+  padding: var(--space-6);
+}
+
+.editorModal {
+  width: min(100%, 76rem);
+  max-height: calc(100vh - var(--space-8));
+  overflow-y: auto;
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.templateDialog {
+  display: grid;
+  gap: var(--space-4);
+  width: min(100%, 42rem);
+  max-height: calc(100vh - var(--space-8));
+  overflow-y: auto;
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.templateDialog > .editorHeader {
+  margin-bottom: 0;
+}
+
+.templateDialog > .editorHeader h2,
+.templateDialog > .editorHeader p {
+  margin: 0;
+}
+
+.templateDialog > .editorHeader p {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.templatePicker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+}
+
+.templatePicker > div,
+.templateOption > div:first-child {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.templatePicker span,
+.templateOption span,
+.templateOption p {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.templateList {
+  display: grid;
+  gap: var(--space-3);
+  overflow-y: auto;
+}
+
+.templateOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.templateOption p {
+  margin: var(--space-1) 0 0;
+}
+
+.textButton {
+  flex: 0 0 auto;
+  min-height: 2.25rem;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.textButton:hover {
+  background: var(--color-background);
+}
+
+.textButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.emptyInline {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.emptyInline a,
+.templateFooter a {
+  color: var(--color-primary);
+}
+
+.templateFooter {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-2);
+}
+
+.editorHeader {
+  margin-bottom: var(--space-6);
+}
+
+.editorHeader > div {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+}
+
+.backButton {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  color: var(--color-primary);
+}
+
+.iconButton {
+  width: 2.5rem;
+  padding: 0;
+}
+
+.editorForm {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.formSection {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5, var(--space-4));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.formSection h3,
+.reportCard h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.field input,
+.field select,
+.scheduleInput input {
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: var(--font-weight-normal);
+}
+
+.field small {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-normal);
+}
+
+.radioGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+}
+
+.radioGroup label,
+.groupPicker label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.groupPicker {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.groupPicker legend {
+  padding: 0 var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.groupPicker label {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+}
+
+.groupPicker small {
+  color: var(--color-text-muted);
+}
+
+.filterGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.audienceSummary {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.audienceSummary strong,
+.previewNames {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.previewNames {
+  margin: 0;
+}
+
+.editorActions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  padding-top: var(--space-2);
+}
+
+.scheduleInput {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+}
+
+.scheduleInput input {
+  width: auto;
+}
+
+.errorMessage {
+  margin: 0;
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+}
+
+.modalBackdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.previewModal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(100%, 70rem);
+  height: min(90vh, 60rem);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.previewHeader {
+  align-items: flex-start;
+  padding-bottom: var(--space-3);
+}
+
+.previewHeader h2 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.previewControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.previewControls button {
+  min-height: 2rem;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.previewControls .activePreview {
+  border-color: var(--color-primary);
+  background: var(--color-background);
+}
+
+.previewFrame {
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+}
+
+.mobilePreview {
+  justify-self: center;
+  width: min(100%, 24rem);
+}
+
+.reportStats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-5) 0;
+}
+
+.disclaimer {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+@media (max-width: 900px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filterGrid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+@media (max-width: 600px) {
+  .workspace {
+    padding: var(--space-4);
+  }
+
+  .historyCard,
+  .reportCard,
+  .editorModal,
+  .templateDialog {
+    padding: var(--space-4);
+  }
+
+  .editorModal {
+    max-height: calc(100vh - var(--space-4));
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .historyHeader,
+  .editorActions,
+  .templatePicker {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .templateOption {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .editorActions > button,
+  .scheduleInput,
+  .scheduleInput input {
+    width: 100%;
+  }
+
+  .previewHeader {
+    flex-direction: column;
+  }
+
+  .previewControls {
+    flex-wrap: wrap;
+  }
+
+  .groupPicker label {
+    grid-template-columns: auto 1fr;
+  }
+
+  .groupPicker small {
+    grid-column: 2;
+  }
+}

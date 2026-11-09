@@ -1,7 +1,7 @@
 import 'server-only';
 import { db } from '@/db';
 import { campaignJobRuns } from '@/db/schema/campaign_job_runs';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { getCampaignById, transitionCampaign, materializeRecipients } from '@/lib/campaigns/campaign-service';
 import {
   getPendingRecipients,
@@ -11,9 +11,15 @@ import {
   getCampaignStats,
 } from '@/lib/campaigns/recipient-tracking';
 import { getTemplateById, interpolateTemplate } from '@/lib/campaigns/template-repository';
+import {
+  interpolateNewsletterHtml,
+  replaceNewsletterVariables,
+} from '@/lib/newsletters/newsletter-content';
 import { getAdapter } from '@/lib/messaging/stub-adapter';
 import { logInfo, logError } from '@/lib/logger';
-import { patients } from '@/db/schema/patients';
+import { practices } from '@/db/schema/practices';
+import { isValidEmailAddress } from '@/lib/campaigns/audience-service';
+import { AppError } from '@/lib/errors';
 
 export const DISPATCH_BATCH_SIZE = 50;
 
@@ -31,7 +37,7 @@ export const DISPATCH_BATCH_SIZE = 50;
 export async function runCampaignDispatch(
   practiceId: string,
   campaignId: string
-): Promise<{ success: boolean; dispatched: number; skipped: number; failed: number; error?: string }> {
+): Promise<{ success: boolean; dispatched: number; skipped: number; failed: number; skippedRun?: boolean; error?: string }> {
   const campaign = await getCampaignById(practiceId, campaignId);
 
   if (!campaign) {
@@ -39,9 +45,9 @@ export async function runCampaignDispatch(
   }
 
   // Guard: only run if campaign is in a dispatchable state
-  if (!['scheduled', 'draft', 'failed'].includes(campaign.status)) {
+  if (!['scheduled', 'failed'].includes(campaign.status)) {
     logInfo('Campaign dispatch skipped: not in dispatchable state', { campaignId, status: campaign.status });
-    return { success: false, dispatched: 0, skipped: 0, failed: 0, error: `Cannot dispatch campaign in state: ${campaign.status}` };
+    return { success: false, dispatched: 0, skipped: 0, failed: 0, skippedRun: true, error: `Cannot dispatch campaign in state: ${campaign.status}` };
   }
 
   // Record this job run attempt
@@ -61,9 +67,11 @@ export async function runCampaignDispatch(
     .set({ attempt: attemptCount })
     .where(eq(campaignJobRuns.id, jobRun.id));
 
+  let claimedProcessing = false;
   try {
     // 1. Transition to processing (atomic guard against concurrent runs)
     await transitionCampaign(practiceId, campaignId, 'processing');
+    claimedProcessing = true;
 
     // 2. Materialize recipients: idempotent, safe to call on retry
     const newlyAdded = await materializeRecipients(practiceId, campaignId);
@@ -73,6 +81,13 @@ export async function runCampaignDispatch(
     const template = campaign.templateId
       ? await getTemplateById(practiceId, campaign.templateId)
       : null;
+    const [practice] = await db.select({
+      name: practices.name,
+      phone: practices.phone,
+      email: practices.email,
+      address: practices.address,
+      website: practices.website,
+    }).from(practices).where(eq(practices.id, practiceId)).limit(1);
 
     // 4. Get messaging adapter
     const adapter = getAdapter(campaign.channel as 'sms' | 'email');
@@ -84,13 +99,19 @@ export async function runCampaignDispatch(
 
     let hasMore = true;
     while (hasMore) {
-      const batch = await getPendingRecipients(campaignId, DISPATCH_BATCH_SIZE);
+      const batch = await getPendingRecipients(campaignId, practiceId, DISPATCH_BATCH_SIZE);
       if (batch.length === 0) {
         hasMore = false;
         break;
       }
 
       for (const recipient of batch) {
+        if (recipient.patientStatus !== 'Patient') {
+          await markRecipientSkipped(recipient.id, 'inactive_patient');
+          totalSkipped++;
+          continue;
+        }
+
         // Re-check consent at send time
         const hasConsent =
           campaign.channel === 'sms' ? recipient.smsConsent : recipient.emailConsent;
@@ -107,24 +128,49 @@ export async function runCampaignDispatch(
             ? recipient.phoneMobile || recipient.phoneHome
             : recipient.email;
 
-        if (!destination) {
+        if (!destination || (campaign.channel === 'email' && !isValidEmailAddress(destination))) {
           await markRecipientSkipped(recipient.id, 'no_destination');
           totalSkipped++;
           continue;
         }
 
         // Interpolate template body
+        const newsletterVariables = {
+          'patient.firstName': recipient.firstName,
+          'patient.lastName': recipient.lastName,
+          'patient.fullName': `${recipient.firstName} ${recipient.lastName}`.trim(),
+          'patient.email': recipient.email ?? '',
+          'patient.phone': recipient.phoneMobile || recipient.phoneHome || '',
+          'practice.name': practice?.name ?? '',
+          'practice.phone': practice?.phone ?? '',
+          'practice.email': practice?.email ?? '',
+          'practice.address': practice?.address ?? '',
+          'practice.website': practice?.website ?? '',
+          'campaign.name': campaign.name,
+        };
+        const usesStructuredEmailContent = campaign.type === 'newsletter' || campaign.type === 'group_announcement';
         const body = template
-          ? interpolateTemplate(template.body, {
-              first_name: '', // will be filled from patient join below
-              practice_name: '',
-            }).rendered
+          ? usesStructuredEmailContent
+            ? replaceNewsletterVariables(template.body, newsletterVariables)
+            : interpolateTemplate(template.body, {
+                first_name: recipient.firstName,
+                practice_name: practice?.name ?? '',
+              }).rendered
           : '';
-
-        const subject = template?.subject ?? undefined;
+        const subject = template?.subject
+          ? usesStructuredEmailContent
+            ? replaceNewsletterVariables(template.subject, newsletterVariables)
+            : interpolateTemplate(template.subject, {
+                first_name: recipient.firstName,
+                practice_name: practice?.name ?? '',
+              }).rendered
+          : undefined;
+        const html = usesStructuredEmailContent && template?.htmlBody
+          ? interpolateNewsletterHtml(template.htmlBody, newsletterVariables)
+          : undefined;
 
         // Send via adapter
-        const result = await adapter.send({ to: destination, body, subject });
+        const result = await adapter.send({ to: destination, body, subject, html });
 
         if (result.success && result.providerMessageId) {
           await markRecipientDispatched(recipient.id, result.providerMessageId);
@@ -163,14 +209,28 @@ export async function runCampaignDispatch(
 
     await db
       .update(campaignJobRuns)
-      .set({ status: 'failed', errorMessage: error.message, completedAt: new Date() })
+      .set({
+        status: !claimedProcessing && error instanceof AppError && error.code === 'INVALID_STATE_TRANSITION'
+          ? 'completed'
+          : 'failed',
+        errorMessage: !claimedProcessing && error instanceof AppError && error.code === 'INVALID_STATE_TRANSITION'
+          ? null
+          : error.message,
+        completedAt: new Date(),
+      })
       .where(eq(campaignJobRuns.id, jobRun.id));
 
-    // Transition campaign to failed if it's stuck in processing
-    try {
-      await transitionCampaign(practiceId, campaignId, 'failed');
-    } catch {
-      // Campaign may already be in a terminal state; ignore
+    if (!claimedProcessing && error instanceof AppError && error.code === 'INVALID_STATE_TRANSITION') {
+      return { success: false, dispatched: 0, skipped: 0, failed: 0, skippedRun: true, error: error.message };
+    }
+
+    // A worker that did not claim the processing state must not fail another worker's campaign.
+    if (claimedProcessing) {
+      try {
+        await transitionCampaign(practiceId, campaignId, 'failed');
+      } catch {
+        // The campaign may already have reached a terminal state.
+      }
     }
 
     logError('Campaign dispatch failed', error, { campaignId });
@@ -182,15 +242,23 @@ export async function runCampaignDispatch(
  * Processes all campaigns that are scheduled and due.
  * Called by a periodic scheduler (e.g., cron endpoint).
  */
-export async function processScheduledCampaigns(): Promise<void> {
+export async function processScheduledCampaigns(): Promise<{ processed: number; failed: number }> {
   const { getDueCampaigns } = await import('@/lib/campaigns/campaign-service');
   const due = await getDueCampaigns();
 
   logInfo('Processing scheduled campaigns', { count: due.length });
 
+  let processed = 0;
+  let failed = 0;
   for (const campaign of due) {
-    await runCampaignDispatch(campaign.practiceId, campaign.id).catch((err) => {
+    try {
+      const result = await runCampaignDispatch(campaign.practiceId, campaign.id);
+      if (result.success) processed++;
+      else if (!result.skippedRun) failed++;
+    } catch (err) {
       logError('Failed to dispatch scheduled campaign', err, { campaignId: campaign.id });
-    });
+      failed++;
+    }
   }
+  return { processed, failed };
 }

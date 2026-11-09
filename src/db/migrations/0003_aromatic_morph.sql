@@ -33,8 +33,8 @@ CREATE TABLE IF NOT EXISTS "birthday_engagement_occurrences" (
 	CONSTRAINT "uq_birthday_engagement_occurrence" UNIQUE("campaign_id","patient_id","birthday_year")
 );
 --> statement-breakpoint
-ALTER TABLE "practices" ADD COLUMN "email" text;--> statement-breakpoint
-ALTER TABLE "practices" ADD COLUMN "website" text;--> statement-breakpoint
+ALTER TABLE "practices" ADD COLUMN IF NOT EXISTS "email" text;--> statement-breakpoint
+ALTER TABLE "practices" ADD COLUMN IF NOT EXISTS "website" text;--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "idx_birthday_engagement_campaigns_practice" ON "birthday_engagement_campaigns" ("practice_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "idx_birthday_engagement_occurrences_due" ON "birthday_engagement_occurrences" ("practice_id","status","scheduled_for");--> statement-breakpoint
 DO $$ BEGIN

@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, jsonb } from 'drizzle-orm/pg-core';
 import { practices } from './practices';
 
 /**
@@ -14,6 +14,8 @@ export const messageTemplates = pgTable('message_templates', {
   channel: text('channel').notNull(), // 'sms' | 'email'
   subject: text('subject'), // email only
   body: text('body').notNull(),
+  htmlBody: text('html_body'),
+  content: jsonb('content').$type<Record<string, unknown> | null>(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),

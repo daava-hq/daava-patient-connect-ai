@@ -38,6 +38,9 @@ pnpm dev
 | `AWS_REGION` | AWS region where SES is configured |
 | `AWS_SES_FROM_EMAIL` | Verified SES sender address |
 | `AWS_SES_REPLY_TO` | Optional reply-to address |
+| `AWS_SES_CONTACT_LIST_NAME` | Optional SES contact list for managed unsubscribe preferences |
+| `AWS_SES_NEWSLETTER_TOPIC_NAME` | Optional topic name within the SES contact list |
+| `NEWSLETTER_SES_SNS_TOPIC_ARN` | Expected SNS topic ARN for SES campaign event notifications |
 
 AWS SES authentication uses the AWS SDK credential provider chain. Prefer an
 IAM role in deployed environments; for local development, use a configured AWS
@@ -97,6 +100,20 @@ credentials are server-side only. SES does not support provider-side
 idempotency keys; reminder occurrence deduplication remains application-side.
 If SES accepts a message but its response is lost, the application cannot
 determine that acceptance and a later retry may send a duplicate.
+
+Newsletter scheduling uses `POST /api/cron/campaigns` with the same
+`APPOINTMENT_REMINDERS_CRON_SECRET` bearer token. Configure an external
+scheduler to call it regularly; it processes due durable campaigns and reports
+failures without exposing patient information. SES delivery, bounce, complaint,
+open, click, and unsubscribe reporting requires an SES configuration-set event
+destination subscribed to the SNS topic configured by
+`NEWSLETTER_SES_SNS_TOPIC_ARN`. The SNS subscription must be confirmed. Managed
+unsubscribe headers additionally require an SES contact list/topic and the two
+optional `AWS_SES_*` contact-list settings. See [newsletter setup](./newsletters.md).
+
+Run `pnpm seed:templates` after migrations to load the six starter newsletter
+templates. Binary image uploads are not configured; use HTTPS-hosted images
+until managed media storage is selected.
 
 ### Appointment reminder scheduler
 

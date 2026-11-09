@@ -29,6 +29,27 @@
       "when": 1794213527142,
       "tag": "0003_aromatic_morph",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1794228203287,
+      "tag": "0006_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1794233513603,
+      "tag": "0007_newsletter_engagement",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1794235000000,
+      "tag": "0008_group_announcement_history",
+      "breakpoints": true
     }
   ]
 }

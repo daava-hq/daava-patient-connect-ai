@@ -72,6 +72,30 @@ Every `route.ts` must:
 - Reminder occurrences are deduplicated by appointment, schedule, channel, and patient. Provider adapters receive the occurrence ID as an idempotency key.
 - The reminder cron endpoint requires `APPOINTMENT_REMINDERS_CRON_SECRET` as a bearer token and compares it in constant time. Never expose this secret to browser code.
 - Birthday dashboard, campaign, preview, and history queries are practice-scoped and require membership; campaign creation and changes require practice owner/admin access. Birthday campaigns are disabled by default and only an explicit admin enablement schedules messages.
+- Group APIs verify practice membership before group/patient queries. Static
+  member writes check both group and patient practice ownership in a
+  transaction. Campaign filters accept only group IDs belonging to the
+  authorized practice; archived groups are excluded from audience resolution.
+  Dynamic group criteria use a strict allow-list of synchronized demographic,
+  appointment, status, and contact-availability fields. Clinical attributes
+  are rejected, age/date-of-birth is used only for server-side filtering, and
+  birthdate values are not returned by group APIs. Group membership does not
+  confer communication consent; campaigns re-check consent before dispatch.
+- Newsletter APIs verify practice membership on reads and drafts and require
+  practice owner/admin authorization for scheduling, immediate queueing, and
+  cancellation. Draft content is a structured block document; server rendering
+  escapes text and attributes, rejects unsupported variables, permits only
+  safe links and HTTPS image URLs, and does not accept arbitrary HTML or
+  scripts. Newsletter audiences remain practice-scoped and require active
+  patient status, email consent, and a syntactically valid email both at
+  preview and immediately before dispatch.
+- `POST /api/webhooks/ses` accepts only the configured SNS topic and verifies
+  SNS RSA signatures against a bounded HTTPS certificate URL in that topic's
+  AWS region. Provider message IDs are correlated to newsletter recipients
+  before state or consent updates. SNS event IDs are persisted uniquely to
+  suppress webhook replays. Permanent bounces, complaints, and confirmed
+  unsubscribe events disable email consent for the matching patient in the
+  campaign practice. Raw webhook payloads are not retained.
 - Birthday queries exclude missing birthdates and do not return full birthdates to the browser. Dispatch rechecks current patient status, birthdate, campaign settings, destination, template ownership/status, and SMS/email consent immediately before sending.
 - Birthday occurrences are unique per campaign, patient, and birthday year and are atomically claimed by the worker. The protected `/api/cron/birthdays` endpoint uses the same constant-time bearer secret as appointment reminders. Provider acceptance followed by a lost response can still be ambiguous; AWS SES does not provide provider-side idempotency, so an infrastructure failure at that point can result in a retry duplicate.
 - SMS remains an unconfigured stub. Email uses AWS SES only when `AWS_REGION`, `AWS_SES_FROM_EMAIL`, and AWS SDK credentials are available; the SDK client and credentials remain server-side.
@@ -83,6 +107,8 @@ Every `route.ts` must:
 - Verify HMAC signatures on all inbound webhooks before processing.
 - Store raw payload for replay if signature fails.
 - Document per-provider verification in `docs/opendental-integration.md` when implemented.
+- SES notifications use SNS RSA signature verification and are documented in
+  `docs/newsletters.md`; do not apply the generic HMAC rule to those SNS envelopes.
 
 ## Security review process
 

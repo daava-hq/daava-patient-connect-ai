@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth/options';
 import { requirePracticeMembership } from '@/lib/auth/guards';
 import { getPracticeCampaigns, createCampaign } from '@/lib/campaigns/campaign-service';
 import { AppError } from '@/lib/errors';
+import { ensurePracticeGroups } from '@/lib/groups/group-repository';
 import { z } from 'zod';
 
 const createCampaignSchema = z.object({
@@ -13,7 +14,7 @@ const createCampaignSchema = z.object({
   channel: z.enum(['sms', 'email']),
   templateId: z.string().uuid().nullable().optional(),
   audienceFilter: z.object({
-    groupIds: z.array(z.string().uuid()).optional(),
+    groupIds: z.array(z.string().uuid()).max(100).optional(),
     consentSms: z.boolean().optional(),
     consentEmail: z.boolean().optional(),
     patientStatuses: z.array(z.string()).optional(),
@@ -21,9 +22,21 @@ const createCampaignSchema = z.object({
     appointmentAfter: z.string().datetime().optional(),
     appointmentBefore: z.string().datetime().optional(),
     patientIds: z.array(z.string().uuid()).optional(),
-  }).default({}),
+  }).strict().default({}),
   scheduledAt: z.string().datetime().nullable().optional(),
-});
+  }).superRefine((campaign, context) => {
+    if (campaign.type === 'newsletter') {
+      if (campaign.channel !== 'email') {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ['channel'], message: 'Newsletters must use email' });
+      }
+      if (campaign.audienceFilter.consentEmail === false) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ['audienceFilter', 'consentEmail'], message: 'Newsletter recipients must have email consent' });
+      }
+      if (campaign.audienceFilter.patientStatuses?.some((status) => status !== 'Patient')) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ['audienceFilter', 'patientStatuses'], message: 'Newsletters can only target active patients' });
+      }
+    }
+  });
 
 export async function GET(req: NextRequest) {
   try {
@@ -69,10 +82,14 @@ export async function POST(req: NextRequest) {
     const { practiceId, scheduledAt, templateId, ...rest } = parsed.data;
 
     await requirePracticeMembership(session.user.id, practiceId);
+    await ensurePracticeGroups(practiceId, rest.audienceFilter.groupIds ?? []);
 
     const campaign = await createCampaign({
       practiceId,
       ...rest,
+      audienceFilter: rest.type === 'newsletter'
+        ? { ...rest.audienceFilter, patientStatuses: ['Patient'], consentEmail: true }
+        : rest.audienceFilter,
       templateId: templateId ?? undefined,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
     });

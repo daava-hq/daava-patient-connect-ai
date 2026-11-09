@@ -206,6 +206,152 @@ async function main() {
       version: 1
     },
     {
+      category_slug: 'newsletters',
+      name: 'Monthly Dental Newsletter',
+      description: 'Monthly practice newsletter with oral hygiene tips and a booking link',
+      template_type: 'newsletter',
+      channel: 'email',
+      content: JSON.stringify({
+        version: 1,
+        subject: 'Your Monthly Smile Report & Oral Health Tips',
+        sections: [{
+          id: 'monthly-newsletter',
+          blocks: [
+            { id: 'monthly-title', type: 'heading', properties: { text: 'Your Monthly Smile Report', level: 'h1', alignment: 'center' } },
+            { id: 'monthly-intro', type: 'paragraph', properties: { text: 'Hello {{patient.firstName}}, here are this month’s practice updates and ideas for keeping your smile healthy.' } },
+            { id: 'monthly-tips', type: 'paragraph', properties: { text: 'Brush twice a day with fluoride toothpaste, clean between your teeth daily, and book regular preventive visits.' } },
+            { id: 'monthly-action', type: 'button', properties: { text: 'Visit Our Website', url: '{{practice.website}}', alignment: 'center' } },
+            { id: 'monthly-footer', type: 'footer', properties: { text: '{{practice.name}} · {{practice.phone}} · {{practice.address}}' } }
+          ]
+        }]
+      }),
+      variables: JSON.stringify(['patient.firstName', 'practice.name', 'practice.website', 'practice.phone', 'practice.address']),
+      status: 'published',
+      is_system: true,
+      version: 1
+    },
+    {
+      category_slug: 'newsletters',
+      name: 'Oral Hygiene Tips',
+      description: 'Practical daily brushing and flossing reminders',
+      template_type: 'newsletter',
+      channel: 'email',
+      content: JSON.stringify({
+        version: 1,
+        subject: 'Simple habits for a healthier smile',
+        sections: [{
+          id: 'hygiene-tips',
+          blocks: [
+            { id: 'hygiene-title', type: 'heading', properties: { text: 'Small Habits, Healthy Smiles', level: 'h1' } },
+            { id: 'hygiene-greeting', type: 'paragraph', properties: { text: 'Hi {{patient.firstName}}, consistency is the key to a healthy smile.' } },
+            { id: 'hygiene-brush', type: 'paragraph', properties: { text: 'Brush gently for two minutes, twice each day, using a soft-bristled toothbrush.' } },
+            { id: 'hygiene-floss', type: 'paragraph', properties: { text: 'Clean between your teeth daily and replace your toothbrush when the bristles become worn.' } },
+            { id: 'hygiene-contact', type: 'footer', properties: { text: 'Questions? Contact {{practice.name}} at {{practice.phone}}.' } }
+          ]
+        }]
+      }),
+      variables: JSON.stringify(['patient.firstName', 'practice.name', 'practice.phone']),
+      status: 'published',
+      is_system: true,
+      version: 1
+    },
+    {
+      category_slug: 'newsletters',
+      name: 'Dental Health Awareness',
+      description: 'Patient-friendly guidance for preventive dental health',
+      template_type: 'newsletter',
+      channel: 'email',
+      content: JSON.stringify({
+        version: 1,
+        subject: 'Your dental health matters',
+        sections: [{
+          id: 'dental-awareness',
+          blocks: [
+            { id: 'awareness-title', type: 'heading', properties: { text: 'Prevention Makes a Difference', level: 'h1' } },
+            { id: 'awareness-copy', type: 'paragraph', properties: { text: 'Hello {{patient.firstName}}, regular preventive care can help you maintain a comfortable, healthy smile.' } },
+            { id: 'awareness-tips', type: 'paragraph', properties: { text: 'Keep up with daily brushing and interdental cleaning, and let your dental team know about changes in your oral health.' } },
+            { id: 'awareness-practice', type: 'footer', properties: { text: 'Your care team at {{practice.name}} · {{practice.phone}}' } }
+          ]
+        }]
+      }),
+      variables: JSON.stringify(['patient.firstName', 'practice.name', 'practice.phone']),
+      status: 'published',
+      is_system: true,
+      version: 1
+    },
+    {
+      category_slug: 'newsletters',
+      name: 'Practice Announcements',
+      description: 'Share office updates and important practice information',
+      template_type: 'newsletter',
+      channel: 'email',
+      content: JSON.stringify({
+        version: 1,
+        subject: 'News and updates from {{practice.name}}',
+        sections: [{
+          id: 'practice-announcement',
+          blocks: [
+            { id: 'announcement-title', type: 'heading', properties: { text: 'A Note from Our Practice', level: 'h1' } },
+            { id: 'announcement-copy', type: 'paragraph', properties: { text: 'Hello {{patient.firstName}}, we have an update to share with you. Add your practice news here before sending.' } },
+            { id: 'announcement-contact', type: 'paragraph', properties: { text: 'For questions, call {{practice.phone}} or visit {{practice.website}}.' } },
+            { id: 'announcement-footer', type: 'footer', properties: { text: '{{practice.name}} · {{practice.address}}' } }
+          ]
+        }]
+      }),
+      variables: JSON.stringify(['patient.firstName', 'practice.name', 'practice.phone', 'practice.website', 'practice.address']),
+      status: 'published',
+      is_system: true,
+      version: 1
+    },
+    {
+      category_slug: 'newsletters',
+      name: 'Seasonal Dental Tips',
+      description: 'Seasonal reminders for keeping your smile healthy',
+      template_type: 'newsletter',
+      channel: 'email',
+      content: JSON.stringify({
+        version: 1,
+        subject: 'A few seasonal tips for your smile',
+        sections: [{
+          id: 'seasonal-tips',
+          blocks: [
+            { id: 'seasonal-title', type: 'heading', properties: { text: 'Care for Your Smile This Season', level: 'h1' } },
+            { id: 'seasonal-copy', type: 'paragraph', properties: { text: 'Hi {{patient.firstName}}, changing routines can make daily oral care easy to overlook.' } },
+            { id: 'seasonal-tip', type: 'paragraph', properties: { text: 'Keep a toothbrush and floss with your travel essentials, drink water throughout the day, and enjoy treats in moderation.' } },
+            { id: 'seasonal-footer', type: 'footer', properties: { text: 'Warm wishes from {{practice.name}} · {{practice.phone}}' } }
+          ]
+        }]
+      }),
+      variables: JSON.stringify(['patient.firstName', 'practice.name', 'practice.phone']),
+      status: 'published',
+      is_system: true,
+      version: 1
+    },
+    {
+      category_slug: 'newsletters',
+      name: 'New Services Announcement',
+      description: 'Introduce a new service offered by your practice',
+      template_type: 'newsletter',
+      channel: 'email',
+      content: JSON.stringify({
+        version: 1,
+        subject: 'Discover what’s new at {{practice.name}}',
+        sections: [{
+          id: 'new-services',
+          blocks: [
+            { id: 'services-title', type: 'heading', properties: { text: 'A New Service for Our Patients', level: 'h1' } },
+            { id: 'services-copy', type: 'paragraph', properties: { text: 'Hello {{patient.firstName}}, we are pleased to share that our practice has a new service. Add the service details and eligibility information here.' } },
+            { id: 'services-link', type: 'button', properties: { text: 'Learn More', url: '{{practice.website}}', alignment: 'center' } },
+            { id: 'services-footer', type: 'footer', properties: { text: 'Contact {{practice.name}} at {{practice.phone}} for details.' } }
+          ]
+        }]
+      }),
+      variables: JSON.stringify(['patient.firstName', 'practice.name', 'practice.phone', 'practice.website']),
+      status: 'published',
+      is_system: true,
+      version: 1
+    },
+    {
       category_slug: 'payment-reminders',
       name: 'Secure Online Payment Request',
       description: 'Modern statement notification with direct secure payment button',

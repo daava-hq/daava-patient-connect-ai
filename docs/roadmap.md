@@ -91,19 +91,54 @@ Six-week phased delivery. Each milestone has explicit acceptance criteria. A mil
 
 ### Deliverables
 
-- [x] Groups module: create/edit/delete groups, add/remove patients (`src/db/schema/groups.ts`, `src/lib/groups/group-repository.ts`).
+- [x] Groups foundation: create groups and static memberships (`src/db/schema/groups.ts`, `src/lib/groups/group-repository.ts`); expanded in Task 17.
 - [x] Shared campaign & engagement engine: audience selection, template interpolation, state machine, durable background dispatch job, recipient tracking, and consent enforcement (`src/lib/campaigns/`, `src/jobs/dispatch-campaign.ts`, `src/db/schema/campaigns.ts`, `src/db/schema/campaign_recipients.ts`, `src/db/schema/campaign_job_runs.ts`).
 - [x] Newsletters module & API endpoints (`src/app/api/campaigns/`, `src/app/api/templates/`, `src/app/api/audience/`).
 - [x] Birthdays, Appointment Reminders, Recall, Payment Reminders, Referrals, and Surveys shared infrastructure and API routes (`src/app/api/referrals/`, `src/app/api/surveys/`, `src/app/api/payments/balances/`, `src/db/schema/surveys.ts`, `src/db/schema/referrals.ts`, `src/db/schema/payments.ts`).
 - [x] Unit tests for audience selection, campaign state transitions, template interpolation, and consent filtering (`src/lib/campaigns/engagement.test.ts`).
 
+### Task 17 — Patient Groups
+
+- [x] Static and dynamic group CRUD, duplication, archive/restore, search, pagination, member management, and practice-scoped patient selection.
+- [x] Strictly validated, server-evaluated dynamic rules for synchronized status, age, birth month, appointment status/date, and contact availability; clinical attributes are excluded.
+- [x] Static membership history and group engagement history; dynamic membership is evaluated live and has no persisted membership-change history.
+- [x] Independent group-announcement workflow with published Groups template selection, campaign snapshots, draft editing/deletion, audience preview, desktop/mobile preview, scheduling/send-now, cancellation, paginated history, and delivery reports (`src/app/api/groups/[groupId]/announcements/`, `src/components/feature/Groups/GroupsWorkspace.tsx`).
+- [x] Validation, repository, API, and tenant-scoping tests.
+- [ ] Integrate group selectors into the dedicated birthday campaign and appointment-reminder schedule flows.
+- [ ] Define and authorize a business rule for recall eligibility before adding it as a dynamic filter.
+
 ### Acceptance criteria
 
 - [x] Group membership is scoped to the practice.
-- [x] Newsletter and campaign send respects group membership, filters, and consent flags.
+- [x] Newsletter and generic campaign audiences respect group membership, filters, and consent flags.
+- [ ] Dedicated birthday and appointment-reminder workflows accept reusable group audiences.
 - [x] Durable background jobs persist recipient records prior to dispatch and guarantee idempotency.
 - [x] All 8 engagement modules implemented with backend storage, validation, authorization, and API routes.
 - [x] Unit tests pass successfully.
+
+### Task 18 — Newsletters
+
+**Status: Newsletter workflow implemented; deployment configuration and binary media uploads remain prerequisites.**
+
+- [x] Newsletter dashboard, paginated history, provider-event summary, and per-campaign recipient report.
+- [x] Create/edit modal with a searchable selector for published system/practice templates from the centralized Templates library and desktop/mobile previews; content, subject, and preheader are managed only in the Templates library.
+- [x] Newsletter creation does not create or publish reusable templates; template management remains in the centralized Templates library.
+- [x] Escaped HTML/text rendering, safe URL validation, and server-side content validation; arbitrary HTML and scripts are not accepted.
+- [x] All-patient, static/dynamic group, and custom synchronized audience filters with active-patient, email-consent, and address validation.
+- [x] Audience preview and confirmation with eligible-recipient count before scheduling or immediate queueing.
+- [x] Draft editing, scheduled/immediate queueing, cancellation, durable campaign dispatch, and dispatch-time consent/address checks.
+- [x] Draft history edit flow loads the campaign snapshot and saves changes without mutating its reusable source template.
+- [x] Signed SES SNS event verification, event deduplication, delivery/bounce/complaint/open/click tracking, and unsubscribe/complaint consent suppression.
+- [x] Unit/API tests for rendering safety, audience email validation, scheduling permissions, SNS verification boundary, and event-handler request behavior.
+- [ ] Configure production SES contact-list/event-destination settings and campaign cron; verify provider callbacks with a controlled mailbox.
+- [ ] Select managed media storage and implement upload validation before enabling binary image uploads.
+
+See [Newsletter architecture and deployment](./newsletters.md). The migration
+adding template snapshots and provider event deduplication must be reviewed and
+applied in each environment before those paths can run.
+
+See [Patient Groups and announcements](./groups.md) for the group announcement
+campaign flow and its practice-scoped APIs.
 
 ---
 
@@ -194,6 +229,7 @@ provider work.
 - The existing SMS adapter remains a stub; scheduled SMS occurrences are tracked as failed until a provider is configured.
 - The AWS SES adapter has no provider-side idempotency. A crash after provider acceptance but before persistence can make a retry ambiguous.
 - `sent` means accepted by the messaging provider; it is not proof of final delivery.
+- Dedicated birthday and appointment-reminder workflows do not yet accept group IDs. Groups can currently be used by the shared campaign audience resolver and Groups announcement draft flow.
 - The birthday schema migration (`0002_colossal_iron_fist.sql`) has been applied to the local development database. Tables are named `birthday_engagement_campaigns` and `birthday_engagement_occurrences` to avoid collision with a legacy birthday schema present in the database.
 
 ---

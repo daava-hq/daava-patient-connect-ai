@@ -18,7 +18,7 @@ organisations
         │     └── appointments
         ├── groups
         │     └── group_members (junction: group ↔ patient)
-        ├── campaigns (reminders / newsletters / recalls)
+        ├── campaigns (reminders / newsletters / group announcements / recalls)
         ├── surveys
         ├── conversations (Connect two-way texting)
         └── practice_opendental_credentials
@@ -111,6 +111,42 @@ organisations
 | `created_at` | `timestamptz` | |
 | UNIQUE | (`practice_id`, `opendental_appt_id`) | |
 
+### Patient groups
+
+`groups` is practice-scoped and stores a `group_type` (`static` or `dynamic`),
+`criteria` JSONB for dynamic rules, and `archived_at`. Static groups use
+`group_members` relationships to existing patient rows; they never duplicate
+patient data. Membership writes validate both the group and patients against
+the same practice and are idempotent on `(group_id, patient_id)`.
+
+Dynamic groups do not persist a member snapshot. Their membership is evaluated
+on demand in SQL against synchronized fields only:
+
+- Patient status (defaults to active `Patient` when omitted).
+- Age range derived from date of birth.
+- Birth month.
+- Appointment status and last appointment date.
+- Email/mobile contact availability.
+
+Criteria are allow-listed and strictly validated; clinical data is not exposed
+or used. Last-appointment date rules consider the most recent appointment not
+in the future. Contact availability does not imply communication consent;
+campaign dispatch must continue to apply the relevant consent checks.
+Date-only rule boundaries are interpreted in UTC.
+
+`group_membership_history` records static membership additions/removals with
+practice, group, patient (nullable after patient deletion), actor, and time.
+Dynamic membership is computed rather than changed, so it has no membership
+change log. Archiving preserves the group, relationships, and history while
+excluding it from new audience resolution. Duplicate static groups copy their
+current member relationships; duplicate dynamic groups copy their criteria.
+
+Group announcements use independent `campaigns.type = group_announcement` rows
+with practice-scoped campaign content snapshots. Migration
+`0008_group_announcement_history` reclassifies legacy announcement drafts
+created by the newsletter-backed flow when their snapshot name and one-group
+audience match the original creation pattern.
+
 ### `practice_opendental_credentials`
 
 | Column | Type | Notes |
@@ -164,6 +200,32 @@ organisations
 
 ### `template_versions`, `template_favorites`, `template_usage_history`
 Support version history, user favorites, and audit usage tracking per practice.
+
+## Campaign and newsletter engagement
+
+### `campaigns`
+
+Practice-owned campaign records store the type, channel, state, optional
+schedule, reusable audience filter JSONB, and a campaign-compatible
+`message_templates` reference. Newsletters additionally require
+`message_templates.content` (structured JSONB), `subject`, plain-text `body`,
+and generated/sanitized `html_body`. Each newsletter draft stores its own
+snapshot; editing a reusable centralized template does not mutate prior
+campaign content.
+
+### `campaign_recipients` and `campaign_delivery_events`
+
+Recipients are unique per `(campaign_id, patient_id)` and store dispatch,
+delivery, bounce, failure, skip, and retry state. Delivery events are append
+only; provider event IDs are unique when available to make signed SES/SNS
+retries idempotent. `sent` means accepted by the provider, while `delivered`
+is recorded only from a provider event. Provider events are not stored with
+raw patient email or message content.
+
+Newsletter audience records remain references to existing patients. Audience
+filters are evaluated within the campaign practice and email consent, active
+patient status, and a valid email address are checked during preview and again
+at dispatch time.
 
 ## Appointment reminders
 

@@ -15,6 +15,8 @@ interface AwsSesEmailAdapterOptions {
   region?: string;
   fromEmail?: string;
   replyTo?: string;
+  contactListName?: string;
+  unsubscribeTopicName?: string;
   sendEmail?: SendEmail;
 }
 
@@ -24,12 +26,16 @@ export class AwsSesEmailAdapter implements MessagingAdapter {
 
   private readonly fromEmail: string;
   private readonly replyTo: string | undefined;
+  private readonly contactListName: string | undefined;
+  private readonly unsubscribeTopicName: string | undefined;
   private readonly sendEmail: SendEmail;
 
   constructor(options: AwsSesEmailAdapterOptions = {}) {
     const region = options.region ?? process.env.AWS_REGION ?? '';
     this.fromEmail = options.fromEmail ?? process.env.AWS_SES_FROM_EMAIL ?? '';
     this.replyTo = options.replyTo ?? process.env.AWS_SES_REPLY_TO;
+    this.contactListName = options.contactListName ?? process.env.AWS_SES_CONTACT_LIST_NAME;
+    this.unsubscribeTopicName = options.unsubscribeTopicName ?? process.env.AWS_SES_NEWSLETTER_TOPIC_NAME;
     this.configured = Boolean(region && this.fromEmail);
 
     if (options.sendEmail) {
@@ -63,6 +69,12 @@ export class AwsSesEmailAdapter implements MessagingAdapter {
           },
         },
       },
+      ...(this.contactListName ? {
+        ListManagementOptions: {
+          ContactListName: this.contactListName,
+          ...(this.unsubscribeTopicName ? { TopicName: this.unsubscribeTopicName } : {}),
+        },
+      } : {}),
       ...(this.replyTo ? { ReplyToAddresses: [this.replyTo] } : {}),
     };
 

@@ -55,7 +55,7 @@ export const campaigns = pgTable('campaigns', {
     .notNull()
     .references(() => practices.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
-  type: text('type').notNull(), // 'reminder' | 'newsletter' | 'birthday' | 'recall' | 'payment' | 'survey' | 'referral'
+  type: text('type').notNull(), // 'reminder' | 'newsletter' | 'group_announcement' | 'birthday' | 'recall' | 'payment' | 'survey' | 'referral'
   channel: text('channel').notNull(), // 'sms' | 'email'
   status: text('status').notNull().default('draft'),
   templateId: uuid('template_id').references(() => messageTemplates.id, { onDelete: 'set null' }),

@@ -44,6 +44,32 @@ describe('AwsSesEmailAdapter', () => {
     });
   });
 
+  it('enables SES contact-list unsubscribe preferences when configured', async () => {
+    const sendEmail = vi.fn(async (_input: SendEmailCommandInput) => ({
+      MessageId: 'ses-message-with-list',
+    }));
+    const adapter = new AwsSesEmailAdapter({
+      region: 'us-east-1',
+      fromEmail: 'newsletter@example.test',
+      contactListName: 'PatientConnect',
+      unsubscribeTopicName: 'Newsletters',
+      sendEmail,
+    });
+
+    await adapter.send({
+      to: 'patient@example.test',
+      subject: 'Practice newsletter',
+      body: 'Newsletter content',
+    });
+
+    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({
+      ListManagementOptions: {
+        ContactListName: 'PatientConnect',
+        TopicName: 'Newsletters',
+      },
+    }));
+  });
+
   it('does not send when provider settings are missing or subject is empty', async () => {
     const sendEmail = vi.fn(async (_input: SendEmailCommandInput) => ({ MessageId: 'message-1' }));
     const unconfigured = new AwsSesEmailAdapter({ sendEmail });

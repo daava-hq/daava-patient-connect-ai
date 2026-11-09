@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { canTransition } from '@/lib/campaigns/campaign-service';
-import { filterByConsent } from '@/lib/campaigns/audience-service';
+import { filterByConsent, isValidEmailAddress } from '@/lib/campaigns/audience-service';
 import { interpolateTemplate, extractTemplateVariables } from '@/lib/campaigns/template-repository';
 
 describe('Engagement Engine Unit Tests', () => {
@@ -25,6 +25,13 @@ describe('Engagement Engine Unit Tests', () => {
   });
 
   describe('Consent and Opt-out Filtering', () => {
+    it('rejects missing and malformed email destinations', () => {
+      expect(isValidEmailAddress('patient@example.test')).toBe(true);
+      expect(isValidEmailAddress('')).toBe(false);
+      expect(isValidEmailAddress('not-an-email')).toBe(false);
+      expect(isValidEmailAddress('patient @example.test')).toBe(false);
+    });
+
     it('separates consenting and opted-out patients for SMS', () => {
       const patients = [
         { id: '1', firstName: 'Alice', lastName: 'Smith', email: 'a@ex.com', phoneMobile: '555-0101', phoneHome: null, smsConsent: true, emailConsent: false, status: 'Patient', dateOfBirth: '1990-01-01' },

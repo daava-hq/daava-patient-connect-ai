@@ -1,0 +1,655 @@
+.page {
+  display: grid;
+  gap: var(--space-6);
+  padding: var(--space-6);
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(17rem, 0.75fr) minmax(0, 1.7fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.overview,
+.details,
+.memberPanel,
+.historyPanel {
+  min-width: 0;
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.overview {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.toolbar,
+.detailHeader,
+.panelHeading,
+.dialogHeader,
+.dialogActions,
+.detailActions,
+.inlineFields {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.toolbar {
+  flex-wrap: wrap;
+}
+
+.checkLabel,
+.typePicker label,
+.filterField label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.statCard {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+}
+
+.statCard span,
+.groupSummary small,
+.patientList small,
+.eventList small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.statCard strong {
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+}
+
+.groupList,
+.patientList,
+.eventList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.groupList {
+  gap: var(--space-2);
+}
+
+.groupRow {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.groupRow:hover,
+.groupRowSelected {
+  border-color: var(--color-border);
+  background: var(--color-background);
+}
+
+.groupRow:focus-visible,
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible,
+.iconButton:focus-visible,
+.textButton:focus-visible,
+.removeButton:focus-visible,
+.closeButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.groupIcon {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  color: var(--color-primary);
+}
+
+.groupSummary {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: var(--space-1);
+}
+
+.groupSummary strong,
+.patientList strong,
+.eventList strong {
+  overflow: hidden;
+  color: var(--color-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memberCount {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.details {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.detailHeader {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.detailHeader h2,
+.dialogHeader h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-xl);
+}
+
+.detailHeader p {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+}
+
+.eyebrow {
+  margin: 0 0 var(--space-1) !important;
+  color: var(--color-primary) !important;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+}
+
+.filterSummary,
+.note {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.detailActions {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.primaryButton,
+.secondaryButton,
+.iconButton,
+.textButton,
+.removeButton,
+.closeButton {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-decoration: none;
+}
+
+.primaryButton {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-surface);
+  font-weight: var(--font-weight-semibold);
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.secondaryButton:hover:not(:disabled),
+.iconButton:hover,
+.textButton:hover,
+.removeButton:hover {
+  background: var(--color-background);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled,
+.textButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tabs button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tabs button[aria-selected="true"] {
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.tabs button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.memberContent {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.memberPanel,
+.historyPanel {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.panelHeading h3,
+.memberPanel h3,
+.historyPanel h3 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-md);
+}
+
+.patientList {
+  max-height: 28rem;
+  overflow: auto;
+}
+
+.patientList li,
+.eventList li {
+  display: flex;
+  min-height: 3.5rem;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.patientList li > span,
+.eventList li > span {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: var(--space-1);
+}
+
+.patientList input,
+.checkLabel input,
+.filterField input,
+.typePicker input {
+  accent-color: var(--color-primary);
+}
+
+.removeButton {
+  min-height: 2rem;
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-error);
+}
+
+.emptyInline {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.eventList {
+  gap: var(--space-1);
+}
+
+.announcementList li {
+  align-items: flex-start;
+}
+
+.announcementSummary {
+  align-content: center;
+}
+
+.announcementActions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.historyPagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.eventAdded,
+.eventRemoved {
+  min-width: 4rem;
+  color: var(--color-success);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: capitalize;
+}
+
+.eventRemoved {
+  color: var(--color-error);
+}
+
+.overlay {
+  position: fixed;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: rgb(15 23 42 / 0.55);
+  inset: 0;
+}
+
+.dialog {
+  display: grid;
+  width: min(100%, 44rem);
+  max-height: min(90vh, 60rem);
+  gap: var(--space-5);
+  overflow: auto;
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.announcementDialog,
+.announcementReportDialog {
+  width: min(100%, 58rem);
+}
+
+.announcementPreviewDialog {
+  width: min(100%, 70rem);
+  height: min(90vh, 60rem);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.announcementPreviewDialog > .dialogHeader > div:first-child {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.announcementPreviewDialog > .dialogHeader p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.announcementPreviewFrame {
+  width: 100%;
+  height: 100%;
+  min-height: 20rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+}
+
+.announcementPreviewMobile {
+  justify-self: center;
+  width: min(100%, 24rem);
+}
+
+.templateSummary {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+}
+
+.templateSummary span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.scheduleField {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.scheduleField > span {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.scheduleField input {
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.scheduleField input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.announcementError {
+  margin: 0;
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+}
+
+.announcementStats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: var(--space-3);
+}
+
+.announcementStats .statCard {
+  padding: var(--space-3);
+}
+
+.announcementStats .statCard strong {
+  font-size: var(--font-size-lg);
+}
+
+.dialogHeader {
+  align-items: flex-start;
+}
+
+.closeButton {
+  min-width: 2.5rem;
+  padding: var(--space-2);
+}
+
+.formGrid,
+.stepContent {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.formGrid > label,
+.inlineFields label {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.formGrid input:not([type="checkbox"]):not([type="radio"]),
+.formGrid textarea,
+.formGrid select,
+.inlineFields input,
+.formGrid > label select {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.formGrid select[multiple] {
+  min-height: 8rem;
+}
+
+.formGrid input:focus-visible,
+.formGrid textarea:focus-visible,
+.formGrid select:focus-visible,
+.inlineFields input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.typePicker,
+.filterField {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.typePicker legend,
+.filterField legend {
+  padding: 0 var(--space-2);
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+.inlineFields {
+  align-items: flex-start;
+}
+
+.inlineFields label {
+  flex: 1;
+}
+
+.previewBlock {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+}
+
+.previewBlock p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.dialogActions {
+  justify-content: flex-end;
+  padding-top: var(--space-2);
+}
+
+@media (max-width: 64rem) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 48rem) {
+  .page {
+    padding: var(--space-4);
+  }
+
+  .overview,
+  .details {
+    padding: var(--space-4);
+  }
+
+  .memberContent {
+    grid-template-columns: 1fr;
+  }
+
+  .inlineFields {
+    flex-direction: column;
+  }
+
+  .inlineFields label {
+    width: 100%;
+  }
+
+  .announcementList li,
+  .historyPagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .announcementActions {
+    flex-wrap: wrap;
+  }
+
+  .announcementPreviewDialog {
+    height: calc(100vh - var(--space-4));
+  }
+
+  .announcementReportDialog {
+    max-height: calc(100vh - var(--space-4));
+  }
+
+  .announcementStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

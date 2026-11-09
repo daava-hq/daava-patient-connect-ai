@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, timestamp, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, timestamp, unique, uniqueIndex } from 'drizzle-orm/pg-core';
 import { campaigns } from './campaigns';
 import { patients } from './patients';
 
@@ -15,6 +15,7 @@ export const RECIPIENT_STATUSES = [
   'pending',
   'dispatched',
   'delivered',
+  'bounced',
   'failed',
   'skipped',
   'duplicate',
@@ -47,16 +48,23 @@ export const campaignRecipients = pgTable(
 /**
  * Immutable append-only log of every delivery event from the provider.
  */
-export const campaignDeliveryEvents = pgTable('campaign_delivery_events', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  recipientId: uuid('recipient_id')
-    .notNull()
-    .references(() => campaignRecipients.id, { onDelete: 'cascade' }),
-  eventType: text('event_type').notNull(), // 'sent' | 'delivered' | 'failed' | 'bounced' | 'opted_out'
-  providerMessageId: text('provider_message_id'),
-  rawPayload: text('raw_payload'),
-  occurredAt: timestamp('occurred_at', { withTimezone: true }).defaultNow().notNull(),
-});
+export const campaignDeliveryEvents = pgTable(
+  'campaign_delivery_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    recipientId: uuid('recipient_id')
+      .notNull()
+      .references(() => campaignRecipients.id, { onDelete: 'cascade' }),
+    eventType: text('event_type').notNull(), // 'sent' | 'delivered' | 'bounced' | 'failed' | 'complaint' | 'opted_out' | 'skipped' | 'opened' | 'clicked'
+    providerMessageId: text('provider_message_id'),
+    providerEventId: text('provider_event_id'),
+    rawPayload: text('raw_payload'),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    providerEventUnique: uniqueIndex('idx_campaign_delivery_events_provider_event').on(table.providerEventId),
+  })
+);
 
 export type CampaignRecipient = typeof campaignRecipients.$inferSelect;
 export type NewCampaignRecipient = typeof campaignRecipients.$inferInsert;

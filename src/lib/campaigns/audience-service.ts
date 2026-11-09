@@ -2,9 +2,9 @@ import 'server-only';
 import { db } from '@/db';
 import { patients, Patient } from '@/db/schema/patients';
 import { appointments } from '@/db/schema/appointments';
-import { groupMembers } from '@/db/schema/groups';
 import { AudienceFilter } from '@/db/schema/campaigns';
-import { eq, and, or, inArray, sql, gte, lte } from 'drizzle-orm';
+import { eq, and, inArray, sql, gte, lte, type SQL } from 'drizzle-orm';
+import { getGroupAudienceCondition } from '@/lib/groups/group-repository';
 
 export type AudiencePatient = Pick<
   Patient,
@@ -22,10 +22,32 @@ export type AudiencePatient = Pick<
  */
 export async function resolveAudience(
   practiceId: string,
-  filter: AudienceFilter
+  filter: AudienceFilter,
+  limit?: number
 ): Promise<AudiencePatient[]> {
-  // Build base where conditions
-  const conditions = [eq(patients.practiceId, practiceId)];
+  const conditions = await getAudienceConditions(practiceId, filter);
+  const whereClause = conditions.length > 1 ? and(...conditions) : conditions[0];
+
+  const query = db
+    .select({
+      id: patients.id,
+      firstName: patients.firstName,
+      lastName: patients.lastName,
+      email: patients.email,
+      phoneMobile: patients.phoneMobile,
+      phoneHome: patients.phoneHome,
+      smsConsent: patients.smsConsent,
+      emailConsent: patients.emailConsent,
+      status: patients.status,
+      dateOfBirth: patients.dateOfBirth,
+    })
+    .from(patients)
+    .where(whereClause);
+  return limit ? query.limit(limit) : query;
+}
+
+async function getAudienceConditions(practiceId: string, filter: AudienceFilter): Promise<SQL[]> {
+  const conditions: SQL[] = [eq(patients.practiceId, practiceId)];
 
   // Patient status filter
   if (filter.patientStatuses && filter.patientStatuses.length > 0) {
@@ -41,6 +63,7 @@ export async function resolveAudience(
   }
   if (filter.consentEmail === true) {
     conditions.push(eq(patients.emailConsent, true));
+    conditions.push(sql`${patients.email} ~* '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'`);
   }
 
   // Birthday month filter
@@ -55,14 +78,7 @@ export async function resolveAudience(
 
   // Group membership filter
   if (filter.groupIds && filter.groupIds.length > 0) {
-    const memberPatientIds = await db
-      .selectDistinct({ patientId: groupMembers.patientId })
-      .from(groupMembers)
-      .where(inArray(groupMembers.groupId, filter.groupIds));
-
-    const ids = memberPatientIds.map((r) => r.patientId);
-    if (ids.length === 0) return []; // no members in selected groups
-    conditions.push(inArray(patients.id, ids));
+    conditions.push(await getGroupAudienceCondition(practiceId, filter.groupIds));
   }
 
   // Appointment date range filter
@@ -85,31 +101,19 @@ export async function resolveAudience(
     conditions.push(inArray(patients.id, ids));
   }
 
-  const whereClause = conditions.length > 1 ? and(...conditions) : conditions[0];
-
-  return db
-    .select({
-      id: patients.id,
-      firstName: patients.firstName,
-      lastName: patients.lastName,
-      email: patients.email,
-      phoneMobile: patients.phoneMobile,
-      phoneHome: patients.phoneHome,
-      smsConsent: patients.smsConsent,
-      emailConsent: patients.emailConsent,
-      status: patients.status,
-      dateOfBirth: patients.dateOfBirth,
-    })
-    .from(patients)
-    .where(whereClause);
+  return conditions;
 }
 
 /**
  * Counts the audience without fetching full records.
  */
 export async function countAudience(practiceId: string, filter: AudienceFilter): Promise<number> {
-  const audience = await resolveAudience(practiceId, filter);
-  return audience.length;
+  const conditions = await getAudienceConditions(practiceId, filter);
+  const [result] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(patients)
+    .where(conditions.length > 1 ? and(...conditions) : conditions[0]);
+  return result?.count ?? 0;
 }
 
 /**
@@ -130,4 +134,10 @@ export function filterByConsent(
   }
 
   return { consenting, opted_out };
+}
+
+export function isValidEmailAddress(value: string | null | undefined): value is string {
+  return typeof value === 'string' &&
+    value.trim().length <= 320 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
