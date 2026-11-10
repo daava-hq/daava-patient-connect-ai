@@ -23,8 +23,9 @@ Scheduled announcements can be cancelled. Drafts can be deleted.
 The group engagement history lists announcement status, scheduled time, and
 recipient counts. Each campaign report includes sent/accepted, delivered,
 bounced, failed, skipped, open, and click counts where the provider supports
-them, plus recipient activity. Group announcement details and actions are
-scoped to the practice and group that own the campaign.
+them in labeled icon cards, plus recipient activity. Group announcement details
+and actions are scoped to the practice and group that own the campaign. The
+report dialog and metric-card sizing match the newsletter report layout.
 
 Routes:
 

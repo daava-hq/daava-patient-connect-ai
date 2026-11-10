@@ -6,7 +6,9 @@ import { requirePracticeMembership } from '@/lib/auth/guards';
 import { AppError } from '@/lib/errors';
 import { ensurePracticeGroups } from '@/lib/groups/group-repository';
 import {
+  getCampaignById,
   getNewsletterDetails,
+  softDeleteCampaign,
   updateNewsletterDraft,
 } from '@/lib/campaigns/campaign-service';
 import { getCampaignStats } from '@/lib/campaigns/recipient-tracking';
@@ -89,5 +91,27 @@ export async function PATCH(req: NextRequest, { params }: { params: { newsletter
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'Unable to save newsletter draft' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: { newsletterId: string } }) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const practiceId = req.nextUrl.searchParams.get('practiceId');
+    if (!practiceId || !z.string().uuid().safeParse(practiceId).success) {
+      return NextResponse.json({ error: 'A valid practiceId is required' }, { status: 400 });
+    }
+
+    await requirePracticeMembership(session.user.id, practiceId);
+    const campaign = await getCampaignById(practiceId, params.newsletterId);
+    if (!campaign || campaign.type !== 'newsletter') {
+      return NextResponse.json({ error: 'Newsletter not found' }, { status: 404 });
+    }
+    await softDeleteCampaign(practiceId, campaign.id);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof AppError) return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    return NextResponse.json({ error: 'Unable to delete newsletter' }, { status: 500 });
   }
 }

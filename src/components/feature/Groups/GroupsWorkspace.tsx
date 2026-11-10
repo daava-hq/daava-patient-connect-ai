@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { CalendarClock, ChevronLeft, ChevronRight, Copy, Eye, History, Mail, Plus, Save, Search, Send, Smartphone, Trash2, Users, X } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import SearchInput from '@/components/ui/SearchInput/SearchInput';
@@ -1280,16 +1281,16 @@ export default function GroupsWorkspace() {
               <LoadingState text="Loading announcement report..." />
             ) : (
               <>
-                <p className={styles.note}>Status: {announcementReport.campaign.status}{announcementReport.campaign.scheduledAt ? ` · Scheduled ${new Date(announcementReport.campaign.scheduledAt).toLocaleString()}` : ''}</p>
+                <p className={styles.note}>Status: {announcementReport.campaign.status.replace('_', ' ')}{announcementReport.campaign.scheduledAt ? ` · Scheduled ${new Date(announcementReport.campaign.scheduledAt).toLocaleString()}` : ''}</p>
                 <div className={styles.announcementStats}>
-                  <article className={styles.statCard}><span>Recipients</span><strong>{announcementReport.stats.total}</strong></article>
-                  <article className={styles.statCard}><span>Sent / accepted</span><strong>{announcementReport.stats.sent}</strong></article>
-                  <article className={styles.statCard}><span>Delivered</span><strong>{announcementReport.stats.delivered}</strong></article>
-                  <article className={styles.statCard}><span>Bounced</span><strong>{announcementReport.stats.bounced}</strong></article>
-                  <article className={styles.statCard}><span>Failed</span><strong>{announcementReport.stats.failed}</strong></article>
-                  <article className={styles.statCard}><span>Skipped</span><strong>{announcementReport.stats.skipped}</strong></article>
-                  <article className={styles.statCard}><span>Opens</span><strong>{announcementReport.stats.opened}</strong></article>
-                  <article className={styles.statCard}><span>Clicks</span><strong>{announcementReport.stats.clicked}</strong></article>
+                  <AnnouncementReportStat icon={<Users />} label="Recipients" value={announcementReport.stats.total} />
+                  <AnnouncementReportStat icon={<Send />} label="Sent / accepted" value={announcementReport.stats.sent} />
+                  <AnnouncementReportStat icon={<Mail />} label="Delivered" value={announcementReport.stats.delivered} />
+                  <AnnouncementReportStat icon={<X />} label="Bounced" value={announcementReport.stats.bounced} />
+                  <AnnouncementReportStat icon={<X />} label="Failed" value={announcementReport.stats.failed} />
+                  <AnnouncementReportStat icon={<ChevronRight />} label="Skipped" value={announcementReport.stats.skipped} />
+                  <AnnouncementReportStat icon={<Eye />} label="Opens" value={announcementReport.stats.opened} />
+                  <AnnouncementReportStat icon={<Smartphone />} label="Clicks" value={announcementReport.stats.clicked} />
                 </div>
                 <h3>Recipient activity</h3>
                 {announcementReport.recipients.length ? (
@@ -1308,5 +1309,17 @@ export default function GroupsWorkspace() {
         </div>
       )}
     </div>
+  );
+}
+
+function AnnouncementReportStat({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
+  return (
+    <article className={`${styles.statCard} ${styles.announcementReportStat}`}>
+      <span className={styles.announcementReportIcon} aria-hidden="true">{icon}</span>
+      <div className={styles.announcementReportMetric}>
+        <span>{label}</span>
+        <strong>{value.toLocaleString()}</strong>
+      </div>
+    </article>
   );
 }

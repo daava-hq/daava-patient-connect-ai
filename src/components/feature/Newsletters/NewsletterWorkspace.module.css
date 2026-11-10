@@ -71,13 +71,12 @@
 
 .statsGrid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   gap: var(--space-4);
 }
 
 .statCard,
 .historyCard,
-.reportCard,
 .stateCard {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -86,22 +85,47 @@
 }
 
 .statCard {
-  display: grid;
-  gap: var(--space-2);
-  padding: var(--space-5, var(--space-4));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-4);
 }
 
-.statCard span {
+.statIcon {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+  color: var(--color-primary);
+}
+
+.statIcon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.statContent {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.statContent > span {
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
 
-.statCard strong {
+.statContent strong {
   font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
 }
 
-.historyCard,
-.reportCard {
+.historyCard {
   padding: var(--space-6);
 }
 
@@ -224,10 +248,6 @@
   font-size: var(--font-size-sm);
 }
 
-.reportCard {
-  padding: var(--space-6);
-}
-
 .editorModal {
   width: min(100%, 76rem);
   max-height: calc(100vh - var(--space-8));
@@ -250,6 +270,31 @@
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-sm);
+}
+
+.reportModal {
+  display: grid;
+  gap: var(--space-3);
+  width: min(100%, 68rem);
+  max-height: calc(100vh - var(--space-8));
+  overflow-y: auto;
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.reportEyebrow {
+  margin: 0 0 var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.reportStatus,
+.reportLoading {
+  margin: 0;
+  color: var(--color-text-muted);
 }
 
 .templateDialog > .editorHeader {
@@ -561,9 +606,16 @@
 
 .reportStats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-4);
   margin: var(--space-5) 0;
+}
+
+.reportStats .statCard {
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 0;
+  gap: var(--space-3);
 }
 
 .disclaimer {
@@ -572,10 +624,6 @@
 }
 
 @media (max-width: 900px) {
-  .statsGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .filterGrid {
     grid-template-columns: 1fr;
   }
@@ -588,9 +636,9 @@
   }
 
   .historyCard,
-  .reportCard,
   .editorModal,
-  .templateDialog {
+  .templateDialog,
+  .reportModal {
     padding: var(--space-4);
   }
 
@@ -598,8 +646,8 @@
     max-height: calc(100vh - var(--space-4));
   }
 
-  .statsGrid {
-    grid-template-columns: 1fr;
+  .reportModal {
+    max-height: calc(100vh - var(--space-4));
   }
 
   .historyHeader,

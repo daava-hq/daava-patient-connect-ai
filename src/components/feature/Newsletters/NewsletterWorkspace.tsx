@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import Link from 'next/link';
 import {
   CalendarClock,
@@ -84,6 +84,18 @@ interface NewsletterStats {
   clicked: number;
 }
 
+interface NewsletterRecipient {
+  recipientId: string;
+  status: string;
+  updatedAt: string;
+}
+
+interface NewsletterReportCampaign {
+  name: string;
+  status: string;
+  scheduledAt: string | null;
+}
+
 const EMPTY_STATS: NewsletterStats = {
   total: 0,
   sent: 0,
@@ -94,6 +106,8 @@ const EMPTY_STATS: NewsletterStats = {
   opened: 0,
   clicked: 0,
 };
+
+const HISTORY_PAGE_SIZE = 25;
 
 const SAMPLE_VARIABLES = {
   'patient.firstName': 'Jordan',
@@ -138,8 +152,10 @@ export default function NewsletterWorkspace() {
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [templateSearch, setTemplateSearch] = useState('');
   const [reportId, setReportId] = useState<string | null>(null);
+  const [reportCampaign, setReportCampaign] = useState<NewsletterReportCampaign | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
   const [reportStats, setReportStats] = useState<NewsletterStats>(EMPTY_STATS);
-  const [reportRecipients, setReportRecipients] = useState<Array<{ recipientId: string; status: string; updatedAt: string }>>([]);
+  const [reportRecipients, setReportRecipients] = useState<NewsletterRecipient[]>([]);
   const [name, setName] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [content, setContent] = useState<NewsletterDocument | null>(null);
@@ -158,6 +174,7 @@ export default function NewsletterWorkspace() {
   const editorDialogRef = useRef<HTMLElement | null>(null);
   const templateDialogRef = useRef<HTMLElement | null>(null);
   const previewDialogRef = useRef<HTMLElement | null>(null);
+  const reportDialogRef = useRef<HTMLElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const selectedTemplate = useMemo(
@@ -175,7 +192,7 @@ export default function NewsletterWorkspace() {
     setLoading(true);
     try {
       const [newsletterResponse, templateResponse, groupResponse] = await Promise.all([
-        fetch(`/api/newsletters?practiceId=${pId}&page=${pageNumber}&limit=25`),
+        fetch(`/api/newsletters?practiceId=${pId}&page=${pageNumber}&limit=${HISTORY_PAGE_SIZE}`),
         fetch(`/api/templates?practiceId=${pId}&type=newsletter&channel=email`),
         fetch(`/api/groups?practiceId=${pId}&page=1&limit=100&includeArchived=false`),
       ]);
@@ -227,6 +244,11 @@ export default function NewsletterWorkspace() {
     if (!templateDialogOpen) return;
     return manageDialogFocus(templateDialogRef.current, () => setTemplateDialogOpen(false));
   }, [templateDialogOpen]);
+
+  useEffect(() => {
+    if (!reportId) return;
+    return manageDialogFocus(reportDialogRef.current, () => setReportId(null));
+  }, [reportId]);
 
   useEffect(() => {
     if (!previewOpen) {
@@ -448,8 +470,11 @@ export default function NewsletterWorkspace() {
   }
 
   async function openReport(campaignId: string) {
-    setEditorOpen(false);
     setReportId(campaignId);
+    setReportCampaign(null);
+    setReportStats(EMPTY_STATS);
+    setReportRecipients([]);
+    setReportLoading(true);
     try {
       const [detailResponse, recipientsResponse] = await Promise.all([
         fetch(`/api/newsletters/${campaignId}?practiceId=${practiceId}`),
@@ -458,11 +483,14 @@ export default function NewsletterWorkspace() {
       const [detailJson, recipientsJson] = await Promise.all([detailResponse.json(), recipientsResponse.json()]);
       if (!detailResponse.ok) throw new Error(detailJson.error || 'Unable to load newsletter report');
       if (!recipientsResponse.ok) throw new Error(recipientsJson.error || 'Unable to load recipient history');
+      setReportCampaign(detailJson.data.campaign);
       setReportStats(detailJson.data.stats ?? EMPTY_STATS);
       setReportRecipients(recipientsJson.data ?? []);
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Unable to load newsletter report', 'error');
       setReportId(null);
+    } finally {
+      setReportLoading(false);
     }
   }
 
@@ -483,16 +511,22 @@ export default function NewsletterWorkspace() {
     }
   }
 
-  async function deleteDraft(campaignId: string) {
-    if (!window.confirm('Delete this newsletter draft?')) return;
+  async function deleteNewsletter(campaignId: string, status: string) {
+    const description = status === 'cancelled' ? 'cancelled newsletter' : 'newsletter draft';
+    if (!window.confirm(`Delete this ${description}?`)) return;
     try {
-      const response = await fetch(`/api/campaigns/${campaignId}?practiceId=${practiceId}`, { method: 'DELETE' });
+      const response = await fetch(`/api/newsletters/${campaignId}?practiceId=${practiceId}`, { method: 'DELETE' });
       const json = await response.json();
-      if (!response.ok) throw new Error(json.error || 'Unable to delete draft');
-      showToast('Newsletter draft deleted', 'success');
-      await loadWorkspace(practiceId, page);
+      if (!response.ok) throw new Error(json.error || 'Unable to delete newsletter');
+      const nextTotal = Math.max(0, total - Number(campaigns.some((campaign) => campaign.id === campaignId)));
+      const nextPage = page > 1 && (page - 1) * HISTORY_PAGE_SIZE >= nextTotal ? page - 1 : page;
+      setCampaigns((current) => current.filter((campaign) => campaign.id !== campaignId));
+      setTotal(nextTotal);
+      if (nextPage !== page) setPage(nextPage);
+      showToast('Newsletter deleted', 'success');
+      await loadWorkspace(practiceId, nextPage);
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to delete draft', 'error');
+      showToast(error instanceof Error ? error.message : 'Unable to delete newsletter', 'error');
     }
   }
 
@@ -555,7 +589,7 @@ export default function NewsletterWorkspace() {
     }
   }, [content]);
 
-  const pageCount = Math.max(1, Math.ceil(total / 25));
+  const pageCount = Math.max(1, Math.ceil(total / HISTORY_PAGE_SIZE));
 
   return (
     <main className={styles.workspace}>
@@ -762,44 +796,14 @@ export default function NewsletterWorkspace() {
           )}
         </section>
         </div>
-      ) : reportId ? (
-        <section className={styles.reportCard}>
-          <button type="button" className={styles.backButton} onClick={() => setReportId(null)}><ChevronLeft size={16} /> Back to newsletters</button>
-          <h2>Newsletter report</h2>
-          <div className={styles.reportStats}>
-            <Stat label="Recipients" value={reportStats.total} />
-            <Stat label="Sent / accepted" value={reportStats.sent} />
-            <Stat label="Delivered" value={reportStats.delivered} />
-            <Stat label="Bounced" value={reportStats.bounced} />
-            <Stat label="Failed" value={reportStats.failed} />
-            <Stat label="Opens" value={reportStats.opened} />
-            <Stat label="Clicks" value={reportStats.clicked} />
-          </div>
-          <p className={styles.disclaimer}>“Sent / accepted” means accepted by the configured provider, not confirmed delivered. Opens and clicks appear only when provider events are configured.</p>
-          <h3>Recipient activity</h3>
-          {!reportRecipients.length ? <p>No recipient records have been created yet. Recipients are materialized when dispatch begins.</p> : (
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
-                <thead><tr><th>Recipient reference</th><th>Status</th><th>Last updated</th></tr></thead>
-                <tbody>{reportRecipients.map((recipient) => (
-                  <tr key={recipient.recipientId}>
-                    <td>{recipient.recipientId}</td>
-                    <td><span className={styles.statusBadge}>{recipient.status}</span></td>
-                    <td>{new Date(recipient.updatedAt).toLocaleString()}</td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
-          )}
-        </section>
       ) : (
         <>
           <section className={styles.statsGrid} aria-label="Newsletter statistics">
-            <Stat label="Newsletters" value={Object.values(dashboardStats.campaigns).reduce((sum, value) => sum + value, 0)} />
-            <Stat label="Drafts" value={dashboardStats.campaigns.draft ?? 0} />
-            <Stat label="Scheduled" value={dashboardStats.campaigns.scheduled ?? 0} />
-            <Stat label="Sent / accepted" value={dashboardStats.events.sent ?? 0} />
-            <Stat label="Delivered" value={dashboardStats.events.delivered ?? 0} />
+            <Stat icon={<Mail />} label="Newsletters" value={Object.values(dashboardStats.campaigns).reduce((sum, value) => sum + value, 0)} />
+            <Stat icon={<Save />} label="Drafts" value={dashboardStats.campaigns.draft ?? 0} />
+            <Stat icon={<CalendarClock />} label="Scheduled" value={dashboardStats.campaigns.scheduled ?? 0} />
+            <Stat icon={<Send />} label="Sent / accepted" value={dashboardStats.events.sent ?? 0} />
+            <Stat icon={<Mail />} label="Delivered" value={dashboardStats.events.delivered ?? 0} />
           </section>
           <section className={styles.historyCard}>
             <div className={styles.historyHeader}>
@@ -828,7 +832,7 @@ export default function NewsletterWorkspace() {
                       <td>
                         <div className={styles.rowActions}>
                           {campaign.status === 'draft' && <button type="button" onClick={() => void openDraft(campaign.id)}>Edit</button>}
-                          {campaign.status === 'draft' && <button type="button" onClick={() => void deleteDraft(campaign.id)} aria-label={`Delete ${campaign.name}`}><Trash2 size={15} /></button>}
+                          {['draft', 'cancelled'].includes(campaign.status) && <button type="button" onClick={() => void deleteNewsletter(campaign.id, campaign.status)} aria-label={`Delete ${campaign.name}`}><Trash2 size={15} /></button>}
                           {campaign.status === 'scheduled' && <button type="button" onClick={() => void cancelScheduled(campaign.id)}>Cancel</button>}
                           <button type="button" onClick={() => void openReport(campaign.id)}>Report</button>
                         </div>
@@ -848,12 +852,68 @@ export default function NewsletterWorkspace() {
           </section>
         </>
       )}
+      {reportId && (
+        <div className={styles.modalBackdrop} role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setReportId(null);
+        }}>
+          <section ref={reportDialogRef} className={styles.reportModal} role="dialog" aria-modal="true" aria-labelledby="newsletter-report-title" tabIndex={-1}>
+            <header className={styles.editorHeader}>
+              <div>
+                <p className={styles.reportEyebrow}>Newsletter report</p>
+                <h2 id="newsletter-report-title">{reportCampaign?.name ?? 'Loading report'}</h2>
+              </div>
+              <button type="button" className={styles.iconButton} onClick={() => setReportId(null)} aria-label="Close report"><X size={18} /></button>
+            </header>
+            {reportLoading || !reportCampaign ? (
+              <p className={styles.reportLoading} role="status">Loading newsletter report…</p>
+            ) : (
+              <>
+                <p className={styles.reportStatus}>Status: {reportCampaign.status.replace('_', ' ')}{reportCampaign.scheduledAt ? ` · Scheduled ${new Date(reportCampaign.scheduledAt).toLocaleString()}` : ''}</p>
+                <div className={styles.reportStats}>
+                  <Stat icon={<Users />} label="Recipients" value={reportStats.total} />
+                  <Stat icon={<Send />} label="Sent / accepted" value={reportStats.sent} />
+                  <Stat icon={<Mail />} label="Delivered" value={reportStats.delivered} />
+                  <Stat icon={<X />} label="Bounced" value={reportStats.bounced} />
+                  <Stat icon={<X />} label="Failed" value={reportStats.failed} />
+                  <Stat icon={<ChevronRight />} label="Skipped" value={reportStats.skipped} />
+                  <Stat icon={<Eye />} label="Opens" value={reportStats.opened} />
+                  <Stat icon={<Smartphone />} label="Clicks" value={reportStats.clicked} />
+                </div>
+                <p className={styles.disclaimer}>“Sent / accepted” means accepted by the configured provider, not confirmed delivered. Opens and clicks appear only when provider events are configured.</p>
+                <h3>Recipient activity</h3>
+                {!reportRecipients.length ? <p>No recipient activity is available yet.</p> : (
+                  <div className={styles.tableWrap}>
+                    <table className={styles.table}>
+                      <thead><tr><th>Recipient reference</th><th>Status</th><th>Last updated</th></tr></thead>
+                      <tbody>{reportRecipients.map((recipient) => (
+                        <tr key={recipient.recipientId}>
+                          <td>{recipient.recipientId}</td>
+                          <td><span className={styles.statusBadge}>{recipient.status}</span></td>
+                          <td>{new Date(recipient.updatedAt).toLocaleString()}</td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        </div>
+      )}
     </main>
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return <article className={styles.statCard}><span>{label}</span><strong>{value.toLocaleString()}</strong></article>;
+function Stat({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
+  return (
+    <article className={styles.statCard}>
+      <span className={styles.statIcon} aria-hidden="true">{icon}</span>
+      <div className={styles.statContent}>
+        <span>{label}</span>
+        <strong>{value.toLocaleString()}</strong>
+      </div>
+    </article>
+  );
 }
 
 function manageDialogFocus(dialog: HTMLElement | null, onEscape: () => void) {

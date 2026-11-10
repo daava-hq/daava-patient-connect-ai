@@ -29,6 +29,12 @@ campaign-compatible `message_templates` record and a `campaigns` record.
 Editing a draft without selecting a replacement template preserves its content
 snapshot; selecting another template replaces only that campaign's snapshot.
 Changes to a reusable template do not rewrite existing drafts.
+Newsletter history reports load the selected campaign's status, delivery
+statistics, and recipient activity in a campaign-specific dialog. Draft and
+cancelled newsletters can be soft-deleted from history; the history row and
+dashboard counts refresh after a successful delete. Dashboard and report
+statistics use labeled icon cards with matching size and vertical alignment,
+consistent with Birthday engagement reports.
 
 Audience filters support all active patients, selected static or dynamic
 groups, and synchronized birthday-month / appointment-date filters. Selected

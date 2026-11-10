@@ -1,8 +1,9 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Bell, Eye, Plus, Send, Settings2, Trash2, X } from 'lucide-react';
+import { Bell, CalendarClock, ChevronRight, Eye, Mail, Plus, Send, Settings2, Trash2, X } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
 import EmailMessagePreview from '@/components/feature/EmailMessagePreview/EmailMessagePreview';
@@ -432,12 +433,12 @@ export default function RemindersPage() {
           </div>
 
           <section className={styles.statsGrid} aria-label="Reminder report">
-            <Stat label="Scheduled" value={dashboard.stats.scheduled} />
-            <Stat label="Attempted" value={dashboard.stats.attempted} />
-            <Stat label="Sent" value={dashboard.stats.sent} />
-            <Stat label="Delivered" value={dashboard.stats.delivered} />
-            <Stat label="Failed" value={dashboard.stats.failed} />
-            <Stat label="Skipped" value={dashboard.stats.skipped} />
+            <Stat icon={<CalendarClock />} label="Scheduled" value={dashboard.stats.scheduled} />
+            <Stat icon={<Eye />} label="Attempted" value={dashboard.stats.attempted} />
+            <Stat icon={<Send />} label="Sent" value={dashboard.stats.sent} />
+            <Stat icon={<Mail />} label="Delivered" value={dashboard.stats.delivered} />
+            <Stat icon={<X />} label="Failed" value={dashboard.stats.failed} />
+            <Stat icon={<ChevronRight />} label="Skipped" value={dashboard.stats.skipped} />
           </section>
 
           <section className={styles.section} aria-labelledby="settings-heading">
@@ -819,11 +820,14 @@ export default function RemindersPage() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
   return (
     <article className={styles.statCard}>
-      <span>{label}</span>
-      <strong>{value}</strong>
+      <span className={styles.statIcon} aria-hidden="true">{icon}</span>
+      <div className={styles.statContent}>
+        <span>{label}</span>
+        <strong>{value.toLocaleString()}</strong>
+      </div>
     </article>
   );
 }
