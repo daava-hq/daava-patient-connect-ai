@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import AppHeader from '@/components/layout/AppHeader/AppHeader';
 import AppSidebar from '@/components/layout/AppSidebar/AppSidebar';
 import { ToastProvider } from '@/components/feedback/ToastProvider/ToastProvider';
+import PracticeRouteGate from '@/components/auth/PracticeRouteGate';
 import styles from './workspaceLayout.module.css';
 
 export default function WorkspaceLayout({
@@ -16,14 +17,16 @@ export default function WorkspaceLayout({
   const isChoosePractice = pathname === '/workspace/choose-practice';
 
   return (
-    <ToastProvider>
-      <div className={styles.layoutWrapper}>
-        {!isChoosePractice && <AppHeader />}
-        <div className={styles.mainBody}>
-          {!isChoosePractice && <AppSidebar />}
-          <main className={styles.contentArea}>{children}</main>
+    <PracticeRouteGate mode="workspace">
+      <ToastProvider>
+        <div className={styles.layoutWrapper}>
+          {!isChoosePractice && <AppHeader />}
+          <div className={styles.mainBody}>
+            {!isChoosePractice && <AppSidebar />}
+            <main className={styles.contentArea}>{children}</main>
+          </div>
         </div>
-      </div>
-    </ToastProvider>
+      </ToastProvider>
+    </PracticeRouteGate>
   );
 }

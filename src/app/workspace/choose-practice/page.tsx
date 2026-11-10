@@ -20,25 +20,30 @@ export default function ChooseClinicPage() {
   const router = useRouter();
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     async function loadClinics() {
+      setLoading(true);
+      setLoadError('');
       try {
         const res = await fetch('/api/practices');
-        if (res.ok) {
-          const json = await res.json();
-          if (json.data && json.data.length > 0) {
-            setClinics(json.data);
-          }
+        if (res.status === 401) {
+          router.replace('/login');
+          return;
         }
-      } catch {
-        // Fallback
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Unable to load practice locations.');
+        setClinics(json.data ?? []);
+      } catch (error) {
+        setLoadError(error instanceof Error ? error.message : 'Unable to load practice locations.');
       } finally {
         setLoading(false);
       }
     }
-    loadClinics();
-  }, []);
+    void loadClinics();
+  }, [attempt, router]);
 
   const handleSelectClinic = (clinicId: string) => {
     localStorage.setItem('selectedClinicId', clinicId);
@@ -86,6 +91,11 @@ export default function ChooseClinicPage() {
       {loading ? (
         <div style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: 'var(--space-8)' }}>
           Loading practices...
+        </div>
+      ) : loadError ? (
+        <div role="alert" style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-error)' }}>
+          <p>{loadError}</p>
+          <button type="button" onClick={() => setAttempt((current) => current + 1)}>Try again</button>
         </div>
       ) : clinics.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>

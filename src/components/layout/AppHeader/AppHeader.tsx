@@ -40,18 +40,11 @@ export default function AppHeader({
             setPracticeList(json.data);
             const saved = localStorage.getItem('selectedClinicId');
             const exists = json.data.some((p: Practice) => p.id === saved);
-            if (!saved || !exists) {
-              const defaultId = json.data[0].id;
-              setSelectedPractice(defaultId);
-              localStorage.setItem('selectedClinicId', defaultId);
-              window.dispatchEvent(new Event('practiceChanged'));
-            } else {
-              setSelectedPractice(saved);
-            }
+            setSelectedPractice(saved && exists ? saved : '');
           }
         }
       } catch {
-        // Ignore error
+        setSelectedPractice('');
       }
     }
 
@@ -63,9 +56,7 @@ export default function AppHeader({
   useEffect(() => {
     const handlePracticeChange = () => {
       const saved = localStorage.getItem('selectedClinicId');
-      if (saved) {
-        setSelectedPractice(saved);
-      }
+      setSelectedPractice(saved || '');
     };
     window.addEventListener('practiceChanged', handlePracticeChange);
     return () => window.removeEventListener('practiceChanged', handlePracticeChange);

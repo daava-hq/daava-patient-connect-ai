@@ -15,6 +15,7 @@ Patient Connect handles protected health information (PHI) and dental practice c
 - Session tokens are HTTP-only, Secure, SameSite=Strict cookies.
 - MFA (TOTP) planned for Milestone 3.
 - Unauthenticated requests to protected workspace/API routes must redirect to `/login`. The email appointment-confirmation route is intentionally public and is authorized only by its signed, expiring reminder capability.
+- The root entry and `/login` routes check the server session. Authenticated users are routed according to their saved practice selection; workspace routes verify that selection against the signed-in user's `/api/practices` list and return users with no valid selection to `/workspace/choose-practice`. The browser-stored practice ID is only a navigation hint and must still be verified by each protected API operation.
 - **Password change & recovery**: Password reset tokens are cryptographically generated, hashed in the database, and expire after 15 minutes. Password recovery requires external email delivery integration (e.g., SendGrid or SMTP provider configured via environment variables `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`).
 
 ## Authorisation model
