@@ -6,7 +6,7 @@ import styles from './AppHeader.module.css';
 import AppLogo from '../../ui/AppLogo/AppLogo';
 import GlobalSearch from '../GlobalSearch/GlobalSearch';
 import UserProfileMenu from '../UserProfileMenu/UserProfileMenu';
-import { Building2 } from 'lucide-react';
+import { ArrowLeftRight, Building2 } from 'lucide-react';
 
 interface Practice {
   id: string;
@@ -79,13 +79,13 @@ export default function AppHeader({
             <Building2 size={16} className={styles.buildingIcon} />
             <span className={styles.practiceName}>{activePractice?.name || 'Loading practice...'}</span>
           </div>
-
           <Link
             href="/workspace/choose-practice"
             className={styles.switchPracticeLink}
-            aria-label="Switch to another practice"
+            aria-label="Switch practice"
+            title="Switch practice"
           >
-            Switch to another practice
+            <ArrowLeftRight size={16} aria-hidden="true" />
           </Link>
         </div>
       </div>
