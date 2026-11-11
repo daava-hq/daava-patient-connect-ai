@@ -11,7 +11,8 @@ The Groups workspace only offers published email templates in the centralized
 Groups category. Creating an announcement snapshots the selected template into
 a campaign-owned message template, so editing its content never changes the
 reusable template. Drafts can be edited, previewed on desktop or mobile, and
-saved without scheduling.
+saved without scheduling. Select a reusable template from the picker dialog;
+system templates can be cloned for customization in the Templates library.
 
 Before scheduling or sending, preview the group audience. The preview and
 dispatch enforce active-patient status, email consent, a valid email address,

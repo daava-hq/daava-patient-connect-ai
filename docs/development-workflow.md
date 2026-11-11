@@ -59,25 +59,38 @@ practice. It does not create synthetic delivery history or reminder schedules.
 Use it after migrations:
 
 ```bash
-pnpm seed:reminders-test-data
+pnpm seed:sample-data
 ```
 
-The script loads `.env.local` when present. It creates ten synthetic patients
-and appointments for the sample practice, all with `prem@daava.ai`, and clears
-previous reminder history. It does not create, enable, or disable configured
-reminder schedules. Prefer **Refresh / reset sample data** on the sample
-practice's dashboard for this workflow. The reminders page derives upcoming
-reminders from these patient and appointment records and the practice's enabled
-schedules; without an enabled schedule, Upcoming reminders remains empty.
-Appointments are scheduled across five consecutive local calendar days,
-starting eight days ahead, with two appointments per day at 9:00 AM and 10:00 AM.
-This keeps all reminder intervals in the future. Every sample appointment has
-`Scheduled` status. Only appointments created by the refresh
-action are shown or processed in the dedicated sample practice. Reset also removes
-non-sample patient and appointment rows in that office; do not use it for
-non-test data. It removes the legacy sample-only reminder schedule and
-preserves all other configured schedules.
-Both reset paths are restricted to the dedicated sample practice in local/dev.
+The script loads `.env.local` when present, requires an explicit `DATABASE_URL`,
+and refuses to run unless `APP_ENVIRONMENT` is `local` or `dev`. The legacy
+`pnpm seed:reminders-test-data` command remains an alias. Both commands use the
+shared fixture catalog at `src/lib/sample-data/catalog.json`, so test scenarios
+for additional modules can be added in one place.
+
+The dedicated `Appointment Reminder Sample Practice` gets ten synthetic
+patients (all using `prem@daava.ai`), appointments, two static patient groups,
+birthdays in the next week, one disabled birthday campaign, one newsletter
+draft, and one group-announcement draft. No campaign delivery history is
+fabricated and the seeder does not send messages. Appointments are scheduled
+across five local calendar days starting eight days ahead, two per day at 9:00
+AM and 10:00 AM, and each appointment has `Scheduled` status. Upcoming reminders
+still depend on that practice's enabled reminder schedules; a reset removes only
+the legacy sample-only reminder schedule and preserves other reminder schedules.
+The reset does not send messages itself. If an appointment-reminder schedule
+and cron are enabled, reminder emails can be sent to the sample address
+`prem@daava.ai`.
+
+**Refresh / reset sample data** on the sample practice dashboard rebuilds all
+these modules in one transaction. It clears the dedicated sample practice's
+patients, appointments, reminder history, groups, birthday campaigns, campaigns
+and their delivery history, and its campaign templates before recreating the
+fixtures. It does not affect other practices. Do not use the action for
+non-test data. Reset is limited to the exact reserved sample practice in local
+or dev, and is refused while campaigns are scheduled/processing, an appointment
+reminder is processing, or a birthday campaign is enabled. Both reset paths
+preserve templates referenced by another practice and leave non-sample reminder
+schedules alone.
 
 To run a local sample-only cron poll immediately and then every two minutes:
 

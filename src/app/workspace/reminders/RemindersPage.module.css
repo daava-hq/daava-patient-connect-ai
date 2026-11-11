@@ -251,9 +251,7 @@
   color: var(--color-warning);
 }
 
-.cardActions,
-.templateActions,
-.templateFooter {
+.cardActions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -385,8 +383,7 @@
   background: rgb(15 23 42 / 0.55);
 }
 
-.modal,
-.templateDialog {
+.modal {
   width: min(100%, 38rem);
   max-height: min(90vh, 60rem);
   overflow-y: auto;
@@ -394,10 +391,6 @@
   padding: var(--space-6);
   background: var(--color-surface);
   box-shadow: var(--shadow-lg);
-}
-
-.templateDialog {
-  width: min(100%, 46rem);
 }
 
 .form {
@@ -412,8 +405,7 @@
   gap: var(--space-4);
 }
 
-.templatePicker,
-.templateOption {
+.templatePicker {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -423,14 +415,12 @@
   padding: var(--space-3);
 }
 
-.templatePicker > div,
-.templateOption > div:first-child {
+.templatePicker > div {
   display: grid;
   gap: var(--space-1);
 }
 
-.templatePicker span,
-.templateOption span {
+.templatePicker span {
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
 }
@@ -475,17 +465,6 @@
   justify-content: flex-end;
   gap: var(--space-3);
   margin-top: var(--space-2);
-}
-
-.templateList {
-  display: grid;
-  gap: var(--space-3);
-  margin-top: var(--space-5);
-}
-
-.templateFooter {
-  justify-content: flex-end;
-  margin-top: var(--space-4);
 }
 
 .visuallyHidden {
@@ -534,13 +513,11 @@
     grid-template-columns: 1fr;
   }
 
-  .modal,
-  .templateDialog {
+  .modal {
     padding: var(--space-4);
   }
 
-  .templatePicker,
-  .templateOption {
+  .templatePicker {
     align-items: flex-start;
     flex-direction: column;
   }

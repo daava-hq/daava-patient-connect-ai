@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { authOptions } from '@/lib/auth/options';
 import { requirePracticeAdmin } from '@/lib/auth/guards';
 import { AppError } from '@/lib/errors';
-import { resetSampleAppointmentReminderData } from '@/lib/appointment-reminders/reminder-service';
+import { resetSamplePracticeData } from '@/lib/sample-data/sample-data-service';
 import { logError } from '@/lib/logger';
 
 const resetSchema = z.object({ practiceId: z.string().uuid() }).strict();
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     }
 
     await requirePracticeAdmin(session.user.id, parsed.data.practiceId);
-    const data = await resetSampleAppointmentReminderData(parsed.data.practiceId);
+    const data = await resetSamplePracticeData(parsed.data.practiceId);
     return NextResponse.json({ data });
   } catch (error) {
     if (error instanceof AppError) {

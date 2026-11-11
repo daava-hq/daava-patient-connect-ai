@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
+import TemplatePickerDialog from '@/components/feature/TemplatePicker/TemplatePickerDialog';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
 import {
   parseNewsletterDocument,
@@ -150,7 +151,6 @@ export default function NewsletterWorkspace() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
-  const [templateSearch, setTemplateSearch] = useState('');
   const [reportId, setReportId] = useState<string | null>(null);
   const [reportCampaign, setReportCampaign] = useState<NewsletterReportCampaign | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
@@ -172,7 +172,6 @@ export default function NewsletterWorkspace() {
   const [busy, setBusy] = useState(false);
   const [editorError, setEditorError] = useState('');
   const editorDialogRef = useRef<HTMLElement | null>(null);
-  const templateDialogRef = useRef<HTMLElement | null>(null);
   const previewDialogRef = useRef<HTMLElement | null>(null);
   const reportDialogRef = useRef<HTMLElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -181,13 +180,6 @@ export default function NewsletterWorkspace() {
     () => templates.find((template) => template.id === selectedTemplateId) ?? null,
     [templates, selectedTemplateId],
   );
-  const filteredTemplates = useMemo(() => {
-    const query = templateSearch.trim().toLowerCase();
-    return query
-      ? templates.filter((template) => template.name.toLowerCase().includes(query))
-      : templates;
-  }, [templateSearch, templates]);
-
   const loadWorkspace = useCallback(async (pId: string, pageNumber: number) => {
     setLoading(true);
     try {
@@ -239,11 +231,6 @@ export default function NewsletterWorkspace() {
     if (!editorOpen || templateDialogOpen || previewOpen) return;
     return manageDialogFocus(editorDialogRef.current, closeEditor);
   }, [editorOpen, previewOpen, templateDialogOpen]);
-
-  useEffect(() => {
-    if (!templateDialogOpen) return;
-    return manageDialogFocus(templateDialogRef.current, () => setTemplateDialogOpen(false));
-  }, [templateDialogOpen]);
 
   useEffect(() => {
     if (!reportId) return;
@@ -326,7 +313,6 @@ export default function NewsletterWorkspace() {
     const template = templates.find((item) => item.id === templateId);
     setSelectedTemplateId(templateId);
     setTemplateDialogOpen(false);
-    setTemplateSearch('');
     setAudienceCount(null);
     if (!template) return;
     try {
@@ -534,7 +520,6 @@ export default function NewsletterWorkspace() {
     setEditingId(null);
     setEditorOpen(true);
     setTemplateDialogOpen(false);
-    setTemplateSearch('');
     setReportId(null);
     setName('');
     setSelectedTemplateId('');
@@ -554,7 +539,6 @@ export default function NewsletterWorkspace() {
     setEditingId(null);
     setEditorOpen(false);
     setTemplateDialogOpen(false);
-    setTemplateSearch('');
     setEditorError('');
     setPreviewOpen(false);
   }
@@ -741,59 +725,6 @@ export default function NewsletterWorkspace() {
               </section>
             </div>
           )}
-          {templateDialogOpen && (
-            <div className={styles.modalBackdrop} role="presentation" onMouseDown={(event) => {
-              if (event.target === event.currentTarget) setTemplateDialogOpen(false);
-            }}>
-              <section
-                ref={templateDialogRef}
-                className={styles.templateDialog}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="newsletter-template-dialog-title"
-                tabIndex={-1}
-              >
-                <div className={styles.editorHeader}>
-                  <div>
-                    <h2 id="newsletter-template-dialog-title">Newsletter templates</h2>
-                    <p>Select a published email template from the centralized Newsletters library.</p>
-                  </div>
-                  <button type="button" className={styles.iconButton} onClick={() => setTemplateDialogOpen(false)} aria-label="Close template selector">
-                    <X size={20} aria-hidden="true" />
-                  </button>
-                </div>
-                <label className={styles.field}>
-                  <span>Search templates</span>
-                  <input value={templateSearch} onChange={(event) => setTemplateSearch(event.target.value)} autoComplete="off" />
-                </label>
-                {!filteredTemplates.length ? (
-                  <p className={styles.emptyInline}>
-                    {templates.length
-                      ? 'No newsletter templates match your search.'
-                      : <>No published email newsletter templates are available. Add one in the <Link href="/workspace/templates">Templates library</Link>.</>}
-                  </p>
-                ) : (
-                  <div className={styles.templateList}>
-                    {filteredTemplates.map((template) => (
-                      <article className={styles.templateOption} key={template.id}>
-                        <div>
-                          <strong>{template.name}</strong>
-                          <span>{template.isSystem ? 'System template' : 'Practice template'} · {template.channel.toUpperCase()}</span>
-                          {template.description && <p>{template.description}</p>}
-                        </div>
-                        <button type="button" className={styles.textButton} onClick={() => selectTemplate(template.id)}>
-                          Select
-                        </button>
-                      </article>
-                    ))}
-                  </div>
-                )}
-                <div className={styles.templateFooter}>
-                  <Link href="/workspace/templates">Open Templates library</Link>
-                </div>
-              </section>
-            </div>
-          )}
         </section>
         </div>
       ) : (
@@ -900,6 +831,17 @@ export default function NewsletterWorkspace() {
           </section>
         </div>
       )}
+      <TemplatePickerDialog
+        open={templateDialogOpen}
+        title="Newsletter templates"
+        description="Select a published email template from the centralized Newsletters library."
+        templates={templates}
+        selectedTemplateId={selectedTemplateId}
+        onClose={() => setTemplateDialogOpen(false)}
+        onSelect={(template) => selectTemplate(template.id)}
+        libraryHref="/workspace/templates?category=newsletters"
+        emptyMessage="No published email newsletter templates are available. Add one in the"
+      />
     </main>
   );
 }

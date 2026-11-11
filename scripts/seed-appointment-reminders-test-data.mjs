@@ -1,19 +1,23 @@
+import { readFileSync } from 'node:fs';
 import postgres from 'postgres';
 import { assertSampleDataEnvironment } from './sample-data-environment.mjs';
 
 assertSampleDataEnvironment(process.env.APP_ENVIRONMENT);
 
 if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL must be set explicitly before seeding reminder sample data.');
+  throw new Error('DATABASE_URL must be set explicitly before seeding sample practice data.');
 }
 
 const sql = postgres(process.env.DATABASE_URL, { max: 1 });
-const samplePracticeSlug = 'appointment-reminder-sample';
-const samplePracticeName = 'Appointment Reminder Sample Practice';
-const sampleOrganisationName = 'Patient Connect Sample Data';
-const sampleEmail = 'prem@daava.ai';
-const samplePracticePhone = '(555) 010-0100';
-const samplePracticeAddress = '123 Sample Street, Test City, NY 10001';
+const sampleDataCatalog = JSON.parse(
+  readFileSync(new URL('../src/lib/sample-data/catalog.json', import.meta.url), 'utf8')
+);
+const samplePracticeSlug = sampleDataCatalog.practice.slug;
+const samplePracticeName = sampleDataCatalog.practice.name;
+const sampleOrganisationName = sampleDataCatalog.practice.organisationName;
+const sampleEmail = sampleDataCatalog.practice.email;
+const samplePracticePhone = sampleDataCatalog.practice.phone;
+const samplePracticeAddress = sampleDataCatalog.practice.address;
 
 async function getSamplePractice() {
   return sql.begin(async (tx) => {
@@ -85,86 +89,24 @@ async function upsertAppointments(practiceId) {
     Number(localDate.get('month')) - 1,
     Number(localDate.get('day')) + 8
   ));
-  const sampleScenarios = [
-    {
-      patientId: 8901,
-      appointmentId: 7801,
-      firstName: 'William',
-      lastName: 'Clark',
-      description: 'Routine dental cleaning',
-    },
-    {
-      patientId: 8902,
-      appointmentId: 7802,
-      firstName: 'Sarah',
-      lastName: 'Jenkins',
-      description: 'Dental examination',
-    },
-    {
-      patientId: 8903,
-      appointmentId: 7803,
-      firstName: 'Michael',
-      lastName: 'Chen',
-      description: 'Preventive care visit',
-    },
-    {
-      patientId: 8904,
-      appointmentId: 7804,
-      firstName: 'Jessica',
-      lastName: 'Taylor',
-      description: 'Dental cleaning',
-    },
-    {
-      patientId: 8905,
-      appointmentId: 7805,
-      firstName: 'Emily',
-      lastName: 'Davis',
-      description: 'Follow-up appointment',
-    },
-    {
-      patientId: 8906,
-      appointmentId: 7806,
-      firstName: 'Robert',
-      lastName: 'Wilson',
-      description: 'Routine dental examination',
-    },
-    {
-      patientId: 8907,
-      appointmentId: 7807,
-      firstName: 'Olivia',
-      lastName: 'Anderson',
-      description: 'Preventive dental visit',
-    },
-    {
-      patientId: 8908,
-      appointmentId: 7808,
-      firstName: 'James',
-      lastName: 'Martinez',
-      description: 'Dental examination',
-    },
-    {
-      patientId: 8909,
-      appointmentId: 7809,
-      firstName: 'Ava',
-      lastName: 'Robinson',
-      description: 'Routine dental cleaning',
-    },
-    {
-      patientId: 8910,
-      appointmentId: 7810,
-      firstName: 'Benjamin',
-      lastName: 'Lee',
-      description: 'Follow-up dental visit',
-    },
-  ];
-  const scenarios = sampleScenarios.map((sample, index) => {
+  const scenarios = sampleDataCatalog.patients.map((sample, index) => {
     const appointmentDate = new Date(Date.UTC(
       sampleDate.getUTCFullYear(),
       sampleDate.getUTCMonth(),
       sampleDate.getUTCDate() + Math.floor(index / 2)
     ));
+    const birthdayDate = new Date(Date.UTC(
+      Number(localDate.get('year')),
+      Number(localDate.get('month')) - 1,
+      Number(localDate.get('day')) + sample.birthdayOffsetDays
+    ));
+    const birthdayMonth = birthdayDate.getUTCMonth() + 1;
+    const birthdayDay = birthdayMonth === 2 && birthdayDate.getUTCDate() === 29
+      ? 28
+      : birthdayDate.getUTCDate();
     return {
       ...sample,
+      dateOfBirth: `${birthdayDate.getUTCFullYear() - 30}-${String(birthdayMonth).padStart(2, '0')}-${String(birthdayDay).padStart(2, '0')}`,
       appointmentAt: localDateTimeToInstant(
         {
           year: appointmentDate.getUTCFullYear(),
@@ -178,22 +120,66 @@ async function upsertAppointments(practiceId) {
   });
 
   await sql.begin(async (tx) => {
+    const [activeCampaign] = await tx`
+      SELECT id
+      FROM campaigns
+      WHERE practice_id = ${practiceId}
+        AND deleted_at IS NULL
+        AND status IN ('scheduled', 'processing')
+      LIMIT 1
+      FOR UPDATE
+    `;
+    if (activeCampaign) {
+      throw new Error('Cancel scheduled campaigns and wait for active campaigns to finish before resetting sample data.');
+    }
+
+    const [activeBirthdayCampaign] = await tx`
+      SELECT id
+      FROM birthday_engagement_campaigns
+      WHERE practice_id = ${practiceId}
+        AND enabled = true
+        AND deleted_at IS NULL
+      LIMIT 1
+      FOR UPDATE
+    `;
+    if (activeBirthdayCampaign) {
+      throw new Error('Disable birthday campaigns before resetting sample data.');
+    }
+
+    const [processingReminder] = await tx`
+      SELECT id
+      FROM appointment_reminders
+      WHERE practice_id = ${practiceId}
+        AND status = 'processing'
+      LIMIT 1
+      FOR UPDATE
+    `;
+    if (processingReminder) {
+      throw new Error('Wait for appointment reminders to finish processing before resetting sample data.');
+    }
+
     await tx`DELETE FROM appointment_reminders WHERE practice_id = ${practiceId}`;
+    await tx`DELETE FROM birthday_engagement_occurrences WHERE practice_id = ${practiceId}`;
+    await tx`DELETE FROM birthday_engagement_campaigns WHERE practice_id = ${practiceId}`;
+    await tx`DELETE FROM campaigns WHERE practice_id = ${practiceId}`;
+    await tx`DELETE FROM groups WHERE practice_id = ${practiceId}`;
+    await tx`
+      DELETE FROM message_templates mt
+      WHERE mt.practice_id = ${practiceId}
+        AND NOT EXISTS (
+          SELECT 1
+          FROM campaigns c
+          WHERE c.practice_id <> ${practiceId}
+            AND c.template_id = mt.id
+        )
+    `;
     await tx`
       DELETE FROM appointment_reminder_schedules
       WHERE practice_id = ${practiceId}
         AND name = 'Sample 24-Hour Email Reminder'
     `;
-    await tx`
-      DELETE FROM appointments
-      WHERE practice_id = ${practiceId}
-        AND opendental_appt_id NOT IN (7801, 7802, 7803, 7804, 7805, 7806, 7807, 7808, 7809, 7810)
-    `;
-    await tx`
-      DELETE FROM patients
-      WHERE practice_id = ${practiceId}
-        AND opendental_patient_id NOT IN (8901, 8902, 8903, 8904, 8905, 8906, 8907, 8908, 8909, 8910)
-    `;
+    await tx`DELETE FROM appointments WHERE practice_id = ${practiceId}`;
+    await tx`DELETE FROM patients WHERE practice_id = ${practiceId}`;
 
     for (const sample of scenarios) {
       const [patient] = await tx`
@@ -202,19 +188,9 @@ async function upsertAppointments(practiceId) {
           phone_mobile, status, sms_consent, email_consent, date_of_birth
         )
         VALUES (
-          ${practiceId}, ${sample.patientId}, ${sample.firstName}, ${sample.lastName},
-          ${sampleEmail}, NULL, 'Patient', false, true, '1985-06-15'
+          ${practiceId}, ${sample.patientNumber}, ${sample.firstName}, ${sample.lastName},
+          ${sampleEmail}, NULL, 'Patient', false, true, ${sample.dateOfBirth}
         )
-        ON CONFLICT (practice_id, opendental_patient_id) DO UPDATE SET
-          first_name = EXCLUDED.first_name,
-          last_name = EXCLUDED.last_name,
-          email = EXCLUDED.email,
-          phone_mobile = NULL,
-          status = 'Patient',
-          sms_consent = false,
-          email_consent = true,
-          date_of_birth = EXCLUDED.date_of_birth,
-          updated_at = NOW()
         RETURNING id
       `;
 
@@ -223,20 +199,123 @@ async function upsertAppointments(practiceId) {
           practice_id, patient_id, opendental_appt_id, scheduled_at, status, description
         )
         VALUES (
-          ${practiceId}, ${patient.id}, ${sample.appointmentId}, ${sample.appointmentAt},
+          ${practiceId}, ${patient.id}, ${sample.appointmentNumber}, ${sample.appointmentAt},
           'Scheduled', ${`Sample data: ${sample.description}`}
         )
-        ON CONFLICT (practice_id, opendental_appt_id) DO UPDATE SET
-          patient_id = EXCLUDED.patient_id,
-          scheduled_at = EXCLUDED.scheduled_at,
-          status = 'Scheduled',
-          description = EXCLUDED.description,
-          updated_at = NOW()
       `;
     }
+
+    await seedEngagementData(tx, practiceId);
   });
 
   return scenarios;
+}
+
+async function seedEngagementData(tx, practiceId) {
+  const patientRows = await tx`
+    SELECT id, opendental_patient_id
+    FROM patients
+    WHERE practice_id = ${practiceId}
+  `;
+  const patientIdByNumber = new Map(
+    patientRows.map((patient) => [Number(patient.opendental_patient_id), patient.id])
+  );
+  const groupIdByKey = new Map();
+
+  for (const groupConfig of sampleDataCatalog.groups) {
+    const [group] = await tx`
+      INSERT INTO groups (practice_id, name, description, group_type, criteria)
+      VALUES (${practiceId}, ${groupConfig.name}, ${groupConfig.description}, 'static', '{}'::jsonb)
+      RETURNING id
+    `;
+    groupIdByKey.set(groupConfig.key, group.id);
+    for (const patientNumber of groupConfig.patientNumbers) {
+      const patientId = patientIdByNumber.get(patientNumber);
+      if (!patientId) throw new Error(`Unknown sample patient ${patientNumber} in group ${groupConfig.key}`);
+      await tx`
+        INSERT INTO group_members (group_id, patient_id)
+        VALUES (${group.id}, ${patientId})
+        ON CONFLICT (group_id, patient_id) DO NOTHING
+      `;
+    }
+  }
+
+  const birthday = sampleDataCatalog.birthdayCampaign;
+  const [birthdayTemplate] = await tx`
+    SELECT t.id
+    FROM templates t
+    JOIN template_categories c ON c.id = t.category_id
+    WHERE c.slug = 'birthdays'
+      AND t.status = 'published'
+      AND t.channel = ${birthday.channel}
+      AND t.deleted_at IS NULL
+      AND (t.practice_id = ${practiceId} OR t.is_system = true)
+    LIMIT 1
+  `;
+  await tx`
+    INSERT INTO birthday_engagement_campaigns (
+      practice_id, name, channel, template_id, days_before, local_delivery_time, offer_text, enabled
+    )
+    VALUES (
+      ${practiceId}, ${birthday.name}, ${birthday.channel}, ${birthdayTemplate?.id ?? null}, ${birthday.daysBefore},
+      ${birthday.localDeliveryTime}, ${birthday.offerText}, ${birthday.enabled}
+    )
+  `;
+
+  for (const newsletter of sampleDataCatalog.newsletters) {
+    const groupIds = newsletter.groupKeys.map((key) => {
+      const groupId = groupIdByKey.get(key);
+      if (!groupId) throw new Error(`Unknown sample group ${key} for newsletter ${newsletter.name}`);
+      return groupId;
+    });
+    await insertSampleCampaign(tx, {
+      practiceId,
+      name: newsletter.name,
+      type: 'newsletter',
+      content: newsletter.content,
+      audienceFilter: { groupIds, patientStatuses: ['Patient'], consentEmail: true },
+    });
+  }
+
+  for (const announcement of sampleDataCatalog.announcements) {
+    const groupId = groupIdByKey.get(announcement.groupKey);
+    if (!groupId) throw new Error(`Unknown sample group ${announcement.groupKey} for announcement ${announcement.name}`);
+    await insertSampleCampaign(tx, {
+      practiceId,
+      name: announcement.name,
+      templateName: announcement.templateName,
+      type: 'group_announcement',
+      content: announcement.content,
+      audienceFilter: { groupIds: [groupId], patientStatuses: ['Patient'], consentEmail: true },
+    });
+  }
+}
+
+async function insertSampleCampaign(tx, { practiceId, name, templateName, type, content, audienceFilter }) {
+  const body = content.sections
+    .flatMap((section) => section.blocks)
+    .map((block) => block.properties?.text ?? block.text ?? '')
+    .filter(Boolean)
+    .join('\n\n');
+  const [template] = await tx`
+    INSERT INTO message_templates (
+      practice_id, name, channel, subject, body, content
+    )
+    VALUES (
+      ${practiceId}, ${templateName || `${name} content`}, 'email',
+      ${content.subject}, ${body}, ${JSON.stringify(content)}::jsonb
+    )
+    RETURNING id
+  `;
+  await tx`
+    INSERT INTO campaigns (
+      practice_id, name, type, channel, status, template_id, audience_filter
+    )
+    VALUES (
+      ${practiceId}, ${name}, ${type}, 'email', 'draft', ${template.id},
+      ${JSON.stringify(audienceFilter)}::jsonb
+    )
+  `;
 }
 
 function localDateTimeToInstant(date, time, timeZone) {
@@ -285,16 +364,17 @@ async function main() {
   const practice = await getSamplePractice();
   const scenarios = await upsertAppointments(practice.id);
 
-  console.log(`Cleared prior reminder history and refreshed ${scenarios.length} sample patients and appointments across five days.`);
+  console.log(`Refreshed ${scenarios.length} sample patients and appointments across five days.`);
   console.log(`Practice: ${practice.name} (${practice.id})`);
-  console.log(`All ten email-consenting sample patients use ${sampleEmail}.`);
+  console.log(`Sample patients use ${sampleEmail}; birthdays, groups, a birthday campaign, a newsletter, and a group announcement were refreshed.`);
+  console.log('Newsletter and group announcement campaigns are drafts. The birthday campaign is disabled. The seeder does not send emails.');
   console.log('Existing reminder schedules are preserved. Upcoming reminders are derived from enabled schedules and these appointments.');
-  console.log('The data seeder does not send emails. Use `pnpm reminders:cron:local` to start the two-minute sample-only cron runner.');
+  console.log('Use `pnpm reminders:cron:local` only when explicitly testing appointment reminder delivery.');
 }
 
 main()
   .catch((error) => {
-    console.error('Failed to seed appointment reminder sample data:', error);
+    console.error('Failed to seed sample practice data:', error);
     process.exitCode = 1;
   })
   .finally(async () => {

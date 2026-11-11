@@ -1,0 +1,81 @@
+{
+  "practice": {
+    "slug": "appointment-reminder-sample",
+    "name": "Appointment Reminder Sample Practice",
+    "organisationName": "Patient Connect Sample Data",
+    "email": "prem@daava.ai",
+    "phone": "(555) 010-0100",
+    "address": "123 Sample Street, Test City, NY 10001"
+  },
+  "patients": [
+    { "patientNumber": 8901, "appointmentNumber": 7801, "firstName": "William", "lastName": "Clark", "description": "Routine dental cleaning", "birthdayOffsetDays": 0 },
+    { "patientNumber": 8902, "appointmentNumber": 7802, "firstName": "Sarah", "lastName": "Jenkins", "description": "Dental examination", "birthdayOffsetDays": 1 },
+    { "patientNumber": 8903, "appointmentNumber": 7803, "firstName": "Michael", "lastName": "Chen", "description": "Preventive care visit", "birthdayOffsetDays": 2 },
+    { "patientNumber": 8904, "appointmentNumber": 7804, "firstName": "Jessica", "lastName": "Taylor", "description": "Dental cleaning", "birthdayOffsetDays": 3 },
+    { "patientNumber": 8905, "appointmentNumber": 7805, "firstName": "Emily", "lastName": "Davis", "description": "Follow-up appointment", "birthdayOffsetDays": 4 },
+    { "patientNumber": 8906, "appointmentNumber": 7806, "firstName": "Robert", "lastName": "Wilson", "description": "Routine dental examination", "birthdayOffsetDays": 5 },
+    { "patientNumber": 8907, "appointmentNumber": 7807, "firstName": "Olivia", "lastName": "Anderson", "description": "Preventive dental visit", "birthdayOffsetDays": 6 },
+    { "patientNumber": 8908, "appointmentNumber": 7808, "firstName": "James", "lastName": "Martinez", "description": "Dental examination", "birthdayOffsetDays": 7 },
+    { "patientNumber": 8909, "appointmentNumber": 7809, "firstName": "Ava", "lastName": "Robinson", "description": "Routine dental cleaning", "birthdayOffsetDays": 10 },
+    { "patientNumber": 8910, "appointmentNumber": 7810, "firstName": "Benjamin", "lastName": "Lee", "description": "Follow-up dental visit", "birthdayOffsetDays": 14 }
+  ],
+  "groups": [
+    {
+      "key": "upcoming-birthdays",
+      "name": "Sample Data: Upcoming Birthdays",
+      "description": "Patients with sample birthdays in the next week.",
+      "patientNumbers": [8901, 8902, 8903, 8904, 8905, 8906, 8907]
+    },
+    {
+      "key": "appointment-patients",
+      "name": "Sample Data: Appointment Patients",
+      "description": "Patients with sample appointments for testing engagement audiences.",
+      "patientNumbers": [8901, 8902, 8903, 8904, 8905, 8906, 8907, 8908, 8909, 8910]
+    }
+  ],
+  "birthdayCampaign": {
+    "name": "Sample Data: Birthday Greeting",
+    "channel": "email",
+    "daysBefore": 0,
+    "localDeliveryTime": "09:00",
+    "offerText": "Enjoy a sample birthday offer on your next visit.",
+    "enabled": false
+  },
+  "newsletters": [
+    {
+      "name": "Sample Data: Monthly Smile Newsletter",
+      "content": {
+        "subject": "Monthly smile tips from your dental team",
+        "preheader": "A sample newsletter for previewing and reporting.",
+        "sections": [
+          {
+            "blocks": [
+              { "type": "heading", "properties": { "text": "Your monthly smile update", "level": "h1" } },
+              { "type": "paragraph", "properties": { "text": "This sample newsletter is a draft for testing the editor, audience, and report views. It will not be sent unless you explicitly schedule or send it." } },
+              { "type": "paragraph", "properties": { "text": "Remember to brush twice daily, clean between your teeth, and contact your dental team if you have questions." } }
+            ]
+          }
+        ]
+      },
+      "groupKeys": ["upcoming-birthdays", "appointment-patients"]
+    }
+  ],
+  "announcements": [
+    {
+      "name": "Sample Data: Practice Update Announcement",
+      "templateName": "Sample Data: Practice Update Announcement content",
+      "groupKey": "appointment-patients",
+      "content": {
+        "subject": "A sample update from your dental practice",
+        "sections": [
+          {
+            "blocks": [
+              { "type": "heading", "properties": { "text": "A practice update", "level": "h1" } },
+              { "type": "paragraph", "properties": { "text": "This sample group announcement is saved as a draft so you can test group targeting, editing, and report views without sending a message." } }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

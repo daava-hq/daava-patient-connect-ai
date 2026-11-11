@@ -398,6 +398,10 @@
   inset: 0;
 }
 
+.templatePickerOverlay {
+  z-index: 101;
+}
+
 .dialog {
   display: grid;
   width: min(100%, 44rem);
@@ -452,17 +456,30 @@
 }
 
 .templateSummary {
-  display: grid;
-  gap: var(--space-1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
   padding: var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-background);
 }
 
+.templateSummary > div {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
 .templateSummary span {
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
+}
+
+.note a {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
 }
 
 .scheduleField {
@@ -673,6 +690,11 @@
 
   .inlineFields label {
     width: 100%;
+  }
+
+  .templateSummary {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .announcementList li,

@@ -101,7 +101,7 @@ Every `route.ts` must:
 - Birthday occurrences are unique per campaign, patient, and birthday year and are atomically claimed by the worker. The protected `/api/cron/birthdays` endpoint uses the same constant-time bearer secret as appointment reminders. Provider acceptance followed by a lost response can still be ambiguous; AWS SES does not provide provider-side idempotency, so an infrastructure failure at that point can result in a retry duplicate.
 - SMS remains an unconfigured stub. Email uses AWS SES only when `AWS_REGION`, `AWS_SES_FROM_EMAIL`, and AWS SDK credentials are available; the SDK client and credentials remain server-side.
 - Appointment and campaign email content is sent to AWS SES. Before sending patient data, verify applicable privacy, consent, contractual, and regulatory requirements with AWS and your organization.
-- `APP_ENVIRONMENT` identifies `local`, `dev`, `stage`, or `production`. The appointment-reminder sample-data seeder fails closed unless the value is `local` or `dev`, requires an explicit database URL, and uses an isolated sample practice.
+- `APP_ENVIRONMENT` identifies `local`, `dev`, `stage`, or `production`. Sample-data seeding and reset fail closed outside `local`/`dev`; the seeder requires an explicit database URL. The reset API requires an authenticated practice admin and verifies the exact reserved sample practice (slug, name, and organisation) before modifying it. Every deletion is practice-scoped, and reset is blocked while campaigns are scheduled/processing, an appointment reminder is processing, or birthday campaigns are enabled. Campaign templates referenced by another practice are preserved.
 
 ## Webhook verification
 

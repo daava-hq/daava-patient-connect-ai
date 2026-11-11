@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { Bell, CalendarClock, ChevronRight, Eye, Mail, Plus, Send, Settings2, Trash2, X } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
+import TemplatePickerDialog from '@/components/feature/TemplatePicker/TemplatePickerDialog';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
 import EmailMessagePreview from '@/components/feature/EmailMessagePreview/EmailMessagePreview';
 import {
@@ -149,7 +150,6 @@ export default function RemindersPage() {
   const [saving, setSaving] = useState(false);
   const [deletingScheduleId, setDeletingScheduleId] = useState<string | null>(null);
   const scheduleDialogRef = useRef<HTMLElement | null>(null);
-  const templateDialogRef = useRef<HTMLElement | null>(null);
 
   const loadDashboard = useCallback(async (selectedPracticeId: string) => {
     setLoading(true);
@@ -199,11 +199,6 @@ export default function RemindersPage() {
     if (!formOpen || templateDialogOpen) return;
     return manageDialogFocus(scheduleDialogRef.current, () => setFormOpen(false));
   }, [formOpen, templateDialogOpen]);
-
-  useEffect(() => {
-    if (!templateDialogOpen) return;
-    return manageDialogFocus(templateDialogRef.current, () => setTemplateDialogOpen(false));
-  }, [templateDialogOpen]);
 
   const compatibleTemplates = useMemo(
     () => templates.filter((template) => template.channel === form.channel),
@@ -772,50 +767,22 @@ export default function RemindersPage() {
         </div>
       )}
 
-      {templateDialogOpen && (
-        <div className={styles.modalBackdrop} role="presentation" onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setTemplateDialogOpen(false);
-        }}>
-          <section ref={templateDialogRef} className={styles.templateDialog} role="dialog" aria-modal="true" aria-labelledby="template-dialog-title">
-            <div className={styles.modalHeader}>
-              <div>
-                <h2 id="template-dialog-title">Appointment reminder templates</h2>
-                <p>Only templates from the centralized Appointment Reminders category are listed.</p>
-              </div>
-              <button type="button" className={styles.iconButton} onClick={() => setTemplateDialogOpen(false)} aria-label="Close template selector">
-                <X size={20} aria-hidden="true" />
-              </button>
-            </div>
-            {compatibleTemplates.length === 0 ? (
-              <p className={styles.emptyInline}>No {form.channel.toUpperCase()} templates available. Create one in the <Link href="/workspace/templates">Templates library</Link>.</p>
-            ) : (
-              <div className={styles.templateList}>
-                {compatibleTemplates.map((template) => (
-                  <article className={styles.templateOption} key={template.id}>
-                    <div>
-                      <strong>{template.name}</strong>
-                      <span>{template.isSystem ? 'System template' : 'Practice template'} · {template.status} · {template.channel.toUpperCase()}</span>
-                    </div>
-                    <div className={styles.templateActions}>
-                      <button type="button" className={styles.textButton} onClick={() => {
-                        setForm((current) => ({ ...current, templateId: template.id }));
-                        setTemplateDialogOpen(false);
-                        setPreview(null);
-                      }}>Select</button>
-                      {template.isSystem && (
-                        <button type="button" className={styles.textButton} onClick={() => void cloneTemplate(template)}>Clone</button>
-                      )}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-            <div className={styles.templateFooter}>
-              <Link href="/workspace/templates">Open Templates library</Link>
-            </div>
-          </section>
-        </div>
-      )}
+      <TemplatePickerDialog
+        open={templateDialogOpen}
+        title="Appointment reminder templates"
+        description="Only templates from the centralized Appointment Reminders category are listed."
+        templates={compatibleTemplates}
+        selectedTemplateId={form.templateId}
+        onClose={() => setTemplateDialogOpen(false)}
+        onSelect={(template) => {
+          setForm((current) => ({ ...current, templateId: template.id }));
+          setTemplateDialogOpen(false);
+          setPreview(null);
+        }}
+        onClone={(template) => void cloneTemplate(template)}
+        libraryHref="/workspace/templates?category=appointment-reminders"
+        emptyMessage={`No ${form.channel.toUpperCase()} templates available. Create one in the`}
+      />
     </main>
   );
 }

@@ -75,7 +75,7 @@ export default function SampleDataReset() {
   async function resetSampleData() {
     if (!practiceId) return;
     const confirmed = window.confirm(
-      'Refresh 10 sample patients and appointments across five days? This removes non-sample patients and appointments from the dedicated sample practice and clears its reminder history. If email delivery and the reminder cron are enabled, the 10 test emails can be sent again.'
+      'Reset all sample modules for Appointment Reminder Sample Practice? This replaces its patients, appointments, groups, birthdays, newsletters, announcements, and reminder history. Newsletter and announcement records are drafts, and birthday campaigns are disabled. If an appointment reminder schedule and cron are enabled, sample emails may be sent to prem@daava.ai. Other practices are not affected.'
     );
     if (!confirmed) return;
 
@@ -90,7 +90,7 @@ export default function SampleDataReset() {
       const json = await response.json();
       if (!response.ok) throw new Error(json.error || 'Unable to refresh sample data');
       showToast(
-        'Sample patients and appointments refreshed. Reminder history was cleared; upcoming reminders will use this office’s enabled schedules.',
+        'Sample patients, appointments, groups, birthdays, newsletters, and announcements were refreshed. The reset itself sent no messages.',
         'success'
       );
     } catch (error) {
@@ -111,8 +111,9 @@ export default function SampleDataReset() {
           <div className={styles.content}>
             <h2 id="sample-data-heading">Sample practice data</h2>
             <p>
-              Refresh the sample patients and appointments used to test the Appointment Reminders page.
-              All sample patient email addresses are set to prem@daava.ai.
+              Refreshes test patients, appointments, groups, birthdays, newsletters, and group announcements
+              for Appointment Reminder Sample Practice. Newsletter and announcement campaigns remain drafts,
+              and the birthday campaign is disabled.
             </p>
           </div>
           <button

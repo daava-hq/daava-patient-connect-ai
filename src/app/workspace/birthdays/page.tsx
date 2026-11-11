@@ -19,10 +19,11 @@ import {
   Users,
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
+import TemplatePickerDialog from '@/components/feature/TemplatePicker/TemplatePickerDialog';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
 import styles from './Birthdays.module.css';
 
-type BirthdayRange = 'today' | 'tomorrow' | 'next7' | 'thisMonth' | 'custom';
+type BirthdayRange = 'today' | 'tomorrow' | 'next7' | 'thisMonth';
 type Channel = 'sms' | 'email';
 type Tab = 'overview' | 'calendar' | 'campaigns' | 'history' | 'reports';
 
@@ -125,7 +126,6 @@ const RANGE_OPTIONS: { value: BirthdayRange; label: string }[] = [
   { value: 'tomorrow', label: 'Tomorrow' },
   { value: 'next7', label: 'Next 7 days' },
   { value: 'thisMonth', label: 'This month' },
-  { value: 'custom', label: 'Custom range' },
 ];
 
 const TABS: { value: Tab; label: string }[] = [
@@ -189,10 +189,10 @@ export default function BirthdaysPage() {
   const [dashboard, setDashboard] = useState<BirthdayDashboard | null>(null);
   const [templates, setTemplates] = useState<BirthdayTemplate[]>([]);
   const [range, setRange] = useState<BirthdayRange>('next7');
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
   const [calendarMonth, setCalendarMonth] = useState('');
   const [tab, setTab] = useState<Tab>('overview');
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const templatePickerOpenRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -204,14 +204,15 @@ export default function BirthdaysPage() {
 
   useEffect(() => {
     if (!isEditorOpen) return;
-    const editor = editorRef.current;
+    const activeDialog = editorRef.current;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const getFocusable = () => editor?.querySelectorAll<HTMLElement>(
+    const getFocusable = () => activeDialog?.querySelectorAll<HTMLElement>(
       'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
     ) ?? [];
     getFocusable()[0]?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (templatePickerOpenRef.current) return;
       if (event.key === 'Escape') {
         setIsEditorOpen(false);
         return;
@@ -236,9 +237,19 @@ export default function BirthdaysPage() {
     };
   }, [isEditorOpen]);
 
+  function openTemplatePicker() {
+    templatePickerOpenRef.current = true;
+    setTemplatePickerOpen(true);
+  }
+
+  function closeTemplatePicker() {
+    templatePickerOpenRef.current = false;
+    setTemplatePickerOpen(false);
+  }
+
   const loadDashboard = useCallback(async (
     selectedPracticeId: string,
-    selectedRange: BirthdayRange,
+    selectedRange: BirthdayRange | 'custom',
     startDate?: string,
     endDate?: string
   ) => {
@@ -271,8 +282,6 @@ export default function BirthdaysPage() {
       if (selectedPracticeId) {
         setRange('next7');
         setCalendarMonth('');
-        setCustomStart('');
-        setCustomEnd('');
         void loadDashboard(selectedPracticeId, 'next7');
       } else {
         setDashboard(null);
@@ -313,16 +322,21 @@ export default function BirthdaysPage() {
 
   const refresh = useCallback(() => {
     if (!practiceId) return;
-    if (range === 'custom') {
-      void loadDashboard(practiceId, range, customStart || undefined, customEnd || undefined);
-    } else {
-      void loadDashboard(practiceId, range);
-    }
-  }, [customEnd, customStart, loadDashboard, practiceId, range]);
+    void loadDashboard(practiceId, range);
+  }, [loadDashboard, practiceId, range]);
 
   function setSelectedRange(nextRange: BirthdayRange) {
     setRange(nextRange);
-    if (practiceId && nextRange !== 'custom') void loadDashboard(practiceId, nextRange);
+    if (practiceId) void loadDashboard(practiceId, nextRange);
+  }
+
+  function changeCalendarMonth(amount: number) {
+    const [year, month] = calendarMonth.split('-').map(Number);
+    const nextMonth = new Date(Date.UTC(year, month - 1 + amount, 1));
+    const nextKey = toMonthKey(nextMonth);
+    setCalendarMonth(nextKey);
+    const { startDate, endDate } = monthRange(nextKey);
+    if (practiceId) void loadDashboard(practiceId, 'custom', startDate, endDate);
   }
 
   function startCreateCampaign() {
@@ -435,14 +449,30 @@ export default function BirthdaysPage() {
     }
   }
 
-  function changeCalendarMonth(amount: number) {
-    const [year, month] = calendarMonth.split('-').map(Number);
-    const nextMonth = new Date(Date.UTC(year, month - 1 + amount, 1));
-    const nextKey = toMonthKey(nextMonth);
-    setCalendarMonth(nextKey);
-    setRange('custom');
-    const { startDate, endDate } = monthRange(nextKey);
-    if (practiceId) void loadDashboard(practiceId, 'custom', startDate, endDate);
+  async function cloneTemplate(template: BirthdayTemplate) {
+    if (!practiceId) return;
+    try {
+      const response = await fetch(`/api/templates/${template.id}/clone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ practiceId }),
+      });
+      const body = await response.json() as ApiResponse<{ id: string }>;
+      const error = responseError(response, body, 'Failed to clone birthday template');
+      if (error || !body.data) throw new Error(error || 'Cloned birthday template is unavailable');
+
+      const templatesResponse = await fetch(`/api/birthdays/campaigns?practiceId=${encodeURIComponent(practiceId)}`);
+      const templatesBody = await templatesResponse.json() as ApiResponse<{ templates: BirthdayTemplate[] }>;
+      const templatesError = responseError(templatesResponse, templatesBody, 'Failed to reload birthday templates');
+      if (templatesError || !templatesBody.data) {
+        throw new Error(templatesError || 'Birthday templates are unavailable');
+      }
+      setTemplates(templatesBody.data.templates);
+      closeTemplatePicker();
+      showToast('Template cloned. Publish it in the Templates library before using it in a campaign.', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Failed to clone birthday template', 'error');
+    }
   }
 
   const selectedTemplate = templates.find((template) => template.id === draft.templateId);
@@ -498,9 +528,9 @@ export default function BirthdaysPage() {
                   className={tab === item.value ? styles.activeTab : styles.tab}
                   onClick={() => {
                     setTab(item.value);
+                    if (item.value === 'overview') refresh();
                     if (item.value === 'calendar' && calendarMonth) {
                       const { startDate, endDate } = monthRange(calendarMonth);
-                      setRange('custom');
                       void loadDashboard(practiceId, 'custom', startDate, endDate);
                     }
                   }}
@@ -509,7 +539,7 @@ export default function BirthdaysPage() {
                 </button>
               ))}
             </div>
-            {(tab === 'overview' || tab === 'calendar') && (
+            {tab === 'overview' && (
               <div className={styles.rangeControls}>
                 <label htmlFor="birthdayRange">Show</label>
                 <select
@@ -524,20 +554,6 @@ export default function BirthdaysPage() {
               </div>
             )}
           </div>
-
-          {range === 'custom' && (tab === 'overview' || tab === 'calendar') && (
-            <div className={styles.customRange}>
-              <label>
-                From
-                <input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} />
-              </label>
-              <label>
-                To
-                <input type="date" value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} />
-              </label>
-              <button className={styles.secondaryButton} onClick={refresh} disabled={!customStart || !customEnd}>Apply range</button>
-            </div>
-          )}
 
           {loadError && <div className={styles.errorBanner} role="alert">{loadError}</div>}
           {loading && <p className={styles.loading}>Loading birthday information…</p>}
@@ -701,6 +717,23 @@ export default function BirthdaysPage() {
         </>
       )}
 
+      <TemplatePickerDialog
+        open={templatePickerOpen}
+        title="Birthday templates"
+        description={`Only published ${draft.channel.toUpperCase()} templates from the Birthdays category are listed.`}
+        templates={filteredTemplates}
+        selectedTemplateId={draft.templateId}
+        onClose={closeTemplatePicker}
+        onSelect={(template) => {
+          setDraft((current) => ({ ...current, templateId: template.id }));
+          closeTemplatePicker();
+          setPreview(null);
+        }}
+        onClone={(template) => void cloneTemplate(template)}
+        libraryHref="/workspace/templates?category=birthdays"
+        emptyMessage={`No published ${draft.channel.toUpperCase()} birthday templates available. Create one in the`}
+      />
+
       {isEditorOpen && (
         <div className={styles.modalBackdrop}>
           <section ref={editorRef} className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="campaignEditorTitle">
@@ -716,26 +749,28 @@ export default function BirthdaysPage() {
                 Campaign name
                 <input required maxLength={255} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
               </label>
-              <div className={styles.formRow}>
-                <label className={styles.field}>
-                  Channel
-                  <select
-                    value={draft.channel}
-                    onChange={(event) => setDraft({ ...draft, channel: event.target.value as Channel, templateId: '' })}
-                  >
-                    <option value="sms">SMS</option>
-                    <option value="email">Email</option>
-                  </select>
-                </label>
-                <label className={styles.field}>
-                  Birthday template
-                  <select required value={draft.templateId} onChange={(event) => setDraft({ ...draft, templateId: event.target.value })}>
-                    <option value="">Select a published {draft.channel.toUpperCase()} template</option>
-                    {filteredTemplates.map((template) => (
-                      <option key={template.id} value={template.id}>{template.name}{template.isSystem ? ' · system' : ''}</option>
-                    ))}
-                  </select>
-                </label>
+              <label className={styles.field}>
+                Channel
+                <select
+                  value={draft.channel}
+                  onChange={(event) => setDraft({ ...draft, channel: event.target.value as Channel, templateId: '' })}
+                >
+                  <option value="sms">SMS</option>
+                  <option value="email">Email</option>
+                </select>
+              </label>
+              <div className={styles.templatePicker}>
+                <div>
+                  <strong>{selectedTemplate?.name ?? 'No template selected'}</strong>
+                  <span>
+                    {selectedTemplate
+                      ? `${selectedTemplate.isSystem ? 'System template' : 'Practice template'} · ${selectedTemplate.status} · ${selectedTemplate.channel.toUpperCase()}`
+                      : `Select a published ${draft.channel.toUpperCase()} template from Birthday templates.`}
+                  </span>
+                </div>
+                <button type="button" className={styles.secondaryButton} onClick={openTemplatePicker}>
+                  Choose template
+                </button>
               </div>
               <div className={styles.formRow}>
                 <label className={styles.field}>
@@ -777,7 +812,7 @@ export default function BirthdaysPage() {
               </label>
               {selectedTemplate && (
                 <p className={styles.templateHint}>
-                Selected: {selectedTemplate.name}. <Link href="/workspace/templates?category=birthdays" target="_blank" rel="noreferrer">Clone, customize, or save templates</Link>
+                  <Link href="/workspace/templates?category=birthdays" target="_blank" rel="noreferrer">Customize or manage birthday templates</Link>
                 </p>
               )}
               <div className={styles.modalActions}>

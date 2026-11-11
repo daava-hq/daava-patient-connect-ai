@@ -63,4 +63,22 @@ describe('GET /api/birthdays', () => {
     });
     expect(body.data.timezone).toBe('America/New_York');
   });
+
+  it('accepts custom date bounds for calendar month queries', async () => {
+    mocks.getServerSession.mockResolvedValue({ user: { id: 'user-id' } });
+    mocks.requirePracticeMembership.mockResolvedValue({ practiceId });
+    mocks.getBirthdayDashboard.mockResolvedValue({ birthdays: [], timezone: 'UTC' });
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/birthdays?practiceId=${practiceId}&range=custom&startDate=2026-03-01&endDate=2026-03-07`)
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.getBirthdayDashboard).toHaveBeenCalledWith({
+      practiceId,
+      range: 'custom',
+      customStart: '2026-03-01',
+      customEnd: '2026-03-07',
+    });
+  });
 });

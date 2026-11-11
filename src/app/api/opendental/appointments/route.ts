@@ -25,6 +25,7 @@ import { practices } from '@/db/schema/practices';
 import { and, eq, inArray } from 'drizzle-orm';
 import { decrypt } from '@/lib/opendental/crypto';
 import { patients as patientsTable } from '@/db/schema/patients';
+import sampleDataCatalog from '@/lib/sample-data/catalog.json';
 import {
   getNextPracticeAppointmentDate,
   getPracticeAppointments,
@@ -66,7 +67,7 @@ interface CachedData {
 
 let cache: CachedData | null = null;
 const CACHE_TTL_MS = 2 * 60 * 1000;
-const SAMPLE_PRACTICE_SLUG = 'appointment-reminder-sample';
+const SAMPLE_PRACTICE_SLUG = sampleDataCatalog.practice.slug;
 
 export async function GET(req: NextRequest) {
   try {

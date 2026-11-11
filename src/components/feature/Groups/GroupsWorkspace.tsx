@@ -1,9 +1,11 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { CalendarClock, ChevronLeft, ChevronRight, Copy, Eye, History, Mail, Plus, Save, Search, Send, Smartphone, Trash2, Users, X } from 'lucide-react';
+import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
+import TemplatePickerDialog from '@/components/feature/TemplatePicker/TemplatePickerDialog';
 import SearchInput from '@/components/ui/SearchInput/SearchInput';
 import Pagination from '@/components/ui/Pagination/Pagination';
 import EmptyState from '@/components/feedback/EmptyState/EmptyState';
@@ -203,6 +205,8 @@ export default function GroupsWorkspace() {
   const [campaignTotal, setCampaignTotal] = useState(0);
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [announcementOpen, setAnnouncementOpen] = useState(false);
+  const [announcementTemplatePickerOpen, setAnnouncementTemplatePickerOpen] = useState(false);
+  const [cloningTemplateId, setCloningTemplateId] = useState<string | null>(null);
   const [announcementEditingId, setAnnouncementEditingId] = useState<string | null>(null);
   const [announcementName, setAnnouncementName] = useState('');
   const [templateId, setTemplateId] = useState('');
@@ -551,6 +555,7 @@ export default function GroupsWorkspace() {
       setAnnouncementError('');
       setAnnouncementContentPreviewOpen(false);
       setAnnouncementPreview(null);
+      setAnnouncementTemplatePickerOpen(false);
       setAnnouncementName(`${selectedGroup.name} announcement`);
       setAnnouncementOpen(true);
     } catch (error) {
@@ -595,6 +600,28 @@ export default function GroupsWorkspace() {
     }
   }
 
+  async function cloneAnnouncementTemplate(template: TemplateOption) {
+    if (!practiceId || cloningTemplateId) return;
+    setCloningTemplateId(template.id);
+    try {
+      await request<{ id: string }>(`/api/templates/${template.id}/clone`, {
+        method: 'POST',
+        body: JSON.stringify({ practiceId }),
+      });
+      const data = await request<{ categories: Array<{ id: string; slug: string }>; templates: TemplateOption[] }>(
+        `/api/templates?${queryString({ practiceId })}`
+      );
+      const groupCategoryId = data.categories.find((category) => category.slug === 'groups')?.id;
+      setTemplates(data.templates.filter((item) => item.categoryId === groupCategoryId));
+      setAnnouncementTemplatePickerOpen(false);
+      showToast('Template cloned. Publish it in the Templates library before using it in an announcement.', 'success');
+    } catch (error) {
+      showToast(getErrorMessage(error), 'error');
+    } finally {
+      setCloningTemplateId(null);
+    }
+  }
+
   async function openAnnouncementDraft(campaignId: string) {
     if (!selectedGroup) return;
     setAnnouncementSaving(true);
@@ -627,6 +654,7 @@ export default function GroupsWorkspace() {
       setAnnouncementPreview(null);
       setAnnouncementError('');
       setAnnouncementContentPreviewOpen(false);
+      setAnnouncementTemplatePickerOpen(false);
       setAnnouncementOpen(true);
     } catch (error) {
       showToast(getErrorMessage(error), 'error');
@@ -1201,17 +1229,14 @@ export default function GroupsWorkspace() {
             <form className={styles.formGrid} onSubmit={handleSaveAnnouncement}>
               <p className={styles.note}>Announcements are managed independently from newsletters. Only active patients with email consent in this group are eligible.</p>
               <label>Campaign name<input required maxLength={255} value={announcementName} onChange={(event) => setAnnouncementName(event.target.value)} /></label>
-              <label>Published Groups email template
-                <select required={!announcementEditingId} value={templateId} onChange={(event) => chooseAnnouncementTemplate(event.target.value)}>
-                  <option value="">Select a template</option>
-                  {publishedAnnouncementTemplates.map((template) => (
-                    <option key={template.id} value={template.id}>{template.name}{template.isSystem ? ' · System' : ''}</option>
-                  ))}
-                </select>
-              </label>
               <div className={styles.templateSummary}>
-                <strong>{selectedAnnouncementTemplate?.name ?? (announcementEditingId ? 'Saved announcement content' : 'No template selected')}</strong>
-                <span>{selectedAnnouncementTemplate ? `${selectedAnnouncementTemplate.isSystem ? 'System' : 'Practice'} template` : 'Choose a published email template in the Groups category.'}</span>
+                <div>
+                  <strong>{selectedAnnouncementTemplate?.name ?? (announcementEditingId ? 'Saved announcement content' : 'No template selected')}</strong>
+                  <span>{selectedAnnouncementTemplate ? `${selectedAnnouncementTemplate.isSystem ? 'System' : 'Practice'} template · ${selectedAnnouncementTemplate.status} · ${selectedAnnouncementTemplate.channel.toUpperCase()}` : 'Choose a published email template in the Groups category.'}</span>
+                </div>
+                <button type="button" className={styles.secondaryButton} onClick={() => setAnnouncementTemplatePickerOpen(true)}>
+                  Choose template
+                </button>
               </div>
               {publishedAnnouncementTemplates.length === 0 && <p className={styles.note}>No published email announcement templates are available in the Groups category. Browse Templates to publish one.</p>}
               <div className={styles.previewBlock}>
@@ -1242,6 +1267,22 @@ export default function GroupsWorkspace() {
           </section>
         </div>
       )}
+      <TemplatePickerDialog
+        open={announcementTemplatePickerOpen}
+        title="Group announcement templates"
+        description="Only published email templates from the Groups category are listed."
+        templates={publishedAnnouncementTemplates}
+        selectedTemplateId={templateId}
+        cloningTemplateId={cloningTemplateId}
+        onClose={() => setAnnouncementTemplatePickerOpen(false)}
+        onSelect={(template) => {
+          chooseAnnouncementTemplate(template.id);
+          setAnnouncementTemplatePickerOpen(false);
+        }}
+        onClone={(template) => void cloneAnnouncementTemplate(template)}
+        libraryHref="/workspace/templates?category=groups"
+        emptyMessage="No published email announcement templates are available. Create one in the"
+      />
       {announcementContentPreviewOpen && renderedAnnouncementPreview && (
         <div className={styles.overlay} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAnnouncementContentPreviewOpen(false); }}>
           <section className={`${styles.dialog} ${styles.announcementPreviewDialog}`} role="dialog" aria-modal="true" aria-labelledby="announcement-preview-title">

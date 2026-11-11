@@ -154,6 +154,7 @@ campaign flow and its practice-scoped APIs.
 - [x] API routes for templates, cloning, and variable rendering (`src/app/api/templates/`).
 - [x] Centralized Templates Library UI page (`src/app/workspace/templates/page.tsx`).
 - [x] Template editors support SMS and email channels, with a required subject for email only.
+- [x] Reuse one searchable template picker across Appointment Reminders, Birthdays, Groups, and Newsletters.
 - [x] Unit tests for variable validation (`src/lib/templates/templates.test.ts`).
 
 ### Acceptance criteria
@@ -180,10 +181,10 @@ provider, delivery confirmation, and deployment cron are configured.
 - [x] Published 24-hour email confirmation template with an explicit, signed patient action.
 - [x] Open Dental appointment confirmation write path and separate local confirmation status.
 - [x] Protected cron endpoint, two-minute local sample runner, and manual execution endpoint.
-- [x] Local/dev-only ten-patient/ten-appointment sample seed/reset workflow across five days and sample-practice isolation.
-- [x] Dashboard-only sample patient/appointment refresh action for the dedicated sample practice; Upcoming reminders is derived from these database records and the practice's enabled schedules.
+- [x] Local/dev-only shared sample-data catalog and seed/reset workflow for appointments, birthdays, groups, newsletters, and group announcements.
+- [x] Dashboard-only refresh action rebuilds all sample modules for the exact dedicated sample practice; Upcoming reminders is derived from its appointments and enabled schedules.
 - [x] Delete configured reminder schedules with confirmation that their occurrence history is also deleted.
-- [x] Sample reset preserves configured schedules and removes the legacy auto-created sample schedule; it does not create reminder schedules or occurrences.
+- [x] Sample reset preserves configured reminder schedules other than the legacy sample schedule, clears module histories, and refuses while a campaign or reminder is processing or a birthday campaign is enabled.
 - [x] Consent, contact, patient, appointment status, and ownership rechecks before dispatch.
 - [x] Filter upcoming reminders by practice-local reminder date and show appointment status in the table.
 - [x] Unit tests for DST boundaries, suppression rules, provider errors, template validity, occurrence uniqueness, and practice membership.
@@ -212,14 +213,14 @@ provider work.
 
 ### Deliverables
 
-- [x] Practice-scoped dashboard counts, today's/upcoming lists, calendar, custom date range, delivery history, and engagement report.
+- [x] Practice-scoped dashboard counts, today's/upcoming lists, fixed date filters, monthly calendar, delivery history, and engagement report.
 - [x] Central birthday template selection and preview; the template library opens filtered to Birthdays and supports cloning/editing/saving.
 - [x] Admin-only campaign configuration for channel, birthday-relative send date, practice-local time, optional age rules and offer text.
 - [x] New campaigns default disabled; the protected five-minute worker materializes durable occurrences only for explicitly enabled campaigns.
 - [x] Birthday-year occurrence uniqueness, atomic worker claims, bounded retries, and send-time checks for patient status, birthdate, template, destination, and opt-out.
 - [x] Leap-day policy uses February 28 in non-leap years; date filters and scheduled delivery use the practice timezone.
 - [x] Omit full birthdates from browser responses and exclude missing/invalid birthdates.
-- [x] Unit/API tests for leap years, timezone boundaries, custom date ranges, missing birthdates, opt-outs, idempotency constraint, authentication, and practice isolation.
+- [x] Unit/API tests for leap years, timezone boundaries, calendar date ranges, missing birthdates, opt-outs, idempotency constraint, authentication, and practice isolation.
 - [ ] Configure the deployment scheduler to call `/api/cron/birthdays` using `APPOINTMENT_REMINDERS_CRON_SECRET`.
 - [ ] Configure a production SMS provider and provider delivery callbacks/polling.
 - [ ] Add database-backed concurrent worker and provider-timeout recovery tests.

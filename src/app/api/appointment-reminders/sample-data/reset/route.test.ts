@@ -5,7 +5,7 @@ import { AppError } from '@/lib/errors';
 const mocks = vi.hoisted(() => ({
   getServerSession: vi.fn(),
   requirePracticeAdmin: vi.fn(),
-  resetSampleAppointmentReminderData: vi.fn(),
+  resetSamplePracticeData: vi.fn(),
 }));
 
 vi.mock('next-auth', () => ({ getServerSession: mocks.getServerSession }));
@@ -13,15 +13,15 @@ vi.mock('@/lib/auth/options', () => ({ authOptions: {} }));
 vi.mock('@/lib/auth/guards', () => ({
   requirePracticeAdmin: mocks.requirePracticeAdmin,
 }));
-vi.mock('@/lib/appointment-reminders/reminder-service', () => ({
-  resetSampleAppointmentReminderData: mocks.resetSampleAppointmentReminderData,
+vi.mock('@/lib/sample-data/sample-data-service', () => ({
+  resetSamplePracticeData: mocks.resetSamplePracticeData,
 }));
 
 import { POST } from './route';
 
 const practiceId = 'c2bc15a1-926b-42f8-b9f7-ecb2a1e8e1ae';
 
-describe('sample appointment reminder reset route', () => {
+describe('sample practice data reset route', () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
@@ -37,7 +37,7 @@ describe('sample appointment reminder reset route', () => {
     );
 
     expect(response.status).toBe(401);
-    expect(mocks.resetSampleAppointmentReminderData).not.toHaveBeenCalled();
+    expect(mocks.resetSamplePracticeData).not.toHaveBeenCalled();
   });
 
   it('denies users without admin access to the selected practice', async () => {
@@ -54,7 +54,7 @@ describe('sample appointment reminder reset route', () => {
     );
 
     expect(response.status).toBe(403);
-    expect(mocks.resetSampleAppointmentReminderData).not.toHaveBeenCalled();
+    expect(mocks.resetSamplePracticeData).not.toHaveBeenCalled();
   });
 
   it('rejects invalid practice IDs', async () => {
@@ -68,16 +68,20 @@ describe('sample appointment reminder reset route', () => {
     );
 
     expect(response.status).toBe(400);
-    expect(mocks.resetSampleAppointmentReminderData).not.toHaveBeenCalled();
+    expect(mocks.resetSamplePracticeData).not.toHaveBeenCalled();
   });
 
   it('resets the sample data for an authorized admin', async () => {
     mocks.getServerSession.mockResolvedValue({ user: { id: 'user-id' } });
     mocks.requirePracticeAdmin.mockResolvedValue(undefined);
-    mocks.resetSampleAppointmentReminderData.mockResolvedValue({
+    mocks.resetSamplePracticeData.mockResolvedValue({
       deletedReminders: 6,
       resetPatients: 10,
       resetAppointments: 10,
+      resetGroups: 2,
+      resetBirthdayCampaigns: 1,
+      resetNewsletters: 1,
+      resetAnnouncements: 1,
     });
 
     const response = await POST(
@@ -94,6 +98,29 @@ describe('sample appointment reminder reset route', () => {
       deletedReminders: 6,
       resetPatients: 10,
       resetAppointments: 10,
+      resetGroups: 2,
+      resetBirthdayCampaigns: 1,
+      resetNewsletters: 1,
+      resetAnnouncements: 1,
     });
+  });
+
+  it('returns a conflict instead of resetting while sample campaigns could be dispatched', async () => {
+    mocks.getServerSession.mockResolvedValue({ user: { id: 'user-id' } });
+    mocks.requirePracticeAdmin.mockResolvedValue(undefined);
+    mocks.resetSamplePracticeData.mockRejectedValue(
+      new AppError(409, 'Cancel scheduled campaigns before resetting sample data', 'SAMPLE_DATA_CAMPAIGN_ACTIVE')
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/appointment-reminders/sample-data/reset', {
+        method: 'POST',
+        body: JSON.stringify({ practiceId }),
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.error).toMatch(/scheduled campaigns/);
   });
 });

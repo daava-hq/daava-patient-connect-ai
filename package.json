@@ -16,6 +16,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "seed:templates": "node --env-file-if-exists=.env.local scripts/seed-templates.mjs",
+    "seed:sample-data": "node --env-file-if-exists=.env.local scripts/seed-appointment-reminders-test-data.mjs",
     "seed:appointment-confirmation-template": "node --env-file-if-exists=.env.local scripts/seed-templates.mjs --appointment-confirmation-only",
     "seed:reminders-test-data": "node --env-file-if-exists=.env.local scripts/seed-appointment-reminders-test-data.mjs",
     "reminders:cron:local": "node --env-file-if-exists=.env.local scripts/run-appointment-reminders-cron.mjs",
