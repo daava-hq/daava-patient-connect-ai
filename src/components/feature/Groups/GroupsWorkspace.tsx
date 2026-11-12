@@ -18,6 +18,11 @@ import {
   renderNewsletterDocument,
   type NewsletterDocument,
 } from '@/lib/newsletters/newsletter-content';
+import {
+  formatPracticeDateTime,
+  fromPracticeInstant,
+  toPracticeInstant,
+} from '@/lib/date-time/practice-timezone';
 import styles from './GroupsWorkspace.module.css';
 
 interface GroupSummary {
@@ -158,6 +163,7 @@ function groupDataUrl(groupId: string, practiceId: string, endpoint: string, par
 export default function GroupsWorkspace() {
   const { showToast } = useToast();
   const [practiceId, setPracticeId] = useState('');
+  const [practiceTimezone, setPracticeTimezone] = useState<string | null>(null);
   const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [groupTotal, setGroupTotal] = useState(0);
   const [groupSearch, setGroupSearch] = useState('');
@@ -258,6 +264,27 @@ export default function GroupsWorkspace() {
     window.addEventListener('practiceChanged', handlePracticeChange);
     return () => window.removeEventListener('practiceChanged', handlePracticeChange);
   }, []);
+
+  useEffect(() => {
+    if (!practiceId) {
+      setPracticeTimezone(null);
+      return;
+    }
+
+    let active = true;
+    setPracticeTimezone(null);
+    void request<{ timezone: string }>(`/api/practices/${practiceId}`)
+      .then((practice) => {
+        if (active) setPracticeTimezone(practice.timezone);
+      })
+      .catch((error: unknown) => {
+        if (active) showToast(getErrorMessage(error), 'error');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [practiceId, showToast]);
 
   const loadGroups = useCallback(async () => {
     if (!practiceId) {
@@ -704,6 +731,10 @@ export default function GroupsWorkspace() {
 
   async function scheduleAnnouncement(sendNow: boolean) {
     if (!selectedGroup) return;
+    if (!sendNow && !practiceTimezone) {
+      setAnnouncementError('The practice timezone is not available yet. Try again in a moment.');
+      return;
+    }
     const campaignId = await saveAnnouncementDraft();
     if (!campaignId) return;
     const audienceSize = await previewAnnouncementAudience();
@@ -716,9 +747,16 @@ export default function GroupsWorkspace() {
       setAnnouncementError('Choose a date and time before scheduling.');
       return;
     }
+    const scheduledAt = !sendNow && practiceTimezone
+      ? toPracticeInstant(announcementScheduleAt, practiceTimezone)
+      : undefined;
+    if (!sendNow && !scheduledAt) {
+      setAnnouncementError('Choose a valid date and time before scheduling.');
+      return;
+    }
     const confirmation = sendNow
       ? `Queue this announcement for ${audienceSize.count} eligible email recipient${audienceSize.count === 1 ? '' : 's'}?`
-      : `Schedule this announcement for ${new Date(announcementScheduleAt).toLocaleString()} to ${audienceSize.count} eligible email recipient${audienceSize.count === 1 ? '' : 's'}?`;
+      : `Schedule this announcement for ${formatPracticeDateTime(announcementScheduleAt, practiceTimezone ?? 'UTC')} to ${audienceSize.count} eligible email recipient${audienceSize.count === 1 ? '' : 's'}?`;
     if (!window.confirm(confirmation)) return;
     setAnnouncementSaving(true);
     try {
@@ -727,7 +765,7 @@ export default function GroupsWorkspace() {
         body: JSON.stringify({
           practiceId,
           sendNow,
-          ...(!sendNow ? { scheduledAt: new Date(announcementScheduleAt).toISOString() } : {}),
+          ...(scheduledAt ? { scheduledAt } : {}),
         }),
       });
       showToast(sendNow ? 'Group announcement queued for sending.' : 'Group announcement scheduled.', 'success');
@@ -1252,15 +1290,27 @@ export default function GroupsWorkspace() {
                   </p>
                 )}
               </div>
-              <label className={styles.scheduleField}><span><CalendarClock size={16} /> Schedule date and time (optional)</span>
-                <input type="datetime-local" value={announcementScheduleAt} min={new Date(Date.now() + 60000).toISOString().slice(0, 16)} onChange={(event) => setAnnouncementScheduleAt(event.target.value)} />
+              <label className={styles.scheduleField}>
+                <span>
+                  <CalendarClock size={16} />
+                  {practiceTimezone
+                    ? `Schedule date and time (${practiceTimezone}) (optional)`
+                    : 'Schedule date and time (loading practice timezone)'}
+                </span>
+                <input
+                  type="datetime-local"
+                  value={announcementScheduleAt}
+                  min={practiceTimezone ? fromPracticeInstant(new Date(Date.now() + 60000).toISOString(), practiceTimezone) : undefined}
+                  disabled={!practiceTimezone}
+                  onChange={(event) => setAnnouncementScheduleAt(event.target.value)}
+                />
               </label>
               {announcementError && <p className={styles.announcementError} role="alert">{announcementError}</p>}
               <div className={styles.dialogActions}>
                 <button type="button" className={styles.textButton} onClick={() => setAnnouncementOpen(false)}>Close</button>
                 <button type="button" className={styles.secondaryButton} onClick={() => setAnnouncementContentPreviewOpen(true)} disabled={!announcementContent || !renderedAnnouncementPreview}><Eye size={16} /> Preview</button>
                 <button type="submit" className={styles.secondaryButton} disabled={announcementSaving || (!announcementEditingId && !templateId)}><Save size={16} /> Save draft</button>
-                <button type="button" className={styles.secondaryButton} disabled={announcementSaving || (!announcementEditingId && !templateId)} onClick={() => void scheduleAnnouncement(false)}>Schedule</button>
+                <button type="button" className={styles.secondaryButton} disabled={announcementSaving || !practiceTimezone || (!announcementEditingId && !templateId)} onClick={() => void scheduleAnnouncement(false)}>Schedule</button>
                 <button type="button" className={styles.primaryButton} disabled={announcementSaving || (!announcementEditingId && !templateId)} onClick={() => void scheduleAnnouncement(true)}><Send size={16} /> Send now</button>
               </div>
             </form>

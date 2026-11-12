@@ -25,6 +25,11 @@ import {
   renderNewsletterDocument,
   type NewsletterDocument,
 } from '@/lib/newsletters/newsletter-content';
+import {
+  formatPracticeDateTime,
+  fromPracticeInstant,
+  toPracticeInstant,
+} from '@/lib/date-time/practice-timezone';
 import styles from './NewsletterWorkspace.module.css';
 
 interface TemplateItem {
@@ -137,6 +142,7 @@ function localDateTimeToIso(value: string): string | undefined {
 export default function NewsletterWorkspace() {
   const { showToast } = useToast();
   const [practiceId, setPracticeId] = useState('');
+  const [practiceTimezone, setPracticeTimezone] = useState('UTC');
   const [campaigns, setCampaigns] = useState<CampaignItem[]>([]);
   const [dashboardStats, setDashboardStats] = useState<PracticeStats>({
     campaigns: {},
@@ -183,23 +189,27 @@ export default function NewsletterWorkspace() {
   const loadWorkspace = useCallback(async (pId: string, pageNumber: number) => {
     setLoading(true);
     try {
-      const [newsletterResponse, templateResponse, groupResponse] = await Promise.all([
+      const [newsletterResponse, templateResponse, groupResponse, practiceResponse] = await Promise.all([
         fetch(`/api/newsletters?practiceId=${pId}&page=${pageNumber}&limit=${HISTORY_PAGE_SIZE}`),
         fetch(`/api/templates?practiceId=${pId}&type=newsletter&channel=email`),
         fetch(`/api/groups?practiceId=${pId}&page=1&limit=100&includeArchived=false`),
+        fetch(`/api/practices/${pId}`),
       ]);
-      const [newsletterJson, templateJson, groupJson] = await Promise.all([
+      const [newsletterJson, templateJson, groupJson, practiceJson] = await Promise.all([
         newsletterResponse.json(),
         templateResponse.json(),
         groupResponse.json(),
+        practiceResponse.json(),
       ]);
       if (!newsletterResponse.ok) throw new Error(newsletterJson.error || 'Unable to load newsletters');
       if (!templateResponse.ok) throw new Error(templateJson.error || 'Unable to load newsletter templates');
       if (!groupResponse.ok) throw new Error(groupJson.error || 'Unable to load patient groups');
+      if (!practiceResponse.ok) throw new Error(practiceJson.error || 'Unable to load practice settings');
 
       setCampaigns(newsletterJson.data.campaigns ?? []);
       setTotal(newsletterJson.data.total ?? 0);
       setDashboardStats(newsletterJson.data.stats ?? { campaigns: {}, recipients: {}, events: {} });
+      setPracticeTimezone(practiceJson.data.timezone ?? 'UTC');
 
       const category = templateJson.data.categories?.find((item: { slug: string }) => item.slug === 'newsletters');
       const eligibleTemplates = (templateJson.data.templates ?? []).filter((template: TemplateItem) =>
@@ -392,7 +402,7 @@ export default function NewsletterWorkspace() {
     }
     const scheduleSummary = sendNow
       ? `Queue this newsletter for ${count} eligible email recipient${count === 1 ? '' : 's'}?`
-      : `Schedule this newsletter for ${new Date(scheduleAt).toLocaleString()} to ${count} eligible email recipient${count === 1 ? '' : 's'}?`;
+      : `Schedule this newsletter for ${formatPracticeDateTime(scheduleAt, practiceTimezone)} to ${count} eligible email recipient${count === 1 ? '' : 's'}?`;
     if (!window.confirm(scheduleSummary)) return;
 
     setBusy(true);
@@ -403,7 +413,7 @@ export default function NewsletterWorkspace() {
         body: JSON.stringify({
           practiceId,
           sendNow,
-          ...(!sendNow ? { scheduledAt: localDateTimeToIso(scheduleAt) } : {}),
+          ...(!sendNow ? { scheduledAt: toPracticeInstant(scheduleAt, practiceTimezone) } : {}),
         }),
       });
       const json = await response.json();
@@ -445,7 +455,7 @@ export default function NewsletterWorkspace() {
       setBirthdayMonth(campaign.audienceFilter?.birthdayMonth?.toString() ?? '');
       setAppointmentAfter(toLocalDateTime(campaign.audienceFilter?.appointmentAfter ?? null));
       setAppointmentBefore(toLocalDateTime(campaign.audienceFilter?.appointmentBefore ?? null));
-      setScheduleAt(toLocalDateTime(campaign.scheduledAt));
+      setScheduleAt(campaign.scheduledAt ? fromPracticeInstant(campaign.scheduledAt, practiceTimezone) : '');
       setAudienceCount(null);
       setReportId(null);
     } catch (error) {
@@ -684,15 +694,24 @@ export default function NewsletterWorkspace() {
               )}
             </section>
 
+            <label className={styles.field}>
+              <span>
+                Schedule date and time ({practiceTimezone}) <small>Optional</small>
+              </span>
+              <input
+                type="datetime-local"
+                value={scheduleAt}
+                min={fromPracticeInstant(new Date(Date.now() + 60000).toISOString(), practiceTimezone)}
+                onChange={(event) => setScheduleAt(event.target.value)}
+                aria-label={`Schedule date and time (${practiceTimezone})`}
+              />
+            </label>
+
             {editorError && <p className={styles.errorMessage} role="alert">{editorError}</p>}
 
             <div className={styles.editorActions}>
               <button type="button" className={styles.secondaryButton} onClick={openPreview}><Eye size={16} /> Preview</button>
               <button type="button" className={styles.secondaryButton} disabled={busy || (!editingId && !selectedTemplateId)} onClick={() => void saveDraft()}><Save size={16} /> Save draft</button>
-              <label className={styles.scheduleInput}>
-                <CalendarClock size={16} />
-                <input type="datetime-local" value={scheduleAt} min={toLocalDateTime(new Date(Date.now() + 60000).toISOString())} onChange={(event) => setScheduleAt(event.target.value)} aria-label="Schedule date and time" />
-              </label>
               <button type="button" className={styles.secondaryButton} disabled={busy || (!editingId && !selectedTemplateId)} onClick={() => void scheduleNewsletter(false)}>Schedule</button>
               <button type="button" className={styles.primaryButton} disabled={busy || (!editingId && !selectedTemplateId)} onClick={() => void scheduleNewsletter(true)}><Send size={16} /> Send now</button>
             </div>

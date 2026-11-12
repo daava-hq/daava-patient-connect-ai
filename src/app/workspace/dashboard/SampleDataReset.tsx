@@ -75,7 +75,7 @@ export default function SampleDataReset() {
   async function resetSampleData() {
     if (!practiceId) return;
     const confirmed = window.confirm(
-      'Reset all sample modules for Appointment Reminder Sample Practice? This replaces its patients, appointments, groups, birthdays, newsletters, announcements, and reminder history. Newsletter and announcement records are drafts, and birthday campaigns are disabled. If an appointment reminder schedule and cron are enabled, sample emails may be sent to prem@daava.ai. Other practices are not affected.'
+      'Reset all sample modules for Appointment Reminder Sample Practice? This replaces its patients, appointments, groups, birthdays, newsletters, announcements, and reminder history. Any enabled birthday campaign is turned off as part of the reset; if a birthday message is already processing, wait for it to finish and retry. Newsletter and announcement records are drafts, and the recreated birthday campaign is disabled. If an appointment reminder schedule and cron are enabled, sample emails may be sent to prem@daava.ai. Other practices are not affected.'
     );
     if (!confirmed) return;
 
@@ -112,8 +112,9 @@ export default function SampleDataReset() {
             <h2 id="sample-data-heading">Sample practice data</h2>
             <p>
               Refreshes test patients, appointments, groups, birthdays, newsletters, and group announcements
-              for Appointment Reminder Sample Practice. Newsletter and announcement campaigns remain drafts,
-              and the birthday campaign is disabled.
+              for Appointment Reminder Sample Practice. Enabled birthday campaigns are turned off as part of
+              the reset; newsletter and announcement campaigns remain drafts, and the recreated birthday
+              campaign is disabled.
             </p>
           </div>
           <button

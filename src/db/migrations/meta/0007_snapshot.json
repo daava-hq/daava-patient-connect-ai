@@ -1,6 +1,6 @@
 {
-  "id": "5523bae7-7c16-480e-8a87-6669d61844a5",
-  "prevId": "9ffdbf53-ef64-4b8c-9200-8e8d786b10ea",
+  "id": "139d5298-5451-4771-be3b-922379e8f5a0",
+  "prevId": "5523bae7-7c16-480e-8a87-6669d61844a5",
   "version": "5",
   "dialect": "pg",
   "tables": {
@@ -2011,6 +2011,20 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'UTC'"
+        },
+        "email_enabled": {
+          "name": "email_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "sms_enabled": {
+          "name": "sms_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",

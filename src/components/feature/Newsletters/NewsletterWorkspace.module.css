@@ -364,8 +364,7 @@
 }
 
 .field input,
-.field select,
-.scheduleInput input {
+.field select {
   width: 100%;
   min-width: 0;
   padding: var(--space-3);
@@ -445,17 +444,6 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   padding-top: var(--space-2);
-}
-
-.scheduleInput {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text-muted);
-}
-
-.scheduleInput input {
-  width: auto;
 }
 
 .errorMessage {
@@ -576,9 +564,7 @@
     flex-direction: column;
   }
 
-  .editorActions > button,
-  .scheduleInput,
-  .scheduleInput input {
+  .editorActions > button {
     width: 100%;
   }
 

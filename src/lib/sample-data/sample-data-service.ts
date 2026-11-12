@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, eq, isNull, ne, notExists, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne, notExists, or } from 'drizzle-orm';
 import { db } from '@/db';
 import { appointmentReminders, appointmentReminderSchedules } from '@/db/schema/appointment_reminders';
 import { appointments } from '@/db/schema/appointments';
@@ -81,12 +81,34 @@ export async function resetSamplePracticeData(practiceId: string) {
         isNull(birthdayCampaigns.deletedAt)
       ))
       .for('update');
-    if (activeBirthdayCampaigns.length) {
+
+    const activeBirthdayOccurrences = await tx
+      .select({
+        id: birthdayMessageOccurrences.id,
+        status: birthdayMessageOccurrences.status,
+      })
+      .from(birthdayMessageOccurrences)
+      .where(and(
+        eq(birthdayMessageOccurrences.practiceId, practiceId),
+        inArray(birthdayMessageOccurrences.status, ['pending', 'processing'])
+      ))
+      .for('update');
+    if (activeBirthdayOccurrences.some(({ status }) => status === 'processing')) {
       throw new AppError(
         409,
-        'Disable birthday campaigns before resetting sample data.',
-        'SAMPLE_DATA_BIRTHDAY_CAMPAIGN_ACTIVE'
+        'Wait for birthday messages to finish processing before resetting sample data.',
+        'SAMPLE_DATA_BIRTHDAYS_ACTIVE'
       );
+    }
+
+    if (activeBirthdayCampaigns.length) {
+      await tx
+        .update(birthdayCampaigns)
+        .set({ enabled: false, updatedAt: now })
+        .where(and(
+          eq(birthdayCampaigns.practiceId, practiceId),
+          inArray(birthdayCampaigns.id, activeBirthdayCampaigns.map(({ id }) => id))
+        ));
     }
 
     const processingReminders = await tx

@@ -52,6 +52,13 @@ before sending to unrestricted recipients.
 Practice-specific Open Dental keys are stored **in the database**, not in `.env`.
 
 Keep `APP_ENVIRONMENT` aligned with the database and deployment you are using.
+The application reuses a single PostgreSQL client across Next.js development
+hot reloads, caps local/dev pools at three connections, and closes idle
+connections after 20 seconds. If PostgreSQL still reports `too many clients`,
+stop duplicate local app processes and restart the app so stale connections
+are released; confirm `DATABASE_URL` points to the intended local/test
+database.
+
 The appointment-reminder sample-data seeder requires `APP_ENVIRONMENT` to be
 explicitly set to `local` or `dev` (it does not use the application default),
 requires an explicit `DATABASE_URL`, and only writes to its dedicated sample
@@ -73,7 +80,7 @@ patients (all using `prem@daava.ai`), appointments, two static patient groups,
 birthdays in the next week, one disabled birthday campaign, one newsletter
 draft, and one group-announcement draft. No campaign delivery history is
 fabricated and the seeder does not send messages. Appointments are scheduled
-across five local calendar days starting eight days ahead, two per day at 9:00
+across five local calendar days starting seven days ahead, two per day at 9:00
 AM and 10:00 AM, and each appointment has `Scheduled` status. Upcoming reminders
 still depend on that practice's enabled reminder schedules; a reset removes only
 the legacy sample-only reminder schedule and preserves other reminder schedules.
@@ -87,23 +94,41 @@ patients, appointments, reminder history, groups, birthday campaigns, campaigns
 and their delivery history, and its campaign templates before recreating the
 fixtures. It does not affect other practices. Do not use the action for
 non-test data. Reset is limited to the exact reserved sample practice in local
-or dev, and is refused while campaigns are scheduled/processing, an appointment
-reminder is processing, or a birthday campaign is enabled. Both reset paths
-preserve templates referenced by another practice and leave non-sample reminder
-schedules alone.
+or dev. The dashboard reset turns off enabled birthday campaigns before
+rebuilding the fixtures. It is refused while campaigns are
+scheduled/processing, an appointment reminder is processing, or a birthday
+message is already processing; retry after in-flight work finishes. The CLI
+seeder still requires birthday campaigns to be disabled manually. Both reset
+paths preserve templates referenced by another practice and leave non-sample
+reminder schedules alone.
 
-To run a local sample-only cron poll immediately and then every two minutes:
+To poll all local sample email modules immediately and then every two minutes:
 
 ```bash
-pnpm reminders:cron:local
+pnpm sample:cron:local
 ```
 
-Keep the process running during the test and stop it with Ctrl+C. It requires
-`APPOINTMENT_REMINDERS_CRON_SECRET`, calls only the local server and only
-processes the dedicated sample practice. With AWS SES configured, due reminders
-send real email to `prem@daava.ai`; resetting the sample data clears history
-and lets enabled schedules create new reminder occurrences. The seeder itself
-never sends email.
+Keep the process running during the test and stop it with Ctrl+C. Set
+`APP_ENVIRONMENT` explicitly to `local` or `dev`, set `NEXTAUTH_URL` to a
+loopback URL, and configure `APPOINTMENT_REMINDERS_CRON_SECRET`. The runner
+calls the reminder, birthday, and campaign cron endpoints with
+`sampleData=true`; each endpoint rejects this mode outside local/dev and
+restricts processing to the dedicated sample practice. The poll interval is two
+minutes, so each worker sends only after its configured practice-local time is
+due.
+
+The sample data seeder does not create an appointment-reminder schedule, enable
+the birthday campaign, or schedule the newsletter/group-announcement drafts.
+Configure an enabled reminder schedule, enable the birthday campaign, and
+schedule the campaign drafts in the sample practice before expecting those
+messages to send. Enable the practice Email setting as well. With AWS SES
+configured, eligible messages send real email to `prem@daava.ai`; resetting the
+sample data clears sample history and drafts, and the seeder itself never sends
+email.
+
+Do not invoke the regular birthday or campaign cron endpoints on a shared
+database for testing: without `sampleData=true`, those endpoints process all
+eligible practices.
 
 Email dispatch uses AWS SES when `AWS_REGION` and `AWS_SES_FROM_EMAIL` are
 configured and the AWS SDK can resolve credentials. Verify the sender identity
@@ -170,7 +195,7 @@ All scripts are defined in `package.json`. Use only these — do not invent new 
 | `pnpm seed:templates` | `node --env-file-if-exists=.env.local scripts/seed-templates.mjs` | Add missing system templates in local/dev without deleting existing templates |
 | `pnpm seed:appointment-confirmation-template` | `node --env-file-if-exists=.env.local scripts/seed-templates.mjs --appointment-confirmation-only` | Safely add the email confirmation template in local/dev |
 | `pnpm seed:reminders-test-data` | `node --env-file-if-exists=.env.local scripts/seed-appointment-reminders-test-data.mjs` | Reset and seed ten local reminder test patients and appointments across five days |
-| `pnpm reminders:cron:local` | `node --env-file-if-exists=.env.local scripts/run-appointment-reminders-cron.mjs` | Poll the local sample-only reminder cron every two minutes |
+| `pnpm sample:cron:local` | `node --env-file-if-exists=.env.local scripts/run-sample-engagement-cron.mjs` | Poll sample-only reminder, birthday, and scheduled campaign crons every two minutes |
 
 ## After every change
 

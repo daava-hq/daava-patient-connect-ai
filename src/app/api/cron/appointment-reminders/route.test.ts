@@ -25,7 +25,6 @@ vi.mock('@/db/schema/practices', () => ({
   practices: { id: 'practice.id', slug: 'practice.slug' },
 }));
 vi.mock('@/jobs/appointment-reminders', () => ({ run: mocks.run }));
-vi.mock('@/lib/env', () => ({ env: { APP_ENVIRONMENT: 'local' } }));
 vi.mock('@/lib/logger', () => ({ logError: vi.fn() }));
 vi.mock('drizzle-orm', () => ({ and: vi.fn(), eq: vi.fn() }));
 
@@ -40,6 +39,7 @@ describe('appointment reminder cron route', () => {
   it('returns the aggregated due reminder dispatch counts', async () => {
     const practiceId = 'c2bc15a1-926b-42f8-b9f7-ecb2a1e8e1ae';
     vi.stubEnv('APPOINTMENT_REMINDERS_CRON_SECRET', 'cron-secret');
+    vi.stubEnv('APP_ENVIRONMENT', 'local');
     mocks.query.where.mockResolvedValue([{ practiceId }]);
     mocks.run.mockResolvedValue({
       upserted: 6,

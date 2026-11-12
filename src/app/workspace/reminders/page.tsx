@@ -136,6 +136,7 @@ export default function RemindersPage() {
   const [loadError, setLoadError] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [previewOnly, setPreviewOnly] = useState(false);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [form, setForm] = useState<ScheduleForm>(EMPTY_FORM);
@@ -150,6 +151,20 @@ export default function RemindersPage() {
   const [saving, setSaving] = useState(false);
   const [deletingScheduleId, setDeletingScheduleId] = useState<string | null>(null);
   const scheduleDialogRef = useRef<HTMLElement | null>(null);
+  const previewDialogRef = useRef<HTMLElement | null>(null);
+  const previewRequestIdRef = useRef(0);
+
+  const clearPreview = useCallback(() => {
+    previewRequestIdRef.current += 1;
+    setPreviewing(false);
+    setPreview(null);
+    setPreviewModalOpen(false);
+  }, []);
+
+  const closeScheduleForm = useCallback(() => {
+    clearPreview();
+    setFormOpen(false);
+  }, [clearPreview]);
 
   const loadDashboard = useCallback(async (selectedPracticeId: string) => {
     setLoading(true);
@@ -196,9 +211,14 @@ export default function RemindersPage() {
   }, [practiceId, loadDashboard]);
 
   useEffect(() => {
-    if (!formOpen || templateDialogOpen) return;
-    return manageDialogFocus(scheduleDialogRef.current, () => setFormOpen(false));
-  }, [formOpen, templateDialogOpen]);
+    if (!formOpen || templateDialogOpen || previewModalOpen) return;
+    return manageDialogFocus(scheduleDialogRef.current, closeScheduleForm);
+  }, [closeScheduleForm, formOpen, previewModalOpen, templateDialogOpen]);
+
+  useEffect(() => {
+    if (!previewModalOpen) return;
+    return manageDialogFocus(previewDialogRef.current, () => setPreviewModalOpen(false));
+  }, [previewModalOpen]);
 
   const compatibleTemplates = useMemo(
     () => templates.filter((template) => template.channel === form.channel),
@@ -234,7 +254,7 @@ export default function RemindersPage() {
     setEditingScheduleId(null);
     setPreviewOnly(false);
     setForm(EMPTY_FORM);
-    setPreview(null);
+    clearPreview();
     setPreviewAppointmentId(dashboard?.upcoming[0]?.appointmentId ?? '');
     setFormOpen(true);
   }
@@ -250,7 +270,7 @@ export default function RemindersPage() {
       templateId: schedule.templateId ?? '',
       enabled: schedule.enabled,
     });
-    setPreview(null);
+    clearPreview();
     setPreviewAppointmentId(dashboard?.upcoming[0]?.appointmentId ?? '');
     setFormOpen(true);
   }
@@ -273,7 +293,7 @@ export default function RemindersPage() {
       const json = await response.json();
       if (!response.ok) throw new Error(json.error || 'Unable to save reminder schedule');
       showToast(editingScheduleId ? 'Reminder schedule updated' : 'Reminder schedule created', 'success');
-      setFormOpen(false);
+      closeScheduleForm();
       await loadDashboard(practiceId);
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Unable to save reminder schedule', 'error');
@@ -326,8 +346,10 @@ export default function RemindersPage() {
 
   async function requestPreview() {
     if (!practiceId || !form.templateId || !previewAppointmentId) return;
+    const requestId = ++previewRequestIdRef.current;
     setPreviewing(true);
     setPreview(null);
+    setPreviewModalOpen(false);
     try {
       const response = await fetch('/api/appointment-reminders/preview', {
         method: 'POST',
@@ -336,11 +358,16 @@ export default function RemindersPage() {
       });
       const json = await response.json();
       if (!response.ok) throw new Error(json.error || 'Unable to preview template');
-      setPreview(json.data as PreviewResult);
+      if (requestId === previewRequestIdRef.current) {
+        setPreview(json.data as PreviewResult);
+        setPreviewModalOpen(true);
+      }
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to preview template', 'error');
+      if (requestId === previewRequestIdRef.current) {
+        showToast(error instanceof Error ? error.message : 'Unable to preview template', 'error');
+      }
     } finally {
-      setPreviewing(false);
+      if (requestId === previewRequestIdRef.current) setPreviewing(false);
     }
   }
 
@@ -587,7 +614,7 @@ export default function RemindersPage() {
                                 templateId: dashboard.schedules.find((schedule) => schedule.id === reminder.scheduleId)?.templateId ?? '',
                               });
                               setPreviewAppointmentId(reminder.appointmentId);
-                              setPreview(null);
+                              clearPreview();
                               setFormOpen(true);
                             }}
                             aria-label={`Preview reminder for ${reminder.patientName}`}
@@ -672,7 +699,7 @@ export default function RemindersPage() {
 
       {formOpen && (
         <div className={styles.modalBackdrop} role="presentation" onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setFormOpen(false);
+          if (event.target === event.currentTarget) closeScheduleForm();
         }}>
           <section ref={scheduleDialogRef} className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="schedule-dialog-title">
             <div className={styles.modalHeader}>
@@ -682,8 +709,8 @@ export default function RemindersPage() {
                 </h2>
                 <p>{previewOnly ? 'Review the selected template with this appointment context.' : 'Choose an appointment reminder template and practice-local send time.'}</p>
               </div>
-              <button type="button" className={styles.iconButton} onClick={() => setFormOpen(false)} aria-label="Close schedule form">
-                <X size={20} aria-hidden="true" />
+              <button type="button" className={styles.iconButton} onClick={closeScheduleForm} aria-label="Close schedule form">
+                <X size={18} aria-hidden="true" />
               </button>
             </div>
             <form onSubmit={saveSchedule} className={styles.form}>
@@ -702,14 +729,17 @@ export default function RemindersPage() {
                 </label>
                 <label>
                   Channel
-                  <select value={form.channel} onChange={(event) => setForm({ ...form, channel: event.target.value as 'sms' | 'email', templateId: '' })}>
+                  <select value={form.channel} onChange={(event) => {
+                    clearPreview();
+                    setForm({ ...form, channel: event.target.value as 'sms' | 'email', templateId: '' });
+                  }}>
                     <option value="sms">SMS</option>
                     <option value="email">Email</option>
                   </select>
                 </label>
               </div>}
               {!previewOnly && <label>
-                Same-day send time ({selectedPracticeTimezone})
+                Local delivery time ({selectedPracticeTimezone})
                 <input type="time" required value={form.localSendTime} onChange={(event) => setForm({ ...form, localSendTime: event.target.value })} />
               </label>}
               {!previewOnly && <div className={styles.templatePicker}>
@@ -724,7 +754,10 @@ export default function RemindersPage() {
 
               <label>
                 Preview appointment
-                <select value={previewAppointmentId} onChange={(event) => setPreviewAppointmentId(event.target.value)}>
+                <select value={previewAppointmentId} onChange={(event) => {
+                  clearPreview();
+                  setPreviewAppointmentId(event.target.value);
+                }}>
                   <option value="">Select an upcoming appointment</option>
                   {previewAppointments.map((appointment) => (
                     <option key={appointment.appointmentId} value={appointment.appointmentId}>
@@ -736,33 +769,69 @@ export default function RemindersPage() {
               <button type="button" className={styles.secondaryButton} onClick={() => void requestPreview()} disabled={!form.templateId || !previewAppointmentId || previewing}>
                 <Eye size={16} aria-hidden="true" /> {previewing ? 'Rendering…' : 'Preview message'}
               </button>
-              {preview && (
-                <div className={`${styles.previewBox} ${preview.isValid ? '' : styles.previewInvalid}`} aria-live="polite">
-                  <strong>{preview.templateName} · {preview.channel.toUpperCase()}</strong>
-                  {preview.subject && <p><b>Subject:</b> {preview.subject}</p>}
-                  {preview.channel === 'email' && preview.html ? (
-                    <EmailMessagePreview html={preview.html} />
-                  ) : (
-                    <pre>{preview.body || 'Template has no message body.'}</pre>
-                  )}
-                  {!preview.isValid && (
-                    <p className={styles.errorText}>
-                      Missing or invalid variables: {preview.unresolved.join(', ') || 'message body'}
-                    </p>
-                  )}
-                </div>
-              )}
               {!previewOnly && <label className={styles.checkboxLabel}>
                 <input type="checkbox" checked={form.enabled} onChange={(event) => setForm({ ...form, enabled: event.target.checked })} />
                 Enable automated scheduling
               </label>}
               {!previewOnly && <div className={styles.modalActions}>
-                <button type="button" className={styles.secondaryButton} onClick={() => setFormOpen(false)}>Cancel</button>
+                <button type="button" className={styles.secondaryButton} onClick={closeScheduleForm}>Cancel</button>
                 <button type="submit" className={styles.primaryButton} disabled={saving || !form.templateId}>
                   {saving ? 'Saving…' : editingScheduleId ? 'Save changes' : 'Create schedule'}
                 </button>
               </div>}
             </form>
+          </section>
+        </div>
+      )}
+
+      {previewModalOpen && preview && (
+        <div
+          className={`${styles.modalBackdrop} ${styles.previewBackdrop}`}
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setPreviewModalOpen(false);
+          }}
+        >
+          <section
+            ref={previewDialogRef}
+            className={`${styles.modal} ${styles.previewModal}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reminder-preview-title"
+            tabIndex={-1}
+          >
+            <div className={styles.modalHeader}>
+              <div>
+                <h2 id="reminder-preview-title">Reminder message preview</h2>
+                <p>{preview.templateName} · {preview.channel.toUpperCase()}</p>
+              </div>
+              <button
+                type="button"
+                className={styles.iconButton}
+                onClick={() => setPreviewModalOpen(false)}
+                aria-label="Close message preview"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+            <div className={`${styles.previewBox} ${preview.isValid ? '' : styles.previewInvalid}`}>
+              {preview.subject && <p><b>Subject:</b> {preview.subject}</p>}
+              {preview.channel === 'email' && preview.html ? (
+                <EmailMessagePreview html={preview.html} />
+              ) : (
+                <pre>{preview.body || 'Template has no message body.'}</pre>
+              )}
+              {!preview.isValid && (
+                <p className={styles.errorText}>
+                  Missing or invalid variables: {preview.unresolved.join(', ') || 'message body'}
+                </p>
+              )}
+            </div>
+            <div className={styles.modalActions}>
+              <button type="button" className={styles.secondaryButton} onClick={() => setPreviewModalOpen(false)}>
+                Close preview
+              </button>
+            </div>
           </section>
         </div>
       )}
@@ -777,7 +846,7 @@ export default function RemindersPage() {
         onSelect={(template) => {
           setForm((current) => ({ ...current, templateId: template.id }));
           setTemplateDialogOpen(false);
-          setPreview(null);
+          clearPreview();
         }}
         onClone={(template) => void cloneTemplate(template)}
         libraryHref="/workspace/templates?category=appointment-reminders"

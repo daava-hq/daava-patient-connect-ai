@@ -8,6 +8,7 @@ import { templateCategories, templates } from '@/db/schema/templates';
 import { AppError, NotFoundError } from '@/lib/errors';
 import { logError } from '@/lib/logger';
 import { getAdapter } from '@/lib/messaging/stub-adapter';
+import { isPracticeChannelEnabled } from '@/lib/messaging/practice-channel-settings';
 import { sendReminderWithAdapter, renderAppointmentTemplateContent } from '@/lib/appointment-reminders/reminder-utils';
 import {
   addLocalDays,
@@ -23,6 +24,7 @@ import {
 } from './birthday-utils';
 
 const HISTORY_LIMIT = 50;
+const UPCOMING_BIRTHDAY_MESSAGE_LIMIT = 500;
 const MAX_DISPATCH_BATCH = 100;
 const MAX_SEND_ATTEMPTS = 3;
 
@@ -66,6 +68,8 @@ async function getPractice(practiceId: string) {
       id: practices.id,
       name: practices.name,
       phone: practices.phone,
+      email: practices.email,
+      website: practices.website,
       address: practices.address,
       timezone: practices.timezone,
     })
@@ -175,7 +179,18 @@ export async function getBirthdayDashboard(input: {
     month: monthEndDate.getUTCMonth() + 1,
     day: monthEndDate.getUTCDate(),
   };
-  const [todayList, tomorrowList, upcomingList, monthList, selectedBirthdays, campaigns, history, statusCounts, missingBirthdates] =
+  const [
+    todayList,
+    tomorrowList,
+    upcomingList,
+    monthList,
+    selectedBirthdays,
+    campaigns,
+    history,
+    scheduledMessages,
+    statusCounts,
+    missingBirthdates,
+  ] =
     await Promise.all([
       getBirthdayList(input.practiceId, today, today, practice.timezone, now),
       getBirthdayList(input.practiceId, tomorrow, tomorrow, practice.timezone, now),
@@ -184,6 +199,7 @@ export async function getBirthdayDashboard(input: {
       getBirthdayList(input.practiceId, selectedRange.start, selectedRange.end, practice.timezone, now),
       getBirthdayCampaigns(input.practiceId),
       getBirthdayHistory(input.practiceId, HISTORY_LIMIT),
+      getUpcomingBirthdayMessages(input.practiceId, practice.timezone, now),
       getBirthdayReportCounts(input.practiceId),
       db
         .select({ count: sql<number>`count(*)::int` })
@@ -216,6 +232,7 @@ export async function getBirthdayDashboard(input: {
     upcomingBirthdays: upcomingList,
     campaigns,
     history,
+    scheduledMessages,
     report: statusCounts,
   };
 }
@@ -448,6 +465,116 @@ export async function getBirthdayHistory(practiceId: string, limit = HISTORY_LIM
   return rows;
 }
 
+export async function getUpcomingBirthdayMessages(practiceId: string, timeZone: string, now: Date) {
+  const [campaigns, activePatients] = await Promise.all([
+    db
+      .select({
+        id: birthdayCampaigns.id,
+        name: birthdayCampaigns.name,
+        channel: birthdayCampaigns.channel,
+        daysBefore: birthdayCampaigns.daysBefore,
+        localDeliveryTime: birthdayCampaigns.localDeliveryTime,
+        eligibilityRules: birthdayCampaigns.eligibilityRules,
+      })
+      .from(birthdayCampaigns)
+      .where(
+        and(
+          eq(birthdayCampaigns.practiceId, practiceId),
+          eq(birthdayCampaigns.enabled, true),
+          isNull(birthdayCampaigns.deletedAt)
+        )
+      ),
+    db
+      .select({
+        id: patients.id,
+        firstName: patients.firstName,
+        lastName: patients.lastName,
+        dateOfBirth: patients.dateOfBirth,
+      })
+      .from(patients)
+      .where(
+        and(
+          eq(patients.practiceId, practiceId),
+          eq(patients.status, 'Patient'),
+          isNotNull(patients.dateOfBirth)
+        )
+      ),
+  ]);
+  const messages = campaigns
+    .flatMap((campaign) =>
+      activePatients.flatMap((patient) => {
+        const occurrence = getNextBirthdayOccurrence({
+          dateOfBirth: patient.dateOfBirth,
+          daysBefore: campaign.daysBefore,
+          localDeliveryTime: campaign.localDeliveryTime,
+          timeZone,
+          now,
+        });
+        if (!occurrence || !matchesAgeRules(patient.dateOfBirth, occurrence.birthdayYear, campaign.eligibilityRules)) {
+          return [];
+        }
+        return [{
+          id: `${campaign.id}:${patient.id}:${occurrence.birthdayYear}`,
+          campaignId: campaign.id,
+          patientId: patient.id,
+          birthdayYear: occurrence.birthdayYear,
+          campaignName: campaign.name,
+          channel: campaign.channel,
+          firstName: patient.firstName,
+          lastName: patient.lastName,
+          birthdayDate: dateKey(occurrence.birthdayDate),
+          scheduledFor: occurrence.scheduledFor,
+        }];
+      })
+    )
+    .sort((left, right) => left.scheduledFor.getTime() - right.scheduledFor.getTime())
+    .slice(0, UPCOMING_BIRTHDAY_MESSAGE_LIMIT);
+  if (messages.length === 0) return [];
+
+  const occurrenceRows = await db
+    .select({
+      id: birthdayMessageOccurrences.id,
+      campaignId: birthdayMessageOccurrences.campaignId,
+      patientId: birthdayMessageOccurrences.patientId,
+      birthdayYear: birthdayMessageOccurrences.birthdayYear,
+      scheduledFor: birthdayMessageOccurrences.scheduledFor,
+      status: birthdayMessageOccurrences.status,
+    })
+    .from(birthdayMessageOccurrences)
+    .where(and(
+      eq(birthdayMessageOccurrences.practiceId, practiceId),
+      or(...messages.map((message) => and(
+        eq(birthdayMessageOccurrences.campaignId, message.campaignId),
+        eq(birthdayMessageOccurrences.patientId, message.patientId),
+        eq(birthdayMessageOccurrences.birthdayYear, message.birthdayYear)
+      )))
+    ));
+  const occurrenceByKey = new Map(
+    occurrenceRows.map((occurrence) => [
+      `${occurrence.campaignId}:${occurrence.patientId}:${occurrence.birthdayYear}`,
+      occurrence,
+    ])
+  );
+
+  return messages.map((message) => {
+    const occurrence = occurrenceByKey.get(
+      `${message.campaignId}:${message.patientId}:${message.birthdayYear}`
+    );
+    return {
+      id: occurrence?.id ?? message.id,
+      campaignName: message.campaignName,
+      channel: message.channel,
+      firstName: message.firstName,
+      lastName: message.lastName,
+      birthdayDate: message.birthdayDate,
+      scheduledFor: occurrence?.scheduledFor ?? message.scheduledFor,
+      status: occurrence?.status === 'pending'
+        ? 'scheduled'
+        : occurrence?.status ?? 'scheduled',
+    };
+  });
+}
+
 async function getBirthdayReportCounts(practiceId: string) {
   const rows = await db
     .select({
@@ -506,7 +633,13 @@ function renderBirthdayContent(
     lastName: string;
     email: string | null;
     phone: string | null;
-    practice: { name: string; phone: string | null; address: string | null };
+    practice: {
+      name: string;
+      phone: string | null;
+      email: string | null;
+      website: string | null;
+      address: string | null;
+    };
     birthdayDate: string;
     offer: string;
   }
@@ -526,8 +659,8 @@ function renderBirthdayContent(
         name: input.practice.name,
         phone: input.practice.phone ?? '',
         address: input.practice.address ?? '',
-        email: (input.practice as any).email ?? undefined,
-        website: (input.practice as any).website ?? undefined,
+        email: input.practice.email ?? undefined,
+        website: input.practice.website ?? undefined,
       },
       appointment: {
         date: '',
@@ -766,6 +899,9 @@ async function dispatchBirthdayOccurrence(
   const patient = record.patient;
   const campaign = record.campaign;
   const template = record.template;
+  if (!(await isPracticeChannelEnabled(practiceId, campaign.channel))) {
+    return markBirthdaySkipped(occurrenceId, practiceId, now, 'Practice channel is disabled');
+  }
   const hasConsent = campaign.channel === 'sms' ? patient.smsConsent : patient.emailConsent;
   const destination = campaign.channel === 'sms'
     ? patient.phoneMobile || patient.phoneHome

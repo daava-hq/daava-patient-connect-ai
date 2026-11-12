@@ -80,7 +80,7 @@ export function localDateTimeToInstant(
 
 export function getSampleAppointmentTimes(now: Date, timeZone: string, count: number): Date[] {
   const localToday = getDateParts(now, timeZone);
-  const sampleDate = new Date(Date.UTC(localToday.year, localToday.month - 1, localToday.day + 8));
+  const sampleDate = new Date(Date.UTC(localToday.year, localToday.month - 1, localToday.day + 7));
 
   return Array.from(
     { length: count },

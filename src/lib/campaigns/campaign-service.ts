@@ -635,7 +635,7 @@ export async function materializeRecipients(practiceId: string, campaignId: stri
 }
 
 /** Returns the scheduled campaigns due for processing now. */
-export async function getDueCampaigns(): Promise<Campaign[]> {
+export async function getDueCampaigns(practiceId?: string): Promise<Campaign[]> {
   return db
     .select()
     .from(campaignsTable)
@@ -643,7 +643,8 @@ export async function getDueCampaigns(): Promise<Campaign[]> {
       and(
         eq(campaignsTable.status, 'scheduled'),
         isNull(campaignsTable.deletedAt),
-        sql`${campaignsTable.scheduledAt} <= NOW()`
+        sql`${campaignsTable.scheduledAt} <= NOW()`,
+        ...(practiceId ? [eq(campaignsTable.practiceId, practiceId)] : [])
       )
     );
 }

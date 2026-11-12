@@ -25,6 +25,7 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
+  MessageSquare,
 } from 'lucide-react';
 
 interface PracticeData {
@@ -37,6 +38,8 @@ interface PracticeData {
   address: string | null;
   logoUrl: string | null;
   timezone: string;
+  emailEnabled: boolean;
+  smsEnabled: boolean;
   organisationName: string;
   userRole: string;
   credentials: {
@@ -73,11 +76,13 @@ const TIMEZONES = [
 export default function SettingsPage() {
   const { showToast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<'details' | 'team' | 'opendental'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'team' | 'communications' | 'opendental'>('details');
   const [practiceId, setPracticeId] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [practiceLoadError, setPracticeLoadError] = useState('');
   const [savingDetails, setSavingDetails] = useState(false);
   const [savingCreds, setSavingCreds] = useState(false);
+  const [savingCommunicationSettings, setSavingCommunicationSettings] = useState(false);
   const [syncingPatients, setSyncingPatients] = useState(false);
   const [syncingAppts, setSyncingAppts] = useState(false);
 
@@ -91,6 +96,8 @@ export default function SettingsPage() {
   const [address, setAddress] = useState('');
   const [timezone, setTimezone] = useState('America/New_York');
   const [logoUrl, setLogoUrl] = useState('');
+  const [emailEnabled, setEmailEnabled] = useState(false);
+  const [smsEnabled, setSmsEnabled] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
 
   // Open Dental form state
@@ -116,6 +123,7 @@ export default function SettingsPage() {
   const fetchPracticeData = useCallback(async (id: string) => {
     if (!id) return;
     setLoading(true);
+    setPracticeLoadError('');
     try {
       const [resPractice, resMembers] = await Promise.all([
         fetch(`/api/practices/${id}`),
@@ -134,6 +142,8 @@ export default function SettingsPage() {
         setAddress(p.address || '');
         setTimezone(p.timezone || 'America/New_York');
         setLogoUrl(p.logoUrl || '');
+        setEmailEnabled(p.emailEnabled);
+        setSmsEnabled(p.smsEnabled);
 
         if (resMembers.ok) {
           const membersJson = await resMembers.json();
@@ -144,8 +154,19 @@ export default function SettingsPage() {
         }
       } else {
         setPractice(null);
+        setPracticeLoadError(
+          resPractice.status === 401
+            ? 'Your session has expired. Sign in again to view practice settings.'
+            : resPractice.status === 403
+              ? 'Your account does not have access to this practice.'
+              : resPractice.status === 404
+                ? 'This practice could not be found.'
+                : `Practice settings could not be loaded (HTTP ${resPractice.status}). If this followed a database change, apply pending migrations and retry.`
+        );
       }
     } catch {
+      setPractice(null);
+      setPracticeLoadError('Unable to connect while loading practice settings. Check your connection and retry.');
       showToast('Failed to load practice settings.', 'error');
     } finally {
       setLoading(false);
@@ -217,6 +238,32 @@ export default function SettingsPage() {
       showToast(msg, 'error');
     } finally {
       setSavingDetails(false);
+    }
+  };
+
+  const handleSaveCommunicationSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!practiceId) return;
+    setSavingCommunicationSettings(true);
+
+    try {
+      const res = await fetch(`/api/practices/${practiceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emailEnabled, smsEnabled }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || 'Failed to update communication settings');
+      }
+
+      showToast('Communication settings updated successfully.', 'success');
+      await fetchPracticeData(practiceId);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Update failed';
+      showToast(msg, 'error');
+    } finally {
+      setSavingCommunicationSettings(false);
     }
   };
 
@@ -410,7 +457,7 @@ export default function SettingsPage() {
         <div className={styles.emptyState}>Loading practice settings...</div>
       ) : !practice ? (
         <div className={styles.emptyState}>
-          No practice found or you do not have permission to view this practice.
+          {practiceLoadError || 'No practice is selected. Choose a practice and try again.'}
         </div>
       ) : (
         <>
@@ -429,6 +476,13 @@ export default function SettingsPage() {
             >
               <Users size={16} />
               <span>Team Members ({members.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('communications')}
+              className={`${styles.tabButton} ${activeTab === 'communications' ? styles.tabActive : ''}`}
+            >
+              <MessageSquare size={16} />
+              <span>Communications</span>
             </button>
             <button
               onClick={() => setActiveTab('opendental')}
@@ -605,6 +659,66 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'communications' && (
+            <div className={styles.section}>
+              <div className={styles.card}>
+                <div className={styles.cardHeader}>
+                  <div>
+                    <h2 className={styles.cardTitle}>Practice-wide sending controls</h2>
+                    <p className={styles.cardDescription}>
+                      Turn on a channel only after this practice is ready. Disabled channels cannot send from any engagement module.
+                    </p>
+                  </div>
+                </div>
+
+                {practice.userRole !== 'owner' && practice.userRole !== 'admin' ? (
+                  <div className={styles.warningBanner} role="status">
+                    Only practice owners and admins can change these settings.
+                  </div>
+                ) : (
+                  <form onSubmit={handleSaveCommunicationSettings} className={styles.section}>
+                    <label className={styles.channelSetting}>
+                      <span>
+                        <strong>Email</strong>
+                        <span className={styles.cardDescription}>Appointment reminders, birthdays, groups, newsletters, and other email features.</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={emailEnabled}
+                        onChange={(event) => setEmailEnabled(event.target.checked)}
+                        aria-label="Enable email sending for this practice"
+                      />
+                    </label>
+                    <label className={styles.channelSetting}>
+                      <span>
+                        <strong>SMS</strong>
+                        <span className={styles.cardDescription}>Appointment reminders, birthdays, groups, and other SMS features.</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={smsEnabled}
+                        onChange={(event) => setSmsEnabled(event.target.checked)}
+                        aria-label="Enable SMS sending for this practice"
+                      />
+                    </label>
+                    <p className={styles.channelNote}>
+                      Both channels default to off. Turning a channel off stops pending sends at the next delivery check; messages already accepted by a provider cannot be recalled.
+                    </p>
+                    <div className={styles.settingsActions}>
+                      <button
+                        type="submit"
+                        disabled={savingCommunicationSettings}
+                        className={styles.btnPrimary}
+                      >
+                        {savingCommunicationSettings ? 'Saving...' : 'Save Communication Settings'}
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
             </div>
           )}

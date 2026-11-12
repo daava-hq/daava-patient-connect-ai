@@ -12,6 +12,7 @@ import { AppError, NotFoundError } from '@/lib/errors';
 import { env } from '@/lib/env';
 import { logError } from '@/lib/logger';
 import { getAdapter } from '@/lib/messaging/stub-adapter';
+import { isPracticeChannelEnabled } from '@/lib/messaging/practice-channel-settings';
 import {
   decrypt,
   confirmOpenDentalAppointment,
@@ -923,6 +924,9 @@ async function dispatchAppointmentReminder(reminderId: string, practiceId: strin
   });
   if (suppressionReason) {
     return await finishReminder(practiceId, reminderId, 'skipped', suppressionReason);
+  }
+  if (!(await isPracticeChannelEnabled(practiceId, record.channel))) {
+    return await finishReminder(practiceId, reminderId, 'skipped', 'Practice channel is disabled');
   }
   if (!destination) {
     return await finishReminder(practiceId, reminderId, 'skipped', 'Patient has no contact for this channel');

@@ -180,11 +180,11 @@ provider, delivery confirmation, and deployment cron are configured.
 - [x] Published centralized Appointment Reminders templates, preview, cloning, and variable checks.
 - [x] Published 24-hour email confirmation template with an explicit, signed patient action.
 - [x] Open Dental appointment confirmation write path and separate local confirmation status.
-- [x] Protected cron endpoint, two-minute local sample runner, and manual execution endpoint.
+- [x] Protected cron endpoints and a two-minute local sample-only runner for reminders, birthdays, and scheduled campaigns, plus manual reminder execution.
 - [x] Local/dev-only shared sample-data catalog and seed/reset workflow for appointments, birthdays, groups, newsletters, and group announcements.
 - [x] Dashboard-only refresh action rebuilds all sample modules for the exact dedicated sample practice; Upcoming reminders is derived from its appointments and enabled schedules.
 - [x] Delete configured reminder schedules with confirmation that their occurrence history is also deleted.
-- [x] Sample reset preserves configured reminder schedules other than the legacy sample schedule, clears module histories, and refuses while a campaign or reminder is processing or a birthday campaign is enabled.
+- [x] Sample reset preserves configured reminder schedules other than the legacy sample schedule, clears module histories, turns off enabled birthday campaigns, and refuses while campaigns, reminders, or birthday messages are processing.
 - [x] Consent, contact, patient, appointment status, and ownership rechecks before dispatch.
 - [x] Filter upcoming reminders by practice-local reminder date and show appointment status in the table.
 - [x] Unit tests for DST boundaries, suppression rules, provider errors, template validity, occurrence uniqueness, and practice membership.
@@ -217,6 +217,7 @@ provider work.
 - [x] Central birthday template selection and preview; the template library opens filtered to Birthdays and supports cloning/editing/saving.
 - [x] Admin-only campaign configuration for channel, birthday-relative send date, practice-local time, optional age rules and offer text.
 - [x] New campaigns default disabled; the protected five-minute worker materializes durable occurrences only for explicitly enabled campaigns.
+- [x] View upcoming delivery schedules calculated from enabled campaigns, including practice-local delivery times and persisted occurrence statuses.
 - [x] Birthday-year occurrence uniqueness, atomic worker claims, bounded retries, and send-time checks for patient status, birthdate, template, destination, and opt-out.
 - [x] Leap-day policy uses February 28 in non-leap years; date filters and scheduled delivery use the practice timezone.
 - [x] Omit full birthdates from browser responses and exclude missing/invalid birthdates.
@@ -263,6 +264,7 @@ provider work.
 - Connect module: conversation inbox per practice; send/receive messages; assign to team member.
 - Complete Reports section: per-module reports with date filters and CSV export.
 - Practice settings: branding upload, team management, communication preferences.
+- [x] Add practice-wide email and SMS send gates (default off) and enforce them across shared campaigns, appointment reminders, and birthday dispatch.
 - Performance audit and bundle optimisation.
 - Full Playwright e2e test suite covering core flows.
 - Production deployment checklist (env vars, migrations, HTTPS, CSP, rate limiting).

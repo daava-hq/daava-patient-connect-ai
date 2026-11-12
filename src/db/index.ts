@@ -20,7 +20,19 @@ import * as templates from './schema/templates';
 import * as appointmentReminders from './schema/appointment_reminders';
 import * as birthdayEngagement from './schema/birthday_engagement';
 
-const client = postgres(env.DATABASE_URL);
+const globalForDb = globalThis as typeof globalThis & {
+  __patientConnectPostgres?: ReturnType<typeof postgres>;
+};
+const clientOptions = {
+  max: env.APP_ENVIRONMENT === 'local' || env.APP_ENVIRONMENT === 'dev' ? 3 : 10,
+  idle_timeout: 20,
+  connect_timeout: 10,
+};
+const client = globalForDb.__patientConnectPostgres ?? postgres(env.DATABASE_URL, clientOptions);
+
+if (process.env.NODE_ENV === 'development') {
+  globalForDb.__patientConnectPostgres = client;
+}
 
 export const db = drizzle(client, {
   schema: {

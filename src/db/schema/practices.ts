@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, boolean } from 'drizzle-orm/pg-core';
 import { organisations } from './organisations';
 
 export const practices = pgTable('practices', {
@@ -14,6 +14,8 @@ export const practices = pgTable('practices', {
   website: text('website'),
   logoUrl: text('logo_url'),
   timezone: text('timezone').default('UTC').notNull(),
+  emailEnabled: boolean('email_enabled').default(false).notNull(),
+  smsEnabled: boolean('sms_enabled').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });

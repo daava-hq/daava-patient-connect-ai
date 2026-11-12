@@ -5,6 +5,7 @@ import { db } from '@/db';
 import { birthdayCampaigns } from '@/db/schema/birthday_engagement';
 import { practices } from '@/db/schema/practices';
 import { run } from '@/jobs/birthday-engagement';
+import sampleDataCatalog from '@/lib/sample-data/catalog.json';
 import { logError } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
@@ -17,11 +18,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const sampleDataOnly = req.nextUrl.searchParams.get('sampleData') === 'true';
+  if (req.nextUrl.searchParams.has('sampleData') && !sampleDataOnly) {
+    return NextResponse.json({ error: 'Invalid sampleData value' }, { status: 400 });
+  }
+  if (
+    sampleDataOnly &&
+    process.env.APP_ENVIRONMENT !== 'local' &&
+    process.env.APP_ENVIRONMENT !== 'dev'
+  ) {
+    return NextResponse.json({ error: 'Sample birthday cron is unavailable' }, { status: 404 });
+  }
+
+  const activePracticeFilters = [
+    eq(birthdayCampaigns.enabled, true),
+    isNull(birthdayCampaigns.deletedAt),
+    ...(sampleDataOnly ? [eq(practices.slug, sampleDataCatalog.practice.slug)] : []),
+  ];
   const activePractices = await db
     .selectDistinct({ practiceId: birthdayCampaigns.practiceId })
     .from(birthdayCampaigns)
     .innerJoin(practices, eq(birthdayCampaigns.practiceId, practices.id))
-    .where(and(eq(birthdayCampaigns.enabled, true), isNull(birthdayCampaigns.deletedAt)));
+    .where(and(...activePracticeFilters));
 
   let practiceFailures = 0;
   const birthdays = { materialized: 0, processed: 0, sent: 0, failed: 0, skipped: 0 };

@@ -40,6 +40,9 @@ describe('NewsletterWorkspace', () => {
       }
       if (url.startsWith('/api/templates?')) return Response.json({ data: { categories: [], templates: [] } });
       if (url.startsWith('/api/groups?')) return Response.json({ data: { groups: [] } });
+      if (url === `/api/practices/${practiceId}`) {
+        return Response.json({ data: { timezone: 'America/New_York' } });
+      }
       if (url === `/api/newsletters/${campaignId}?practiceId=${practiceId}` && init?.method !== 'DELETE') {
         return Response.json({
           data: {
@@ -87,5 +90,34 @@ describe('NewsletterWorkspace', () => {
       );
     });
     await screen.findByText('No newsletters yet');
+  });
+
+  it('shows the practice timezone beside the newsletter schedule field', async () => {
+    localStorage.setItem('selectedClinicId', practiceId);
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith('/api/newsletters?')) {
+        return Response.json({
+          data: { campaigns: [], total: 0, stats: { campaigns: {}, recipients: {}, events: {} } },
+        });
+      }
+      if (url.startsWith('/api/templates?')) return Response.json({ data: { categories: [], templates: [] } });
+      if (url.startsWith('/api/groups?')) return Response.json({ data: { groups: [] } });
+      if (url === `/api/practices/${practiceId}`) {
+        return Response.json({ data: { timezone: 'America/Los_Angeles' } });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <ToastProvider>
+        <NewsletterWorkspace />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'New newsletter' }));
+
+    expect(await screen.findByLabelText('Schedule date and time (America/Los_Angeles)')).toBeTruthy();
   });
 });

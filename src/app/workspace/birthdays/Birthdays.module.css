@@ -536,6 +536,14 @@
   box-shadow: var(--shadow-lg);
 }
 
+.previewBackdrop {
+  z-index: 110;
+}
+
+.messagePreviewModal {
+  width: min(100%, 40rem);
+}
+
 .modalHeader {
   display: flex;
   align-items: flex-start;

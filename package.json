@@ -19,7 +19,7 @@
     "seed:sample-data": "node --env-file-if-exists=.env.local scripts/seed-appointment-reminders-test-data.mjs",
     "seed:appointment-confirmation-template": "node --env-file-if-exists=.env.local scripts/seed-templates.mjs --appointment-confirmation-only",
     "seed:reminders-test-data": "node --env-file-if-exists=.env.local scripts/seed-appointment-reminders-test-data.mjs",
-    "reminders:cron:local": "node --env-file-if-exists=.env.local scripts/run-appointment-reminders-cron.mjs",
+    "sample:cron:local": "node --env-file-if-exists=.env.local scripts/run-sample-engagement-cron.mjs",
     "gen:register-link": "node scripts/gen-register-link.mjs"
   },
   "dependencies": {

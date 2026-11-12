@@ -21,6 +21,8 @@ const updateSchema = z.object({
   address: z.string().max(255).trim().optional().nullable(),
   timezone: z.string().max(60).trim().optional(),
   logoUrl: z.string().max(500).trim().optional().nullable(),
+  emailEnabled: z.boolean().optional(),
+  smsEnabled: z.boolean().optional(),
   openDental: z.object({
     developerKey: z.string().trim().optional(),
     customerKey: z.string().trim().optional(),
@@ -51,6 +53,8 @@ export async function GET(
         address: practices.address,
         logoUrl: practices.logoUrl,
         timezone: practices.timezone,
+        emailEnabled: practices.emailEnabled,
+        smsEnabled: practices.smsEnabled,
         createdAt: practices.createdAt,
         updatedAt: practices.updatedAt,
         organisationId: practices.organisationId,
@@ -189,6 +193,8 @@ export async function PATCH(
     if (data.address !== undefined) updates.address = data.address;
     if (data.timezone !== undefined) updates.timezone = data.timezone;
     if (data.logoUrl !== undefined) updates.logoUrl = data.logoUrl;
+    if (data.emailEnabled !== undefined) updates.emailEnabled = data.emailEnabled;
+    if (data.smsEnabled !== undefined) updates.smsEnabled = data.smsEnabled;
 
     const [updatedPractice] = await db
       .update(practices)

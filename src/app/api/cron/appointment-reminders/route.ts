@@ -5,8 +5,8 @@ import { db } from '@/db';
 import { appointmentReminderSchedules } from '@/db/schema/appointment_reminders';
 import { practices } from '@/db/schema/practices';
 import { run } from '@/jobs/appointment-reminders';
-import { env } from '@/lib/env';
 import { logError } from '@/lib/logger';
+import sampleDataCatalog from '@/lib/sample-data/catalog.json';
 
 export async function POST(req: NextRequest) {
   const secret = process.env.APPOINTMENT_REMINDERS_CRON_SECRET;
@@ -22,7 +22,11 @@ export async function POST(req: NextRequest) {
   if (req.nextUrl.searchParams.has('sampleData') && !sampleDataOnly) {
     return NextResponse.json({ error: 'Invalid sampleData value' }, { status: 400 });
   }
-  if (sampleDataOnly && env.APP_ENVIRONMENT !== 'local' && env.APP_ENVIRONMENT !== 'dev') {
+  if (
+    sampleDataOnly &&
+    process.env.APP_ENVIRONMENT !== 'local' &&
+    process.env.APP_ENVIRONMENT !== 'dev'
+  ) {
     return NextResponse.json({ error: 'Sample reminder cron is unavailable' }, { status: 404 });
   }
 
@@ -34,7 +38,7 @@ export async function POST(req: NextRequest) {
     sampleDataOnly
       ? and(
           eq(appointmentReminderSchedules.enabled, true),
-          eq(practices.slug, 'appointment-reminder-sample')
+          eq(practices.slug, sampleDataCatalog.practice.slug)
         )
       : eq(appointmentReminderSchedules.enabled, true)
   );

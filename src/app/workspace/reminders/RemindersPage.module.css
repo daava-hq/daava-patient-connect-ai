@@ -58,8 +58,16 @@
 .iconButton {
   width: 2.5rem;
   height: 2.5rem;
-  background: transparent;
-  color: var(--color-text-muted);
+  min-height: 2.5rem;
+  padding: 0;
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.iconButton:hover {
+  border-color: var(--color-primary);
+  background: var(--color-background);
 }
 
 .primaryButton:disabled,
@@ -391,6 +399,14 @@
   padding: var(--space-6);
   background: var(--color-surface);
   box-shadow: var(--shadow-lg);
+}
+
+.previewBackdrop {
+  z-index: 110;
+}
+
+.previewModal {
+  width: min(100%, 40rem);
 }
 
 .form {

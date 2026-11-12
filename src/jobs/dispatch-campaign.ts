@@ -20,6 +20,7 @@ import { logInfo, logError } from '@/lib/logger';
 import { practices } from '@/db/schema/practices';
 import { isValidEmailAddress } from '@/lib/campaigns/audience-service';
 import { AppError } from '@/lib/errors';
+import { isPracticeChannelEnabled } from '@/lib/messaging/practice-channel-settings';
 
 export const DISPATCH_BATCH_SIZE = 50;
 
@@ -134,6 +135,12 @@ export async function runCampaignDispatch(
           continue;
         }
 
+        if (!(await isPracticeChannelEnabled(practiceId, campaign.channel as 'sms' | 'email'))) {
+          await markRecipientSkipped(recipient.id, 'practice_channel_disabled');
+          totalSkipped++;
+          continue;
+        }
+
         // Interpolate template body
         const newsletterVariables = {
           'patient.firstName': recipient.firstName,
@@ -242,9 +249,9 @@ export async function runCampaignDispatch(
  * Processes all campaigns that are scheduled and due.
  * Called by a periodic scheduler (e.g., cron endpoint).
  */
-export async function processScheduledCampaigns(): Promise<{ processed: number; failed: number }> {
+export async function processScheduledCampaigns(practiceId?: string): Promise<{ processed: number; failed: number }> {
   const { getDueCampaigns } = await import('@/lib/campaigns/campaign-service');
-  const due = await getDueCampaigns();
+  const due = await getDueCampaigns(practiceId);
 
   logInfo('Processing scheduled campaigns', { count: due.length });
 

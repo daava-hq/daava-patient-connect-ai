@@ -66,12 +66,14 @@ Every `route.ts` must:
 - Store only the patient fields required for engagement features (see `docs/database-schema.md`).
 - Redact all patient PII (name, DOB, phone, email) from logs and error messages.
 - Enforce communication consent flags (`sms_consent`, `email_consent`) before any outbound message.
+- Enforce practice-wide `sms_enabled` and `email_enabled` gates immediately before dispatch in every outbound worker. Both flags default to false; only practice owners/admins may change them. These gates supplement, and never replace, patient consent checks.
 - Implement opt-out handling: update consent flags and suppress future messages.
 - Appointment reminders re-check consent, practice ownership, appointment status, patient status, and destination immediately before provider dispatch. Only `Scheduled` appointments for active `Patient` records are eligible; this status is not interpreted as attendance confirmation.
 - Appointment confirmation links contain a signed, expiring capability bound to one sent email reminder. They do not include patient identifiers or practice/appointment IDs supplied by the browser. The public confirmation page performs no write on GET; only an explicit POST action can confirm, and the server resolves the reminder, appointment, practice, and encrypted Open Dental credentials from the signed reminder ID.
 - The confirmation capability uses `APPOINTMENT_CONFIRMATION_TOKEN_SECRET` (at least 32 characters; configured in every non-local environment) and expires after 30 days. It can only confirm a future, scheduled appointment for an active patient. The local `confirmation_status` is updated only after Open Dental accepts the dedicated confirmation request; the appointment's `status` is preserved.
 - Reminder occurrences are deduplicated by appointment, schedule, channel, and patient. Provider adapters receive the occurrence ID as an idempotency key.
 - The reminder cron endpoint requires `APPOINTMENT_REMINDERS_CRON_SECRET` as a bearer token and compares it in constant time. Never expose this secret to browser code.
+- The reminder, birthday, and campaign cron endpoints accept `sampleData=true` only when `APP_ENVIRONMENT` is explicitly `local` or `dev`, and then process only the reserved sample practice. The local sample cron runner also refuses non-loopback app URLs. Ordinary cron calls remain unscoped and must only be used with the intended scheduler/database.
 - Birthday dashboard, campaign, preview, and history queries are practice-scoped and require membership; campaign creation and changes require practice owner/admin access. Birthday campaigns are disabled by default and only an explicit admin enablement schedules messages.
 - Group APIs verify practice membership before group/patient queries. Static
   member writes check both group and patient practice ownership in a

@@ -87,7 +87,7 @@ async function upsertAppointments(practiceId) {
   const sampleDate = new Date(Date.UTC(
     Number(localDate.get('year')),
     Number(localDate.get('month')) - 1,
-    Number(localDate.get('day')) + 8
+    Number(localDate.get('day')) + 7
   ));
   const scenarios = sampleDataCatalog.patients.map((sample, index) => {
     const appointmentDate = new Date(Date.UTC(
@@ -369,7 +369,7 @@ async function main() {
   console.log(`Sample patients use ${sampleEmail}; birthdays, groups, a birthday campaign, a newsletter, and a group announcement were refreshed.`);
   console.log('Newsletter and group announcement campaigns are drafts. The birthday campaign is disabled. The seeder does not send emails.');
   console.log('Existing reminder schedules are preserved. Upcoming reminders are derived from enabled schedules and these appointments.');
-  console.log('Use `pnpm reminders:cron:local` only when explicitly testing appointment reminder delivery.');
+  console.log('Use `pnpm sample:cron:local` to poll all sample engagement email modules.');
 }
 
 main()

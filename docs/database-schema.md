@@ -46,6 +46,8 @@ organisations
 | `address` | `text` | |
 | `logo_url` | `text` | |
 | `timezone` | `text` | IANA tz |
+| `email_enabled` | `boolean` | default false; practice-wide outbound email gate |
+| `sms_enabled` | `boolean` | default false; practice-wide outbound SMS gate |
 | `created_at` | `timestamptz` | |
 | `updated_at` | `timestamptz` | |
 

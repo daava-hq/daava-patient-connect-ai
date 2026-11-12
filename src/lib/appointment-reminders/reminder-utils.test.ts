@@ -23,7 +23,7 @@ describe('appointment reminder utilities', () => {
   });
 
   it('creates ten sample appointment times across five days at two appointments per day', () => {
-    const now = new Date('2026-11-05T14:49:00.000Z');
+    const now = new Date('2026-11-12T12:49:00.000Z');
     const times = getSampleAppointmentTimes(
       now,
       'America/New_York',
@@ -40,16 +40,16 @@ describe('appointment reminder utilities', () => {
     }).format(time));
 
     expect(localSlots).toEqual([
-      '2026-11-13, 09:00',
-      '2026-11-13, 10:00',
-      '2026-11-14, 09:00',
-      '2026-11-14, 10:00',
-      '2026-11-15, 09:00',
-      '2026-11-15, 10:00',
-      '2026-11-16, 09:00',
-      '2026-11-16, 10:00',
-      '2026-11-17, 09:00',
-      '2026-11-17, 10:00',
+      '2026-11-19, 09:00',
+      '2026-11-19, 10:00',
+      '2026-11-20, 09:00',
+      '2026-11-20, 10:00',
+      '2026-11-21, 09:00',
+      '2026-11-21, 10:00',
+      '2026-11-22, 09:00',
+      '2026-11-22, 10:00',
+      '2026-11-23, 09:00',
+      '2026-11-23, 10:00',
     ]);
     expect(times.every((time) => time.getTime() > now.getTime())).toBe(true);
     expect(times.every((time) =>

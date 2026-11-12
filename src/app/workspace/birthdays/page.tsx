@@ -25,7 +25,7 @@ import styles from './Birthdays.module.css';
 
 type BirthdayRange = 'today' | 'tomorrow' | 'next7' | 'thisMonth';
 type Channel = 'sms' | 'email';
-type Tab = 'overview' | 'calendar' | 'campaigns' | 'history' | 'reports';
+type Tab = 'overview' | 'scheduled' | 'calendar' | 'campaigns' | 'history' | 'reports';
 
 interface BirthdayItem {
   id: string;
@@ -74,6 +74,17 @@ interface BirthdayHistory {
   lastErrorMessage: string | null;
 }
 
+interface ScheduledBirthdayMessage {
+  id: string;
+  campaignName: string;
+  channel: Channel;
+  firstName: string;
+  lastName: string;
+  birthdayDate: string | null;
+  scheduledFor: string;
+  status: 'scheduled' | 'processing' | 'sent' | 'delivered' | 'failed' | 'skipped';
+}
+
 interface BirthdayDashboard {
   timezone: string;
   selectedRange: { start: string; end: string };
@@ -89,6 +100,7 @@ interface BirthdayDashboard {
   upcomingBirthdays: BirthdayItem[];
   campaigns: BirthdayCampaign[];
   history: BirthdayHistory[];
+  scheduledMessages: ScheduledBirthdayMessage[];
   report: Record<string, number>;
 }
 
@@ -132,6 +144,7 @@ const TABS: { value: Tab; label: string }[] = [
   { value: 'overview', label: 'Overview' },
   { value: 'calendar', label: 'Calendar' },
   { value: 'campaigns', label: 'Campaign settings' },
+  { value: 'scheduled', label: 'Scheduled messages' },
   { value: 'history', label: 'Delivery history' },
   { value: 'reports', label: 'Reports' },
 ];
@@ -200,11 +213,27 @@ export default function BirthdaysPage() {
   const [draft, setDraft] = useState<BirthdayCampaignDraft>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState<{ subject: string; body: string; unresolved: string[] } | null>(null);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
   const editorRef = useRef<HTMLElement>(null);
+  const previewDialogRef = useRef<HTMLElement>(null);
+  const previewRequestIdRef = useRef(0);
+
+  const clearPreview = useCallback(() => {
+    previewRequestIdRef.current += 1;
+    setPreviewing(false);
+    setPreview(null);
+    setPreviewModalOpen(false);
+  }, []);
+
+  const closeCampaignEditor = useCallback(() => {
+    clearPreview();
+    setIsEditorOpen(false);
+  }, [clearPreview]);
 
   useEffect(() => {
     if (!isEditorOpen) return;
-    const activeDialog = editorRef.current;
+    const activeDialog = previewModalOpen ? previewDialogRef.current : editorRef.current;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const getFocusable = () => activeDialog?.querySelectorAll<HTMLElement>(
       'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -214,7 +243,11 @@ export default function BirthdaysPage() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (templatePickerOpenRef.current) return;
       if (event.key === 'Escape') {
-        setIsEditorOpen(false);
+        if (previewModalOpen) {
+          setPreviewModalOpen(false);
+        } else {
+          closeCampaignEditor();
+        }
         return;
       }
       if (event.key !== 'Tab') return;
@@ -235,7 +268,7 @@ export default function BirthdaysPage() {
       document.removeEventListener('keydown', handleKeyDown);
       previousFocus?.focus();
     };
-  }, [isEditorOpen]);
+  }, [closeCampaignEditor, isEditorOpen, previewModalOpen]);
 
   function openTemplatePicker() {
     templatePickerOpenRef.current = true;
@@ -251,9 +284,10 @@ export default function BirthdaysPage() {
     selectedPracticeId: string,
     selectedRange: BirthdayRange | 'custom',
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    options: { background?: boolean } = {}
   ) => {
-    setLoading(true);
+    if (!options.background) setLoading(true);
     setLoadError('');
     try {
       const params = new URLSearchParams({ practiceId: selectedPracticeId, range: selectedRange });
@@ -269,9 +303,9 @@ export default function BirthdaysPage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load birthday data';
       setLoadError(message);
-      showToast(message, 'error');
+      if (!options.background) showToast(message, 'error');
     } finally {
-      setLoading(false);
+      if (!options.background) setLoading(false);
     }
   }, [showToast]);
 
@@ -325,6 +359,25 @@ export default function BirthdaysPage() {
     void loadDashboard(practiceId, range);
   }, [loadDashboard, practiceId, range]);
 
+  useEffect(() => {
+    if (tab !== 'scheduled' || !practiceId) return;
+    let active = true;
+    let refreshInProgress = false;
+    const refreshScheduledMessages = () => {
+      if (!active || document.visibilityState !== 'visible' || refreshInProgress) return;
+      refreshInProgress = true;
+      void loadDashboard(practiceId, range, undefined, undefined, { background: true })
+        .finally(() => { refreshInProgress = false; });
+    };
+    const intervalId = window.setInterval(refreshScheduledMessages, 60_000);
+    document.addEventListener('visibilitychange', refreshScheduledMessages);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', refreshScheduledMessages);
+    };
+  }, [loadDashboard, practiceId, range, tab]);
+
   function setSelectedRange(nextRange: BirthdayRange) {
     setRange(nextRange);
     if (practiceId) void loadDashboard(practiceId, nextRange);
@@ -342,7 +395,7 @@ export default function BirthdaysPage() {
   function startCreateCampaign() {
     setDraft(EMPTY_DRAFT);
     setEditingCampaignId(null);
-    setPreview(null);
+    clearPreview();
     setIsEditorOpen(true);
   }
 
@@ -359,7 +412,7 @@ export default function BirthdaysPage() {
       enabled: campaign.enabled,
     });
     setEditingCampaignId(campaign.id);
-    setPreview(null);
+    clearPreview();
     setIsEditorOpen(true);
   }
 
@@ -396,8 +449,7 @@ export default function BirthdaysPage() {
       const error = responseError(response, body, 'Failed to save birthday campaign');
       if (error) throw new Error(error);
       showToast(draft.enabled ? 'Birthday campaign saved and enabled' : 'Birthday campaign saved as disabled', 'success');
-      setIsEditorOpen(false);
-      setPreview(null);
+      closeCampaignEditor();
       refresh();
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Failed to save birthday campaign', 'error');
@@ -411,6 +463,10 @@ export default function BirthdaysPage() {
       showToast('Choose a birthday template to preview', 'error');
       return;
     }
+    const requestId = ++previewRequestIdRef.current;
+    setPreviewing(true);
+    setPreview(null);
+    setPreviewModalOpen(false);
     try {
       const response = await fetch('/api/birthdays/preview', {
         method: 'POST',
@@ -426,9 +482,16 @@ export default function BirthdaysPage() {
       const body = await response.json() as ApiResponse<{ subject: string; body: string; unresolved: string[] }>;
       const error = responseError(response, body, 'Failed to preview template');
       if (error || !body.data) throw new Error(error || 'Preview is unavailable');
-      setPreview(body.data);
+      if (requestId === previewRequestIdRef.current) {
+        setPreview(body.data);
+        setPreviewModalOpen(true);
+      }
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Failed to preview template', 'error');
+      if (requestId === previewRequestIdRef.current) {
+        showToast(error instanceof Error ? error.message : 'Failed to preview template', 'error');
+      }
+    } finally {
+      if (requestId === previewRequestIdRef.current) setPreviewing(false);
     }
   }
 
@@ -528,7 +591,7 @@ export default function BirthdaysPage() {
                   className={tab === item.value ? styles.activeTab : styles.tab}
                   onClick={() => {
                     setTab(item.value);
-                    if (item.value === 'overview') refresh();
+                    if (item.value === 'overview' || item.value === 'scheduled') refresh();
                     if (item.value === 'calendar' && calendarMonth) {
                       const { startDate, endDate } = monthRange(calendarMonth);
                       void loadDashboard(practiceId, 'custom', startDate, endDate);
@@ -582,6 +645,25 @@ export default function BirthdaysPage() {
                   ) : (
                     <BirthdayList birthdays={dashboard.birthdays} />
                   )}
+                </>
+              )}
+
+              {tab === 'scheduled' && (
+                <>
+                  <div className={styles.sectionHeading}>
+                    <div>
+                      <h2>Scheduled birthday messages</h2>
+                      <p>
+                        Upcoming deliveries are calculated from enabled campaigns for active patients.
+                        The worker persists them automatically; contact and consent are checked again before sending.
+                      </p>
+                    </div>
+                    <span className={styles.timezoneBadge}>Practice time: {dashboard.timezone}</span>
+                  </div>
+                  <ScheduledMessagesTable
+                    messages={dashboard.scheduledMessages}
+                    timezone={dashboard.timezone}
+                  />
                 </>
               )}
 
@@ -727,7 +809,7 @@ export default function BirthdaysPage() {
         onSelect={(template) => {
           setDraft((current) => ({ ...current, templateId: template.id }));
           closeTemplatePicker();
-          setPreview(null);
+          clearPreview();
         }}
         onClone={(template) => void cloneTemplate(template)}
         libraryHref="/workspace/templates?category=birthdays"
@@ -742,7 +824,7 @@ export default function BirthdaysPage() {
                 <h2 id="campaignEditorTitle">{editingCampaignId ? 'Edit birthday campaign' : 'Create birthday campaign'}</h2>
                 <p>Schedule messages in the practice timezone: {dashboard?.timezone ?? 'loading'}.</p>
               </div>
-              <button className={styles.iconButton} aria-label="Close campaign settings" onClick={() => setIsEditorOpen(false)}><X size={18} /></button>
+              <button className={styles.iconButton} aria-label="Close campaign settings" onClick={closeCampaignEditor}><X size={18} /></button>
             </div>
             <form onSubmit={handleSaveCampaign} className={styles.form}>
               <label className={styles.field}>
@@ -753,7 +835,10 @@ export default function BirthdaysPage() {
                 Channel
                 <select
                   value={draft.channel}
-                  onChange={(event) => setDraft({ ...draft, channel: event.target.value as Channel, templateId: '' })}
+                  onChange={(event) => {
+                    clearPreview();
+                    setDraft({ ...draft, channel: event.target.value as Channel, templateId: '' });
+                  }}
                 >
                   <option value="sms">SMS</option>
                   <option value="email">Email</option>
@@ -782,7 +867,7 @@ export default function BirthdaysPage() {
                   </select>
                 </label>
                 <label className={styles.field}>
-                  Local delivery time
+                  Local delivery time ({dashboard?.timezone ?? 'loading'})
                   <input type="time" required value={draft.localDeliveryTime} onChange={(event) => setDraft({ ...draft, localDeliveryTime: event.target.value })} />
                 </label>
               </div>
@@ -816,26 +901,61 @@ export default function BirthdaysPage() {
                 </p>
               )}
               <div className={styles.modalActions}>
-                <button type="button" className={styles.secondaryButton} onClick={() => void handlePreview()} disabled={!draft.templateId}>
-                  Preview message
+                <button type="button" className={styles.secondaryButton} onClick={() => void handlePreview()} disabled={!draft.templateId || previewing}>
+                  {previewing ? 'Rendering…' : 'Preview message'}
                 </button>
                 <span className={styles.actionSpacer} />
-                <button type="button" className={styles.secondaryButton} onClick={() => setIsEditorOpen(false)}>Cancel</button>
+                <button type="button" className={styles.secondaryButton} onClick={closeCampaignEditor}>Cancel</button>
                 <button type="submit" className={styles.primaryButton} disabled={saving || !draft.templateId}>
                   {saving ? 'Saving…' : 'Save campaign'}
                 </button>
               </div>
             </form>
-            {preview && (
-              <div className={styles.preview} aria-live="polite">
-                <h3>Message preview</h3>
-                {preview.subject && <strong>{preview.subject}</strong>}
-                <pre>{preview.body}</pre>
-                {preview.unresolved.length > 0 && (
-                  <p className={styles.previewWarning}>Unresolved variables: {preview.unresolved.join(', ')}</p>
-                )}
+          </section>
+        </div>
+      )}
+      {previewModalOpen && preview && (
+        <div
+          className={`${styles.modalBackdrop} ${styles.previewBackdrop}`}
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setPreviewModalOpen(false);
+          }}
+        >
+          <section
+            ref={previewDialogRef}
+            className={`${styles.modal} ${styles.messagePreviewModal}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="birthday-message-preview-title"
+            tabIndex={-1}
+          >
+            <div className={styles.modalHeader}>
+              <div>
+                <h2 id="birthday-message-preview-title">Birthday message preview</h2>
+                <p>{selectedTemplate?.name ?? 'Birthday template'} · {draft.channel.toUpperCase()}</p>
               </div>
-            )}
+              <button
+                type="button"
+                className={styles.iconButton}
+                onClick={() => setPreviewModalOpen(false)}
+                aria-label="Close message preview"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+            <div className={styles.preview}>
+              {preview.subject && <strong>{preview.subject}</strong>}
+              <pre>{preview.body}</pre>
+              {preview.unresolved.length > 0 && (
+                <p className={styles.previewWarning}>Unresolved variables: {preview.unresolved.join(', ')}</p>
+              )}
+            </div>
+            <div className={styles.modalActions}>
+              <button type="button" className={styles.secondaryButton} onClick={() => setPreviewModalOpen(false)}>
+                Close preview
+              </button>
+            </div>
           </section>
         </div>
       )}
@@ -890,6 +1010,57 @@ function BirthdayList({ birthdays }: { birthdays: BirthdayItem[] }) {
           </div>
         </article>
       ))}
+    </div>
+  );
+}
+
+function ScheduledMessagesTable({
+  messages,
+  timezone,
+}: {
+  messages: ScheduledBirthdayMessage[];
+  timezone: string;
+}) {
+  if (messages.length === 0) {
+    return (
+      <div className={styles.emptyInline}>
+        <Clock3 size={26} />
+        <strong>No scheduled birthday messages</strong>
+        <span>Enable a campaign to schedule messages for eligible patients.</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.tableWrap}>
+      <table className={styles.historyTable}>
+        <thead>
+          <tr>
+            <th>Patient</th>
+            <th>Campaign</th>
+            <th>Birthday</th>
+            <th>Scheduled delivery</th>
+            <th>Channel</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {messages.map((message) => (
+            <tr key={message.id}>
+              <td>{message.firstName} {message.lastName}</td>
+              <td>{message.campaignName}</td>
+              <td>{message.birthdayDate ? formatBirthdayDate(message.birthdayDate) : '—'}</td>
+              <td>{formatTime(message.scheduledFor, timezone)}</td>
+              <td>{message.channel.toUpperCase()}</td>
+              <td>
+                <span className={`${styles.statusBadge} ${message.status === 'scheduled' ? styles.pending : styles[message.status]}`}>
+                  {message.status === 'scheduled' ? 'Scheduled' : message.status}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
