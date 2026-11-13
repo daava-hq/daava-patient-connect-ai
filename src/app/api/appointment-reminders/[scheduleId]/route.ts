@@ -18,7 +18,6 @@ const updateSchema = z.object({
   channel: z.enum(['sms', 'email']).optional(),
   localSendTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
   templateId: z.string().uuid().optional(),
-  groupIds: z.array(z.string().uuid()).max(100).optional(),
   enabled: z.boolean().optional(),
 }).strict();
 

@@ -180,7 +180,7 @@ implemented; the Reports page remains a setup state.
 - [x] Static membership history and group engagement history; dynamic membership is evaluated live and has no persisted membership-change history.
 - [x] Independent group-announcement workflow with published Groups template selection, campaign snapshots, draft editing/deletion, audience preview, desktop/mobile preview, scheduling/send-now, cancellation, paginated history, and delivery reports (`src/app/api/groups/[groupId]/announcements/`, `src/components/feature/Groups/GroupsWorkspace.tsx`).
 - [x] Validation, repository, API, and tenant-scoping tests.
-- [x] Integrate group selectors into the dedicated birthday campaign and appointment-reminder schedule flows.
+- [x] Keep birthday campaigns all-eligible-patient and appointment reminder schedules practice-wide; neither workflow uses patient-group selectors.
 - [x] Define and implement recall eligibility from Open Dental `DateDue`: any
   non-disabled recall due on or before the practice date, excluding patients
   with a current/future recall appointment date or future scheduled appointment.
@@ -199,7 +199,7 @@ implemented; the Reports page remains a setup state.
 
 - [x] Group membership is scoped to the practice.
 - [x] Newsletter and generic campaign audiences respect group membership, filters, and consent flags.
-- [x] Dedicated birthday and appointment-reminder workflows accept reusable group audiences.
+- [x] Birthday campaigns target all otherwise-eligible patients; appointment reminder schedules include all otherwise-eligible appointments.
 - [x] Durable background jobs persist recipient records prior to dispatch and guarantee idempotency.
 - [x] All 8 engagement modules implemented with backend storage, validation, authorization, and API routes.
 - [x] Unit tests pass successfully.
@@ -319,7 +319,7 @@ provider work.
 - The existing SMS adapter remains a stub; scheduled SMS occurrences are tracked as failed until a provider is configured.
 - The AWS SES adapter has no provider-side idempotency. A crash after provider acceptance but before persistence can make a retry ambiguous.
 - `sent` means accepted by the messaging provider; it is not proof of final delivery.
-- Dedicated birthday and appointment-reminder workflows do not yet accept group IDs. Groups can currently be used by the shared campaign audience resolver and Groups announcement draft flow.
+- Birthday campaigns target all otherwise-eligible patients, subject to optional age rules, and reject legacy group-filter payloads. Appointment reminder schedules always target all otherwise-eligible appointments; migration `0011_remove_reminder_group_filters.sql` drops the former group column.
 - The birthday schema migration (`0002_colossal_iron_fist.sql`) has been applied to the local development database. Tables are named `birthday_engagement_campaigns` and `birthday_engagement_occurrences` to avoid collision with a legacy birthday schema present in the database.
 
 ---

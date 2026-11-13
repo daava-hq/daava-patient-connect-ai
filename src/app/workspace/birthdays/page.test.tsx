@@ -221,10 +221,8 @@ describe('BirthdaysPage range selection', () => {
     expect((screen.getByRole('button', { name: 'Save campaign' }) as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it('saves the selected reusable group audience with the campaign', async () => {
-    fetchMock = createFetchMock([birthdayEmailTemplate], [], undefined, [], [
-      { id: 'group-1', name: 'New patients', groupType: 'static' },
-    ]);
+  it('creates birthday campaigns for all eligible patients without loading patient groups', async () => {
+    fetchMock = createFetchMock([birthdayEmailTemplate]);
     vi.stubGlobal('fetch', fetchMock);
     render(
       <ToastProvider>
@@ -234,9 +232,9 @@ describe('BirthdaysPage range selection', () => {
 
     await screen.findByText('Upcoming birthdays');
     fireEvent.click(screen.getByRole('button', { name: 'New campaign' }));
-    fireEvent.change(screen.getByLabelText('Campaign name'), { target: { value: 'Group birthday campaign' } });
+    expect(within(screen.getByRole('dialog', { name: 'Create birthday campaign' })).queryByText('Patient groups')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Campaign name'), { target: { value: 'All-patients birthday campaign' } });
     fireEvent.change(screen.getByLabelText('Channel'), { target: { value: 'email' } });
-    fireEvent.click(await screen.findByRole('checkbox', { name: /New patients/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Choose template' }));
     const picker = await screen.findByRole('dialog', { name: 'Birthday templates' });
     fireEvent.click(within(picker).getByRole('button', { name: 'Select' }));
@@ -246,7 +244,8 @@ describe('BirthdaysPage range selection', () => {
       const request = fetchMock.mock.calls.find(([input]) => String(input) === '/api/birthdays/campaigns');
       expect(request).toBeDefined();
       const payload = JSON.parse(String(request?.[1]?.body));
-      expect(payload.eligibilityRules.groupIds).toEqual(['group-1']);
+      expect(payload).not.toHaveProperty('eligibilityRules.groupIds');
+      expect(fetchMock.mock.calls.some(([input]) => String(input).startsWith('/api/groups/options?'))).toBe(false);
     });
   });
 

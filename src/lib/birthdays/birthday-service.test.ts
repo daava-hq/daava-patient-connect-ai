@@ -151,7 +151,7 @@ describe('getUpcomingBirthdayMessages', () => {
     });
   });
 
-  it("excludes patients outside a campaign's selected group audience", async () => {
+  it('ignores legacy group filters and schedules all eligible patients', async () => {
     const campaign = {
       id: 'campaign-id',
       name: 'Birthday email',
@@ -166,7 +166,6 @@ describe('getUpcomingBirthdayMessages', () => {
       lastName: 'Example',
       dateOfBirth: '1990-03-10',
     };
-    mocks.getPatientIdsInGroups.mockResolvedValue([]);
     mockUpcomingBirthdayQueries(campaign, patient);
 
     const result = await getUpcomingBirthdayMessages(
@@ -175,8 +174,13 @@ describe('getUpcomingBirthdayMessages', () => {
       new Date('2026-03-01T12:00:00.000Z')
     );
 
-    expect(result).toEqual([]);
-    expect(mocks.getPatientIdsInGroups).toHaveBeenCalledWith(practiceId, [groupId]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      campaignName: 'Birthday email',
+      firstName: 'Taylor',
+      birthdayDate: '2026-03-10',
+    });
+    expect(mocks.getPatientIdsInGroups).not.toHaveBeenCalled();
   });
 
   it('uses the persisted occurrence status after a birthday email is sent', async () => {

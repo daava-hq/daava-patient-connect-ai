@@ -28,7 +28,6 @@ describe('RemindersPage', () => {
               channel: 'email',
               localSendTime: '09:00',
               templateId: 'template-1',
-              groupIds: [],
               templateName: 'Appointment reminder',
               enabled: true,
             }],
@@ -55,7 +54,6 @@ describe('RemindersPage', () => {
         });
       }
       if (url.startsWith('/api/appointment-reminders/templates?')) return Response.json({ data: [] });
-      if (url.startsWith('/api/groups/options?')) return Response.json({ data: [] });
       if (url === '/api/appointment-reminders/preview') {
         return Response.json({
           data: {
@@ -85,6 +83,7 @@ describe('RemindersPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
     const scheduleDialog = screen.getByRole('dialog', { name: 'Edit reminder schedule' });
+    expect(within(scheduleDialog).queryByText('Patient groups')).toBeNull();
     fireEvent.click(within(scheduleDialog).getByRole('button', { name: 'Preview message' }));
 
     const messagePreview = await screen.findByRole('dialog', { name: 'Reminder message preview' });
@@ -98,7 +97,7 @@ describe('RemindersPage', () => {
     });
   });
 
-  it('saves the selected reusable group audience with a reminder schedule', async () => {
+  it('creates reminder schedules for all eligible appointments without loading patient groups', async () => {
     localStorage.setItem('selectedClinicId', practiceId);
     const template = {
       id: 'template-1',
@@ -125,9 +124,6 @@ describe('RemindersPage', () => {
         });
       }
       if (url.startsWith('/api/appointment-reminders/templates?')) return Response.json({ data: [template] });
-      if (url.startsWith('/api/groups/options?')) {
-        return Response.json({ data: [{ id: 'group-1', name: 'New patients', groupType: 'static' }] });
-      }
       if (url === '/api/appointment-reminders' && init?.method === 'POST') {
         return Response.json({ data: { id: 'schedule-1' } }, { status: 201 });
       }
@@ -143,8 +139,9 @@ describe('RemindersPage', () => {
 
     await screen.findByRole('region', { name: 'Reminder report' });
     fireEvent.click(screen.getByRole('button', { name: /Configure schedule/ }));
-    fireEvent.change(screen.getByLabelText('Schedule name'), { target: { value: 'New-patient reminder' } });
-    fireEvent.click(await screen.findByRole('checkbox', { name: /New patients/ }));
+    fireEvent.change(screen.getByLabelText('Schedule name'), { target: { value: 'All-appointments reminder' } });
+    const dialog = screen.getByRole('dialog', { name: 'Add reminder schedule' });
+    expect(within(dialog).queryByText('Patient groups')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Choose template' }));
     const picker = await screen.findByRole('dialog', { name: 'Appointment reminder templates' });
     fireEvent.click(within(picker).getByRole('button', { name: 'Select' }));
@@ -156,7 +153,8 @@ describe('RemindersPage', () => {
       );
       expect(request).toBeDefined();
       const payload = JSON.parse(String(request?.[1]?.body));
-      expect(payload.groupIds).toEqual(['group-1']);
+      expect(payload).not.toHaveProperty('groupIds');
+      expect(fetchMock.mock.calls.some(([input]) => String(input).startsWith('/api/groups/options?'))).toBe(false);
     });
   });
 });

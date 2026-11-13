@@ -264,10 +264,10 @@ at dispatch time.
 
 Practice-owned reminder rules reference an SMS or email template in the
 `appointment-reminders` category. Schedules store the interval, practice-local
-send time, enabled state, creator, and selected `group_ids` as JSONB. An empty
-group list targets all otherwise-eligible patients; multiple groups are
-combined as a union and membership is evaluated from current static or dynamic
-group membership.
+send time, enabled state, and creator. Migration
+`0011_remove_reminder_group_filters.sql` drops the former `group_ids` column.
+Every schedule targets all otherwise-eligible appointments; group membership
+does not filter reminder recipients.
 
 ### `appointment_reminders`
 
@@ -291,12 +291,12 @@ this before deletion.
 Practice-owned campaign settings reference a published shared birthday
 template. They store the channel, days before the birthday, practice-local
 delivery time, optional age eligibility rules and offer text. `eligibility_rules`
-may also contain `groupIds`; multiple groups are combined as a union, and an
-empty list leaves the campaign unrestricted by groups. Membership is evaluated
-from current static or dynamic group data during materialization and again
-before dispatch. New campaigns default to `enabled = false`; an owner or admin
-must explicitly enable sending. The practice timezone is read from
-`practices.timezone`.
+supports only `minimumAge` and `maximumAge`; campaigns otherwise target all
+eligible patients. New API payloads containing legacy `groupIds` are rejected.
+Existing stored group filters are ignored for scheduling and dispatch, and
+campaign saves remove them. New campaigns default to `enabled = false`; an
+owner or admin must explicitly enable sending. The practice timezone is read
+from `practices.timezone`.
 
 ### `birthday_message_occurrences`
 

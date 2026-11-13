@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, boolean, timestamp, integer, unique, index, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, boolean, timestamp, integer, unique, index } from 'drizzle-orm/pg-core';
 import { practices } from './practices';
 import { appointments } from './appointments';
 import { patients } from './patients';
@@ -30,7 +30,6 @@ export const appointmentReminderSchedules = pgTable(
     channel: text('channel').$type<'sms' | 'email'>().notNull(),
     localSendTime: text('local_send_time').notNull().default('09:00'),
     templateId: uuid('template_id').references(() => templates.id, { onDelete: 'set null' }),
-    groupIds: jsonb('group_ids').$type<string[]>().notNull().default([]),
     enabled: boolean('enabled').notNull().default(true),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

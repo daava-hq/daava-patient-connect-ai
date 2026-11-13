@@ -47,7 +47,6 @@ describe('/api/birthdays/campaigns', () => {
         templateId,
         daysBefore: 0,
         localDeliveryTime: '09:00',
-        eligibilityRules: { groupIds: [groupId] },
         enabled: true,
       }),
     }));
@@ -84,11 +83,8 @@ describe('/api/birthdays/campaigns', () => {
     expect(body.data.enabled).toBe(false);
   });
 
-  it('passes selected groups through birthday campaign validation', async () => {
+  it('rejects legacy group filters instead of silently narrowing birthday audiences', async () => {
     mocks.getServerSession.mockResolvedValue({ user: { id: 'admin-id' } });
-    mocks.requirePracticeAdmin.mockResolvedValue({ practiceId, role: 'admin' });
-    mocks.createBirthdayCampaign.mockResolvedValue({ id: 'campaign-id', enabled: false });
-
     const response = await POST(new NextRequest('http://localhost/api/birthdays/campaigns', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -103,12 +99,8 @@ describe('/api/birthdays/campaigns', () => {
       }),
     }));
 
-    expect(response.status).toBe(201);
-    expect(mocks.createBirthdayCampaign).toHaveBeenCalledWith(
-      practiceId,
-      'admin-id',
-      expect.objectContaining({ eligibilityRules: { groupIds: [groupId] } })
-    );
+    expect(response.status).toBe(400);
+    expect(mocks.createBirthdayCampaign).not.toHaveBeenCalled();
   });
 
   it('validates campaign channel and time before creating configuration', async () => {

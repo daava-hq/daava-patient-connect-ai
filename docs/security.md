@@ -77,15 +77,15 @@ Every `route.ts` must:
 - Birthday dashboard, campaign, preview, and history queries are practice-scoped and require membership; campaign creation and changes require practice owner/admin access. Birthday campaigns are disabled by default and only an explicit admin enablement schedules messages.
 - Group APIs verify practice membership before group/patient queries. Static
   member writes check both group and patient practice ownership in a
-  transaction. Campaign filters accept only group IDs belonging to the
-  authorized practice; archived groups are excluded from audience resolution.
-  Birthday campaigns and appointment reminder schedules apply the same
-  same-practice and active-group validation when saved. Selected groups form a
-  union; no selected groups means no group restriction. Birthday and reminder
-  dispatch recheck current group membership so archived groups and audience
-  changes do not leave stale queued recipients eligible. The
-  `/api/groups/options` route returns minimal active-group choices only after
-  verifying practice membership.
+  transaction. Group-targeted campaign filters accept only group IDs belonging
+  to the authorized practice; archived groups are excluded from audience
+  resolution. Birthday campaigns do not use group filters and target all
+  otherwise-eligible patients, subject to optional age rules. The API rejects
+  new legacy `groupIds` values, and dispatch ignores any previously stored
+  values. Appointment reminder schedules also do not use group filters and
+  include all otherwise-eligible appointments. The `/api/groups/options` route
+  returns minimal active-group choices only to workflows that select groups,
+  after verifying practice membership.
   Dynamic group criteria use a strict allow-list of synchronized demographic,
   appointment, status, contact-availability, and Open Dental due-recall fields.
   Recall sync and audience resolution are practice-scoped; sync requires owner

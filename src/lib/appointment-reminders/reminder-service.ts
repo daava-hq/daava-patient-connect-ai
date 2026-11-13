@@ -10,12 +10,6 @@ import { practiceOpendentalCredentials } from '@/db/schema/practice_credentials'
 import { templateCategories, templates } from '@/db/schema/templates';
 import { AppError, NotFoundError } from '@/lib/errors';
 import { env } from '@/lib/env';
-import {
-  ensurePracticeGroups,
-  getGroupAudienceCondition,
-  getPatientIdsInGroups,
-  isPatientInGroups,
-} from '@/lib/groups/group-repository';
 import { logError } from '@/lib/logger';
 import { getAdapter } from '@/lib/messaging/stub-adapter';
 import { isPracticeChannelEnabled } from '@/lib/messaging/practice-channel-settings';
@@ -47,7 +41,6 @@ export interface ReminderScheduleInput {
   channel: 'sms' | 'email';
   localSendTime: string;
   templateId: string;
-  groupIds: string[];
   enabled: boolean;
 }
 
@@ -261,7 +254,6 @@ export async function getReminderDashboard(practiceId: string, now = new Date())
       channel: appointmentReminderSchedules.channel,
       localSendTime: appointmentReminderSchedules.localSendTime,
       templateId: appointmentReminderSchedules.templateId,
-      groupIds: appointmentReminderSchedules.groupIds,
       enabled: appointmentReminderSchedules.enabled,
       createdAt: appointmentReminderSchedules.createdAt,
       templateName: templates.name,
@@ -331,25 +323,9 @@ export async function getReminderDashboard(practiceId: string, now = new Date())
     occurrenceRows.map((reminder) => [`${reminder.appointmentId}:${reminder.scheduleId}`, reminder])
   );
 
-  const candidatePatientIds = [...new Set(appointmentRows.map((appointment) => appointment.patientId))];
-  const audiencePatientIdsBySchedule = new Map(
-    await Promise.all(
-      scheduleRows
-        .filter((schedule) => schedule.enabled && schedule.groupIds.length > 0 && candidatePatientIds.length > 0)
-        .map(async (schedule) => {
-          const memberIds = await getPatientIdsInGroups(practiceId, schedule.groupIds, candidatePatientIds);
-          return [schedule.id, new Set(memberIds)] as const;
-        })
-    )
-  );
-
   const upcoming = appointmentRows.flatMap((appointment) =>
     scheduleRows
-      .filter(
-        (schedule) =>
-          schedule.enabled &&
-          (!schedule.groupIds.length || audiencePatientIdsBySchedule.get(schedule.id)?.has(appointment.patientId))
-      )
+      .filter((schedule) => schedule.enabled)
       .map((schedule) => {
         const scheduledFor = calculateReminderTime(
           appointment.scheduledAt,
@@ -465,13 +441,24 @@ export async function createReminderSchedule(
   userId: string,
   input: ReminderScheduleInput
 ) {
-  await ensurePracticeGroups(practiceId, input.groupIds);
   await validateScheduleTemplate(practiceId, input.templateId, input.channel);
   validateLocalSendTime(input.localSendTime);
   const [schedule] = await db
     .insert(appointmentReminderSchedules)
     .values({ practiceId, createdBy: userId, ...input })
-    .returning();
+    .returning({
+      id: appointmentReminderSchedules.id,
+      practiceId: appointmentReminderSchedules.practiceId,
+      name: appointmentReminderSchedules.name,
+      interval: appointmentReminderSchedules.interval,
+      channel: appointmentReminderSchedules.channel,
+      localSendTime: appointmentReminderSchedules.localSendTime,
+      templateId: appointmentReminderSchedules.templateId,
+      enabled: appointmentReminderSchedules.enabled,
+      createdBy: appointmentReminderSchedules.createdBy,
+      createdAt: appointmentReminderSchedules.createdAt,
+      updatedAt: appointmentReminderSchedules.updatedAt,
+    });
   return schedule;
 }
 
@@ -484,7 +471,6 @@ export async function updateReminderSchedule(
   const channel = input.channel ?? existing.channel;
   const templateId = input.templateId ?? existing.templateId;
   if (!templateId) throw new AppError(400, 'A reminder template must be selected', 'TEMPLATE_REQUIRED');
-  if (input.groupIds !== undefined) await ensurePracticeGroups(practiceId, input.groupIds);
   await validateScheduleTemplate(practiceId, templateId, channel);
   if (input.localSendTime) validateLocalSendTime(input.localSendTime);
 
@@ -497,7 +483,19 @@ export async function updateReminderSchedule(
         eq(appointmentReminderSchedules.practiceId, practiceId)
       )
     )
-    .returning();
+    .returning({
+      id: appointmentReminderSchedules.id,
+      practiceId: appointmentReminderSchedules.practiceId,
+      name: appointmentReminderSchedules.name,
+      interval: appointmentReminderSchedules.interval,
+      channel: appointmentReminderSchedules.channel,
+      localSendTime: appointmentReminderSchedules.localSendTime,
+      templateId: appointmentReminderSchedules.templateId,
+      enabled: appointmentReminderSchedules.enabled,
+      createdBy: appointmentReminderSchedules.createdBy,
+      createdAt: appointmentReminderSchedules.createdAt,
+      updatedAt: appointmentReminderSchedules.updatedAt,
+    });
   return updated;
 }
 
@@ -597,9 +595,6 @@ export async function queueManualAppointmentReminder(input: {
   }
   if (appointment.scheduledAt <= new Date()) {
     throw new AppError(409, 'The appointment time has passed', 'APPOINTMENT_PASSED');
-  }
-  if (!(await isPatientInGroups(input.practiceId, appointment.patientId, schedule.groupIds))) {
-    throw new AppError(409, 'Patient is not in this reminder schedule audience', 'PATIENT_NOT_IN_AUDIENCE');
   }
 
   const [inserted] = await db
@@ -703,7 +698,6 @@ export async function processDueAppointmentReminders(input: {
       interval: appointmentReminderSchedules.interval,
       localSendTime: appointmentReminderSchedules.localSendTime,
       channel: appointmentReminderSchedules.channel,
-      groupIds: appointmentReminderSchedules.groupIds,
     })
     .from(appointmentReminderSchedules)
     .where(
@@ -716,9 +710,6 @@ export async function processDueAppointmentReminders(input: {
 
   let upserted = 0;
   for (const schedule of schedules) {
-    const audienceCondition = schedule.groupIds.length
-      ? await getGroupAudienceCondition(schedule.practiceId, schedule.groupIds)
-      : undefined;
     const [practice] = await db
       .select({ timezone: practices.timezone, slug: practices.slug })
       .from(practices)
@@ -745,7 +736,6 @@ export async function processDueAppointmentReminders(input: {
             eq(patients.status, 'Patient'),
             gt(appointments.scheduledAt, now),
             lte(appointments.scheduledAt, new Date(now.getTime() + 30 * 24 * 60 * 60_000)),
-            ...(audienceCondition ? [audienceCondition] : []),
             ...(practice.slug === SAMPLE_PRACTICE_SLUG ? [refreshedSampleAppointmentCondition()] : [])
           )
         )
@@ -871,7 +861,6 @@ async function dispatchAppointmentReminder(reminderId: string, practiceId: strin
       scheduleInterval: appointmentReminderSchedules.interval,
       scheduleSendTime: appointmentReminderSchedules.localSendTime,
       scheduleEnabled: appointmentReminderSchedules.enabled,
-      scheduleGroupIds: appointmentReminderSchedules.groupIds,
       templateId: appointmentReminderSchedules.templateId,
       practiceName: practices.name,
       practicePhone: practices.phone,
@@ -912,9 +901,6 @@ async function dispatchAppointmentReminder(reminderId: string, practiceId: strin
   if (!record) return await finishReminder(practiceId, reminderId, 'failed', 'Reminder record could not be loaded');
   if (!record.scheduleEnabled || !isEligibleAppointment(record.appointmentStatus, record.patientStatus)) {
     return await finishReminder(practiceId, reminderId, 'skipped', 'Appointment or patient is no longer eligible');
-  }
-  if (!(await isPatientInGroups(practiceId, record.patientId, record.scheduleGroupIds))) {
-    return await finishReminder(practiceId, reminderId, 'skipped', 'Patient is no longer in the schedule audience');
   }
 
   if (!record.manual) {

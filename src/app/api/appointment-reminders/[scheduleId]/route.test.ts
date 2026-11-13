@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   getServerSession: vi.fn(),
   requirePracticeAdmin: vi.fn(),
   deleteReminderSchedule: vi.fn(),
+  updateReminderSchedule: vi.fn(),
 }));
 
 vi.mock('next-auth', () => ({ getServerSession: mocks.getServerSession }));
@@ -13,9 +14,10 @@ vi.mock('@/lib/auth/options', () => ({ authOptions: {} }));
 vi.mock('@/lib/auth/guards', () => ({ requirePracticeAdmin: mocks.requirePracticeAdmin }));
 vi.mock('@/lib/appointment-reminders/reminder-service', () => ({
   deleteReminderSchedule: mocks.deleteReminderSchedule,
+  updateReminderSchedule: mocks.updateReminderSchedule,
 }));
 
-import { DELETE } from './route';
+import { DELETE, PATCH } from './route';
 
 const practiceId = 'c2bc15a1-926b-42f8-b9f7-ecb2a1e8e1ae';
 const scheduleId = '956c3673-2b9d-4c86-9c4b-7f6d605b3412';
@@ -92,5 +94,27 @@ describe('appointment reminder schedule delete route', () => {
     expect(mocks.requirePracticeAdmin).toHaveBeenCalledWith('user-id', practiceId);
     expect(mocks.deleteReminderSchedule).toHaveBeenCalledWith(practiceId, scheduleId);
     expect(body.data).toEqual({ id: scheduleId });
+  });
+});
+
+describe('appointment reminder schedule update route', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('rejects legacy group filters on schedule updates', async () => {
+    mocks.getServerSession.mockResolvedValue({ user: { id: 'user-id' } });
+
+    const response = await PATCH(
+      new NextRequest(requestUrl, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ practiceId, groupIds: [] }),
+      }),
+      { params: { scheduleId } }
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.updateReminderSchedule).not.toHaveBeenCalled();
   });
 });

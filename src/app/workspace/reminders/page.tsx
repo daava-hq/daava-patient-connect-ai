@@ -6,7 +6,6 @@ import { Bell, CalendarClock, ChevronRight, Eye, Mail, Plus, Send, Settings2, Tr
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import StatCard from '@/components/ui/StatCard/StatCard';
 import TemplatePickerDialog from '@/components/feature/TemplatePicker/TemplatePickerDialog';
-import GroupAudienceSelector, { type GroupOption } from '@/components/feature/GroupAudienceSelector/GroupAudienceSelector';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
 import EmailMessagePreview from '@/components/feature/EmailMessagePreview/EmailMessagePreview';
 import {
@@ -23,7 +22,6 @@ interface ReminderSchedule {
   channel: 'sms' | 'email';
   localSendTime: string;
   templateId: string | null;
-  groupIds: string[];
   templateName: string | null;
   enabled: boolean;
 }
@@ -95,7 +93,6 @@ interface ScheduleForm {
   channel: 'sms' | 'email';
   localSendTime: string;
   templateId: string;
-  groupIds: string[];
   enabled: boolean;
 }
 
@@ -115,7 +112,6 @@ const EMPTY_FORM: ScheduleForm = {
   channel: 'sms',
   localSendTime: '09:00',
   templateId: '',
-  groupIds: [],
   enabled: true,
 };
 
@@ -136,9 +132,6 @@ export default function RemindersPage() {
   const [practiceId, setPracticeId] = useState('');
   const [dashboard, setDashboard] = useState<ReminderDashboard | null>(null);
   const [templates, setTemplates] = useState<ReminderTemplate[]>([]);
-  const [groupOptions, setGroupOptions] = useState<GroupOption[]>([]);
-  const [groupOptionsLoading, setGroupOptionsLoading] = useState(true);
-  const [groupOptionsError, setGroupOptionsError] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [formOpen, setFormOpen] = useState(false);
@@ -160,7 +153,6 @@ export default function RemindersPage() {
   const scheduleDialogRef = useRef<HTMLElement | null>(null);
   const previewDialogRef = useRef<HTMLElement | null>(null);
   const previewRequestIdRef = useRef(0);
-  const groupOptionsRequestIdRef = useRef(0);
 
   const clearPreview = useCallback(() => {
     previewRequestIdRef.current += 1;
@@ -173,25 +165,6 @@ export default function RemindersPage() {
     clearPreview();
     setFormOpen(false);
   }, [clearPreview]);
-
-  const loadGroupOptions = useCallback(async (selectedPracticeId: string) => {
-    const requestId = ++groupOptionsRequestIdRef.current;
-    setGroupOptionsLoading(true);
-    setGroupOptionsError('');
-    try {
-      const response = await fetch(`/api/groups/options?practiceId=${encodeURIComponent(selectedPracticeId)}`);
-      const json = await response.json();
-      if (!response.ok) throw new Error(json.error || 'Failed to load active patient groups');
-      if (!Array.isArray(json.data)) throw new Error('Patient groups are unavailable');
-      if (requestId === groupOptionsRequestIdRef.current) setGroupOptions(json.data as GroupOption[]);
-    } catch (error) {
-      if (requestId === groupOptionsRequestIdRef.current) {
-        setGroupOptionsError(error instanceof Error ? error.message : 'Failed to load active patient groups');
-      }
-    } finally {
-      if (requestId === groupOptionsRequestIdRef.current) setGroupOptionsLoading(false);
-    }
-  }, []);
 
   const loadDashboard = useCallback(async (selectedPracticeId: string) => {
     setLoading(true);
@@ -238,17 +211,6 @@ export default function RemindersPage() {
   }, [practiceId, loadDashboard]);
 
   useEffect(() => {
-    if (practiceId) {
-      void loadGroupOptions(practiceId);
-      return;
-    }
-    groupOptionsRequestIdRef.current++;
-    setGroupOptions([]);
-    setGroupOptionsError('');
-    setGroupOptionsLoading(false);
-  }, [loadGroupOptions, practiceId]);
-
-  useEffect(() => {
     if (!formOpen || templateDialogOpen || previewModalOpen) return;
     return manageDialogFocus(scheduleDialogRef.current, closeScheduleForm);
   }, [closeScheduleForm, formOpen, previewModalOpen, templateDialogOpen]);
@@ -287,9 +249,6 @@ export default function RemindersPage() {
     [dashboard, historyFilter]
   );
   const selectedTemplate = templates.find((template) => template.id === form.templateId);
-  const hasUnavailableGroup = form.groupIds.some(
-    (groupId) => !groupOptions.some((group) => group.id === groupId)
-  );
 
   function openCreateForm() {
     setEditingScheduleId(null);
@@ -309,7 +268,6 @@ export default function RemindersPage() {
       channel: schedule.channel,
       localSendTime: schedule.localSendTime,
       templateId: schedule.templateId ?? '',
-      groupIds: schedule.groupIds ?? [],
       enabled: schedule.enabled,
     });
     clearPreview();
@@ -320,14 +278,6 @@ export default function RemindersPage() {
   async function saveSchedule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!practiceId || !form.templateId) return;
-    if (
-      groupOptionsLoading ||
-      groupOptionsError ||
-      form.groupIds.some((groupId) => !groupOptions.some((group) => group.id === groupId))
-    ) {
-      showToast('Resolve unavailable patient groups before saving', 'error');
-      return;
-    }
     setSaving(true);
     try {
       const response = await fetch(
@@ -565,10 +515,7 @@ export default function RemindersPage() {
                       </span>
                     </div>
                     <p className={styles.templateSummary}>
-                      Template: {schedule.templateName ?? 'Unavailable'} ·{' '}
-                      {schedule.groupIds.length
-                        ? `${schedule.groupIds.length} patient group${schedule.groupIds.length === 1 ? '' : 's'}`
-                        : 'All eligible patients'}
+                      Template: {schedule.templateName ?? 'Unavailable'} · All eligible appointments
                     </p>
                     <div className={styles.cardActions}>
                       <button
@@ -786,7 +733,7 @@ export default function RemindersPage() {
                 <h2 id="schedule-dialog-title">
                   {previewOnly ? 'Preview appointment reminder' : editingScheduleId ? 'Edit reminder schedule' : 'Add reminder schedule'}
                 </h2>
-                <p>{previewOnly ? 'Review the selected template with this appointment context.' : 'Choose an appointment reminder template and practice-local send time.'}</p>
+                <p>{previewOnly ? 'Review the selected template with this appointment context.' : 'Choose a template and practice-local send time. All eligible appointments are included.'}</p>
               </div>
               <button type="button" className={styles.iconButton} onClick={closeScheduleForm} aria-label="Close schedule form">
                 <X size={18} aria-hidden="true" />
@@ -830,19 +777,6 @@ export default function RemindersPage() {
                   Choose template
                 </button>
               </div>}
-              {!previewOnly && (
-                <GroupAudienceSelector
-                  groups={groupOptions}
-                  selectedGroupIds={form.groupIds}
-                  onChange={(groupIds) => setForm((current) => ({ ...current, groupIds }))}
-                  loading={groupOptionsLoading}
-                  error={groupOptionsError}
-                  onRetry={() => {
-                    if (practiceId) void loadGroupOptions(practiceId);
-                  }}
-                />
-              )}
-
               <label>
                 Preview appointment
                 <select value={previewAppointmentId} onChange={(event) => {
@@ -869,7 +803,7 @@ export default function RemindersPage() {
                 <button
                   type="submit"
                   className={styles.primaryButton}
-                  disabled={saving || !form.templateId || groupOptionsLoading || Boolean(groupOptionsError) || hasUnavailableGroup}
+                  disabled={saving || !form.templateId}
                 >
                   {saving ? 'Saving…' : editingScheduleId ? 'Save changes' : 'Create schedule'}
                 </button>

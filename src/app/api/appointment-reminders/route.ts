@@ -17,7 +17,6 @@ const scheduleSchema = z.object({
   channel: z.enum(['sms', 'email']),
   localSendTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
   templateId: z.string().uuid(),
-  groupIds: z.array(z.string().uuid()).max(100).default([]),
   enabled: z.boolean().default(true),
 }).strict();
 

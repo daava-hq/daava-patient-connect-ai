@@ -31,19 +31,18 @@ report layout.
 
 ## Reusable campaign audiences
 
-Birthday campaigns and appointment reminder schedules can target one or more
-active groups in their practice. Selected groups are combined as a union; when
-none are selected, the workflow keeps its existing all-eligible-patient
-audience. Static memberships and dynamic criteria are resolved from current
-data during scheduling and checked again immediately before dispatch. Group
-selection does not bypass active-patient, appointment, consent, destination,
-or practice-channel safeguards.
+Birthday campaigns do not use patient groups; they target all eligible patients,
+with optional age rules. Appointment reminder schedules are practice-wide and
+always include all otherwise-eligible appointments; they do not load or accept
+patient groups. Group selection in other campaign workflows does not bypass
+active-patient, appointment, consent, destination, or practice-channel
+safeguards.
 
 `GET /api/groups/options?practiceId=...` returns minimal active group options
-after verifying practice membership. Campaign and schedule saves independently
-validate that every selected group is active and belongs to the authorized
-practice. Archived or deleted groups cannot be selected for new or updated
-audiences.
+after verifying practice membership, for workflows that support group
+audiences. Birthday campaign payloads reject legacy `groupIds`; any values
+already persisted are ignored for audience selection and removed when the
+campaign is next saved.
 `GET /api/groups/recall-options?practiceId=...` returns only active dynamic
 groups that include the approved due-recall criterion, after practice
 membership is verified.

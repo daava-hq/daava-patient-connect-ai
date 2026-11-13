@@ -11,10 +11,9 @@ export const birthdayCampaignSchema = z.object({
   eligibilityRules: z.object({
     minimumAge: z.number().int().min(0).max(120).optional(),
     maximumAge: z.number().int().min(0).max(120).optional(),
-    groupIds: z.array(z.string().uuid()).max(100).optional(),
-  }).default({}),
+  }).strict().default({}),
   enabled: z.boolean().default(false),
-}).superRefine((data, context) => {
+}).strict().superRefine((data, context) => {
   if (
     data.eligibilityRules.minimumAge !== undefined &&
     data.eligibilityRules.maximumAge !== undefined &&
