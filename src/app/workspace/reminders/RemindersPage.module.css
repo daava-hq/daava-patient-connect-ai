@@ -2,12 +2,15 @@
   display: grid;
   gap: var(--space-6);
   padding: var(--space-8);
+  color: var(--color-text);
 }
 
 .primaryButton,
 .secondaryButton,
-.textButton,
-.iconButton {
+.iconButton,
+.deleteButton,
+.tab,
+.activeTab {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -24,6 +27,9 @@
 .secondaryButton {
   min-height: 2.5rem;
   padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
 }
 
 .primaryButton {
@@ -45,14 +51,17 @@
   background: var(--color-background);
 }
 
-.textButton {
-  padding: var(--space-2);
+.deleteButton {
+  min-height: 2.25rem;
+  padding: var(--space-1) var(--space-3);
   background: transparent;
-  color: var(--color-primary);
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
 }
 
-.textButton:hover:not(:disabled) {
-  background: var(--color-background);
+.deleteButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-error) 8%, var(--color-surface));
 }
 
 .iconButton {
@@ -72,15 +81,22 @@
 
 .primaryButton:disabled,
 .secondaryButton:disabled,
-.textButton:disabled {
+.iconButton:disabled,
+.deleteButton:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 
+.primaryButton:disabled {
+  opacity: 0.6;
+}
+
 .primaryButton:focus-visible,
 .secondaryButton:focus-visible,
-.textButton:focus-visible,
 .iconButton:focus-visible,
+.deleteButton:focus-visible,
+.tab:focus-visible,
+.activeTab:focus-visible,
 .form input:focus-visible,
 .form select:focus-visible,
 .filters input:focus-visible,
@@ -90,24 +106,85 @@
   outline-offset: 2px;
 }
 
-.providerNotice {
-  border: 1px solid var(--color-border);
-  border-left: 4px solid var(--color-warning);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  background: var(--color-surface);
-  color: var(--color-text);
-  line-height: var(--line-height-normal);
+.headerActions,
+.tabs,
+.rangeControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
-.statsGrid {
+.headerActions {
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tabs {
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.tab,
+.activeTab {
+  min-height: 2.75rem;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.tab:hover {
+  color: var(--color-primary);
+}
+
+.activeTab {
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.metricGrid,
+.reportGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   gap: var(--space-4);
 }
 
+.rangeControls {
+  padding: var(--space-2) 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.rangeControls select {
+  min-height: 2.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-3);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.rangeControls select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
 .section,
-.scheduleCard,
 .emptyState,
 .errorState {
   border: 1px solid var(--color-border);
@@ -116,8 +193,6 @@
   box-shadow: var(--shadow-sm);
 }
 
-.mutedText,
-.templateSummary,
 .emptyInline,
 .sectionHeader p,
 .modalHeader p {
@@ -125,21 +200,22 @@
 }
 
 .section {
+  display: grid;
+  gap: var(--space-6);
   min-width: 0;
-  padding: var(--space-5);
+  padding: var(--space-6);
 }
 
 .sectionHeader,
-.scheduleTitle,
 .modalHeader {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
 .sectionHeader {
-  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
 }
 
 .sectionHeader h2,
@@ -151,36 +227,66 @@
 
 .sectionHeader p,
 .modalHeader p {
-  margin: var(--space-1) 0 0;
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
   line-height: var(--line-height-normal);
 }
 
-.scheduleGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: var(--space-4);
+.timezoneBadge {
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-background);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
 }
 
-.scheduleCard {
-  display: flex;
-  flex-direction: column;
+.notice {
+  margin: 0;
+  border-radius: var(--radius-md);
   padding: var(--space-4);
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+  color: var(--color-primary-active);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
 }
 
-.scheduleTitle h3 {
-  margin: 0 0 var(--space-1);
+.scheduleList {
+  display: grid;
+}
+
+.scheduleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 4.5rem;
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-3) 0;
+}
+
+.scheduleRow:last-child {
+  border-bottom: 0;
+}
+
+.scheduleInfo {
+  display: grid;
+  flex: 1 1 auto;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.scheduleInfo h3 {
+  margin: 0;
   color: var(--color-text);
   font-size: var(--font-size-md);
 }
 
-.mutedText,
-.templateSummary {
-  display: block;
+.scheduleInfo p {
+  margin: 0;
+  color: var(--color-text-muted);
   font-size: var(--font-size-sm);
-}
-
-.templateSummary {
-  margin: var(--space-4) 0;
+  line-height: var(--line-height-normal);
 }
 
 .statusBadge {
@@ -210,24 +316,24 @@
 }
 
 .pending,
-.processing {
+.processing,
+.scheduleDisabled {
   background: color-mix(in srgb, var(--color-warning) 12%, var(--color-surface));
   color: var(--color-warning);
 }
 
-.cardActions {
+.scheduleActions {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-top: auto;
-  padding-top: var(--space-4);
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: var(--space-3);
 }
 
 .filters {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-3);
-  margin-bottom: var(--space-4);
 }
 
 .filters label,
@@ -295,9 +401,66 @@
   font-size: var(--font-size-xs);
 }
 
-.actionCell {
-  min-width: 12rem;
-  white-space: nowrap;
+.appointmentList {
+  display: grid;
+}
+
+.appointmentRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 4.5rem;
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-3) 0;
+}
+
+.appointmentRow:last-child {
+  border-bottom: 0;
+}
+
+.avatar {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+  color: var(--color-primary-hover);
+  font-weight: var(--font-weight-bold);
+}
+
+.appointmentPerson {
+  display: grid;
+  flex: 1 1 auto;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.appointmentPerson span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.eligibility {
+  display: flex;
+  gap: var(--space-3);
+  font-size: var(--font-size-xs);
+}
+
+.allowed,
+.unavailable {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.allowed {
+  color: var(--color-success);
+}
+
+.unavailable {
+  color: var(--color-text-muted);
 }
 
 .errorDetail {
@@ -306,9 +469,31 @@
   overflow-wrap: anywhere;
 }
 
-.emptyInline,
 .statusMessage {
   margin: var(--space-4) 0 0;
+}
+
+.emptyInline {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.emptyInline span {
+  font-size: var(--font-size-sm);
+}
+
+.emptyInline svg {
+  color: var(--color-primary);
+}
+
+.emptyInline strong {
+  color: var(--color-text);
 }
 
 .emptyState,
@@ -394,16 +579,33 @@
   font-size: var(--font-size-xs);
 }
 
-.checkboxLabel {
-  display: flex !important;
-  align-items: center;
-  gap: var(--space-2) !important;
+.enableControl {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: var(--color-background);
 }
 
-.checkboxLabel input {
-  width: 1rem;
-  height: 1rem;
+.form > .enableControl {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.enableControl input {
+  margin-top: 0.2rem;
   accent-color: var(--color-primary);
+}
+
+.enableControl span {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.enableControl small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
 }
 
 .previewBox {
@@ -431,9 +633,14 @@
 
 .modalActions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-3);
   margin-top: var(--space-2);
+}
+
+.actionSpacer {
+  flex: 1 1 auto;
 }
 
 .visuallyHidden {
@@ -447,7 +654,8 @@
 }
 
 @media (max-width: 900px) {
-  .statsGrid {
+  .metricGrid,
+  .reportGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
@@ -462,7 +670,8 @@
     padding: var(--space-4);
   }
 
-  .statsGrid {
+  .metricGrid,
+  .reportGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-2);
   }
@@ -471,10 +680,17 @@
     padding: var(--space-4);
   }
 
-  .sectionHeader,
-  .scheduleTitle {
+  .scheduleRow {
     align-items: flex-start;
-    flex-direction: column;
+    flex-wrap: wrap;
+  }
+
+  .scheduleActions {
+    margin-left: auto;
+  }
+
+  .timezoneBadge {
+    align-self: flex-start;
   }
 
   .filters,
@@ -489,5 +705,15 @@
   .templatePicker {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .appointmentRow {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .eligibility {
+    width: 100%;
+    padding-left: 3.25rem;
   }
 }

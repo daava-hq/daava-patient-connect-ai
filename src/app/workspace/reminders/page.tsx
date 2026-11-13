@@ -2,13 +2,29 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { Bell, CalendarClock, ChevronRight, Eye, Mail, Plus, Send, Settings2, Trash2, X } from 'lucide-react';
+import {
+  Bell,
+  CalendarClock,
+  CalendarDays,
+  ChevronRight,
+  Clock3,
+  Eye,
+  Mail,
+  MessageSquareText,
+  Pencil,
+  Plus,
+  Send,
+  Settings2,
+  X,
+} from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import StatCard from '@/components/ui/StatCard/StatCard';
 import TemplatePickerDialog from '@/components/feature/TemplatePicker/TemplatePickerDialog';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
 import EmailMessagePreview from '@/components/feature/EmailMessagePreview/EmailMessagePreview';
 import {
+  addDaysToDateKey,
+  getAppointmentDateMetrics,
   REMINDER_INTERVAL_OPTIONS,
   getDateKeyInTimeZone,
   type ReminderIntervalValue,
@@ -32,7 +48,6 @@ interface UpcomingReminder {
   patientName: string;
   scheduledAt: string;
   appointmentStatus: string;
-  description: string | null;
   scheduleId: string;
   scheduleName: string;
   interval: ReminderIntervalValue;
@@ -41,6 +56,16 @@ interface UpcomingReminder {
   reminderStatus: string;
   lastErrorMessage: string | null;
   eligible: boolean;
+  smsEligible: boolean;
+  emailEligible: boolean;
+}
+
+interface UpcomingAppointmentSummary {
+  appointmentId: string;
+  patientName: string;
+  scheduledAt: string;
+  smsEligible: boolean;
+  emailEligible: boolean;
 }
 
 interface ReminderHistory {
@@ -74,6 +99,7 @@ interface ReminderDashboard {
   practice: { name: string; timezone: string };
   sampleDataResetAvailable: boolean;
   schedules: ReminderSchedule[];
+  upcomingAppointments: UpcomingAppointmentSummary[];
   upcoming: UpcomingReminder[];
   history: ReminderHistory[];
   stats: {
@@ -106,6 +132,24 @@ interface PreviewResult {
   isValid: boolean;
 }
 
+type ReminderTab = 'overview' | 'settings' | 'scheduled' | 'history' | 'reports';
+type AppointmentRange = 'today' | 'tomorrow' | 'next7' | 'thisMonth';
+
+const TABS: { value: ReminderTab; label: string }[] = [
+  { value: 'overview', label: 'Overview' },
+  { value: 'settings', label: 'Reminder settings' },
+  { value: 'scheduled', label: 'Scheduled reminders' },
+  { value: 'history', label: 'Delivery history' },
+  { value: 'reports', label: 'Reports' },
+];
+
+const APPOINTMENT_RANGE_OPTIONS: { value: AppointmentRange; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'tomorrow', label: 'Tomorrow' },
+  { value: 'next7', label: 'Next 7 days' },
+  { value: 'thisMonth', label: 'This month' },
+];
+
 const EMPTY_FORM: ScheduleForm = {
   name: '',
   interval: '24_hours',
@@ -134,15 +178,19 @@ export default function RemindersPage() {
   const [templates, setTemplates] = useState<ReminderTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [tab, setTab] = useState<ReminderTab>('overview');
+  const [appointmentRange, setAppointmentRange] = useState<AppointmentRange>('thisMonth');
   const [formOpen, setFormOpen] = useState(false);
-  const [previewOnly, setPreviewOnly] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [form, setForm] = useState<ScheduleForm>(EMPTY_FORM);
   const [filterSchedule, setFilterSchedule] = useState('all');
   const [filterReminderDate, setFilterReminderDate] = useState('');
-  const [audienceFilter, setAudienceFilter] = useState<'all' | 'eligible' | 'ineligible'>('all');
+  const [channelFilter, setChannelFilter] = useState<'all' | 'sms' | 'email'>('all');
+  const [statusFilter, setStatusFilter] = useState<
+    'all' | 'scheduled' | 'processing' | 'sent' | 'delivered' | 'failed' | 'skipped'
+  >('all');
   const [historyFilter, setHistoryFilter] = useState<'all' | 'failed'>('all');
   const [search, setSearch] = useState('');
   const [previewAppointmentId, setPreviewAppointmentId] = useState('');
@@ -233,17 +281,48 @@ export default function RemindersPage() {
   const selectedPracticeTimezone = dashboard?.practice.timezone ?? 'UTC';
   const filteredUpcoming = useMemo(() => {
     if (!dashboard) return [];
+    const searchTerm = search.trim().toLowerCase();
     return dashboard.upcoming.filter((reminder) => {
       if (filterSchedule !== 'all' && reminder.scheduleId !== filterSchedule) return false;
+      if (channelFilter !== 'all' && reminder.channel !== channelFilter) return false;
+      if (
+        statusFilter !== 'all' &&
+        (statusFilter === 'scheduled'
+          ? reminder.reminderStatus !== 'scheduled' && reminder.reminderStatus !== 'due'
+          : reminder.reminderStatus !== statusFilter)
+      ) return false;
       if (
         filterReminderDate &&
         getDateKeyInTimeZone(new Date(reminder.reminderAt), selectedPracticeTimezone) !== filterReminderDate
       ) return false;
-      if (audienceFilter === 'eligible' && !reminder.eligible) return false;
-      if (audienceFilter === 'ineligible' && reminder.eligible) return false;
-      return reminder.patientName.toLowerCase().includes(search.toLowerCase());
+      return !searchTerm || reminder.patientName.toLowerCase().includes(searchTerm);
     });
-  }, [audienceFilter, dashboard, filterReminderDate, filterSchedule, search, selectedPracticeTimezone]);
+  }, [channelFilter, dashboard, filterReminderDate, filterSchedule, search, selectedPracticeTimezone, statusFilter]);
+  const appointmentMetrics = useMemo(
+    () => getAppointmentDateMetrics(dashboard?.upcomingAppointments ?? [], new Date(), selectedPracticeTimezone),
+    [dashboard, selectedPracticeTimezone]
+  );
+  const upcomingAppointments = useMemo(
+    () => dashboard?.upcomingAppointments ?? [],
+    [dashboard]
+  );
+  const filteredUpcomingAppointments = useMemo(() => {
+    const today = getDateKeyInTimeZone(new Date(), selectedPracticeTimezone);
+    const tomorrow = addDaysToDateKey(today, 1);
+    const nextSevenDays = addDaysToDateKey(today, 6);
+    const month = today.slice(0, 7);
+
+    return upcomingAppointments.filter((appointment) => {
+      const appointmentDate = getDateKeyInTimeZone(
+        new Date(appointment.scheduledAt),
+        selectedPracticeTimezone
+      );
+      if (appointmentRange === 'today') return appointmentDate === today;
+      if (appointmentRange === 'tomorrow') return appointmentDate === tomorrow;
+      if (appointmentRange === 'next7') return appointmentDate >= today && appointmentDate <= nextSevenDays;
+      return appointmentDate.startsWith(month);
+    });
+  }, [appointmentRange, selectedPracticeTimezone, upcomingAppointments]);
   const filteredHistory = useMemo(
     () => dashboard?.history.filter((reminder) => historyFilter === 'all' || reminder.status === 'failed') ?? [],
     [dashboard, historyFilter]
@@ -252,7 +331,6 @@ export default function RemindersPage() {
 
   function openCreateForm() {
     setEditingScheduleId(null);
-    setPreviewOnly(false);
     setForm(EMPTY_FORM);
     clearPreview();
     setPreviewAppointmentId(dashboard?.upcoming[0]?.appointmentId ?? '');
@@ -261,7 +339,6 @@ export default function RemindersPage() {
 
   function openEditForm(schedule: ReminderSchedule) {
     setEditingScheduleId(schedule.id);
-    setPreviewOnly(false);
     setForm({
       name: schedule.name,
       interval: schedule.interval,
@@ -299,22 +376,6 @@ export default function RemindersPage() {
       showToast(error instanceof Error ? error.message : 'Unable to save reminder schedule', 'error');
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function toggleSchedule(schedule: ReminderSchedule) {
-    if (!practiceId) return;
-    try {
-      const response = await fetch(`/api/appointment-reminders/${schedule.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ practiceId, enabled: !schedule.enabled }),
-      });
-      const json = await response.json();
-      if (!response.ok) throw new Error(json.error || 'Unable to update schedule');
-      await loadDashboard(practiceId);
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to update schedule', 'error');
     }
   }
 
@@ -389,40 +450,66 @@ export default function RemindersPage() {
     }
   }
 
-  async function sendManually(reminder: UpcomingReminder) {
-    if (!practiceId) return;
-    try {
-      const response = await fetch('/api/appointment-reminders/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          practiceId,
-          scheduleId: reminder.scheduleId,
-          appointmentId: reminder.appointmentId,
-        }),
-      });
-      const json = await response.json();
-      if (!response.ok) throw new Error(json.error || 'Unable to execute reminder');
-      const status = json.data.status as string;
-      showToast(
-        status === 'sent' ? 'Reminder accepted by the messaging provider' : json.data.lastErrorMessage || status,
-        status === 'sent' ? 'success' : 'error'
-      );
-      await loadDashboard(practiceId);
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to execute reminder', 'error');
-    }
-  }
+  const upcomingFilters = (
+    <div className={styles.filters}>
+      <label>
+        Schedule
+        <select value={filterSchedule} onChange={(event) => setFilterSchedule(event.target.value)}>
+          <option value="all">All schedules</option>
+          {dashboard?.schedules.filter((schedule) => schedule.enabled).map((schedule) => (
+            <option key={schedule.id} value={schedule.id}>{schedule.name}</option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Scheduled date
+        <input
+          type="date"
+          value={filterReminderDate}
+          onChange={(event) => setFilterReminderDate(event.target.value)}
+        />
+      </label>
+      <label>
+        Channel
+        <select value={channelFilter} onChange={(event) => setChannelFilter(event.target.value as typeof channelFilter)}>
+          <option value="all">All channels</option>
+          <option value="sms">SMS</option>
+          <option value="email">Email</option>
+        </select>
+      </label>
+      <label>
+        Status
+        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
+          <option value="all">All statuses</option>
+          <option value="scheduled">Scheduled</option>
+          <option value="processing">Processing</option>
+          <option value="sent">Sent</option>
+          <option value="delivered">Delivered</option>
+          <option value="failed">Failed</option>
+          <option value="skipped">Skipped</option>
+        </select>
+      </label>
+      <label>
+        Patient search
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search patient" />
+      </label>
+    </div>
+  );
 
   return (
     <main className={styles.page}>
       <PageHeader
         title="Appointment Reminders"
-        description="Configure and track appointment messages using locally synchronized appointments."
+        description="Manage appointment reminder schedules and track upcoming deliveries."
         actions={
-          <button type="button" className={styles.primaryButton} onClick={openCreateForm} disabled={!practiceId}>
-            <Plus size={17} aria-hidden="true" /> Add schedule
-          </button>
+          <div className={styles.headerActions}>
+            <Link className={styles.secondaryButton} href="/workspace/templates?category=appointment-reminders">
+              <Bell size={16} aria-hidden="true" /> Reminder templates
+            </Link>
+            <button type="button" className={styles.primaryButton} onClick={openCreateForm} disabled={!practiceId}>
+              <Plus size={17} aria-hidden="true" /> New schedule
+            </button>
+          </div>
         }
       />
 
@@ -446,278 +533,344 @@ export default function RemindersPage() {
 
       {dashboard && !loading && (
         <>
-          <div className={styles.providerNotice} role="status">
-            <strong>Provider status:</strong>{' '}
-            {dashboard.providerAvailability.sms || dashboard.providerAvailability.email
-              ? 'At least one messaging provider is configured.'
-              : 'SMS and email providers are not configured. Reminder execution is safely disabled until a provider is available.'}
-            <span> Times use {dashboard.practice.timezone}.</span>
-          </div>
-
-          <section className={styles.statsGrid} aria-label="Reminder report">
+          <section className={styles.metricGrid} aria-label="Appointment metrics">
+            <StatCard
+              icon={<CalendarDays size={20} aria-hidden="true" />}
+              label="Today"
+              value={appointmentMetrics.today}
+            />
+            <StatCard
+              icon={<Clock3 size={20} aria-hidden="true" />}
+              label="Tomorrow"
+              value={appointmentMetrics.tomorrow}
+            />
             <StatCard
               icon={<CalendarClock size={20} aria-hidden="true" />}
-              label="Scheduled"
-              value={dashboard.stats.scheduled.toLocaleString()}
+              label="Next 7 days"
+              value={appointmentMetrics.next7Days}
             />
             <StatCard
-              icon={<Eye size={20} aria-hidden="true" />}
-              label="Attempted"
-              value={dashboard.stats.attempted.toLocaleString()}
-            />
-            <StatCard
-              icon={<Send size={20} aria-hidden="true" />}
-              label="Sent"
-              value={dashboard.stats.sent.toLocaleString()}
-            />
-            <StatCard
-              icon={<Mail size={20} aria-hidden="true" />}
-              label="Delivered"
-              value={dashboard.stats.delivered.toLocaleString()}
-            />
-            <StatCard
-              icon={<X size={20} aria-hidden="true" />}
-              label="Failed"
-              value={dashboard.stats.failed.toLocaleString()}
-            />
-            <StatCard
-              icon={<ChevronRight size={20} aria-hidden="true" />}
-              label="Skipped"
-              value={dashboard.stats.skipped.toLocaleString()}
+              icon={<CalendarDays size={20} aria-hidden="true" />}
+              label="This month"
+              value={appointmentMetrics.thisMonth}
             />
           </section>
 
-          <section className={styles.section} aria-labelledby="settings-heading">
-            <div className={styles.sectionHeader}>
-              <div>
-                <h2 id="settings-heading">Reminder settings</h2>
-                <p>Each enabled schedule targets future, locally synchronized scheduled appointments.</p>
-              </div>
-              <button type="button" className={styles.secondaryButton} onClick={openCreateForm}>
-                <Settings2 size={16} aria-hidden="true" /> Configure schedule
-              </button>
+          <div className={styles.toolbar}>
+            <div className={styles.tabs} role="tablist" aria-label="Appointment reminders views">
+              {TABS.map((item) => (
+                <button
+                  key={item.value}
+                  id={`reminder-tab-${item.value}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === item.value}
+                  aria-controls="reminder-panel"
+                  className={tab === item.value ? styles.activeTab : styles.tab}
+                  onClick={() => setTab(item.value)}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
-            {dashboard.schedules.length === 0 ? (
-              <p className={styles.emptyInline}>No schedules yet. Add one to start preparing reminders.</p>
-            ) : (
-              <div className={styles.scheduleGrid}>
-                {dashboard.schedules.map((schedule) => (
-                  <article className={styles.scheduleCard} key={schedule.id}>
-                    <div className={styles.scheduleTitle}>
-                      <div>
-                        <h3>{schedule.name}</h3>
-                        <span className={styles.mutedText}>
-                          {intervalLabel(schedule.interval)} · {schedule.channel.toUpperCase()} · {schedule.localSendTime} local
+          </div>
+
+          <section
+            className={styles.section}
+            id="reminder-panel"
+            role="tabpanel"
+            aria-labelledby={`reminder-tab-${tab}`}
+            tabIndex={0}
+          >
+            {tab === 'overview' && (
+              <>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <h2>Upcoming appointments</h2>
+                    <p>Appointments in the selected date range. Times use the practice timezone.</p>
+                  </div>
+                  <div className={styles.rangeControls}>
+                    <label htmlFor="appointmentRange">Show</label>
+                    <select
+                      id="appointmentRange"
+                      value={appointmentRange}
+                      onChange={(event) => setAppointmentRange(event.target.value as AppointmentRange)}
+                    >
+                      {APPOINTMENT_RANGE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {filteredUpcomingAppointments.length === 0 ? (
+                  <div className={styles.emptyInline}>
+                    <CalendarClock size={26} aria-hidden="true" />
+                    <strong>No upcoming appointments</strong>
+                    <span>No appointments are scheduled in this date range.</span>
+                  </div>
+                ) : (
+                  <div className={styles.appointmentList}>
+                    {filteredUpcomingAppointments.map((appointment) => (
+                      <article className={styles.appointmentRow} key={appointment.appointmentId}>
+                        <span className={styles.avatar} aria-hidden="true">
+                          {appointment.patientName.charAt(0).toUpperCase()}
                         </span>
-                      </div>
-                      <span className={`${styles.statusBadge} ${schedule.enabled ? styles.enabled : styles.disabled}`}>
-                        {schedule.enabled ? 'Enabled' : 'Paused'}
-                      </span>
-                    </div>
-                    <p className={styles.templateSummary}>
-                      Template: {schedule.templateName ?? 'Unavailable'} · All eligible appointments
-                    </p>
-                    <div className={styles.cardActions}>
-                      <button
-                        type="button"
-                        className={styles.textButton}
-                        onClick={() => openEditForm(schedule)}
-                        disabled={deletingScheduleId !== null}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.textButton}
-                        onClick={() => void toggleSchedule(schedule)}
-                        disabled={deletingScheduleId !== null}
-                      >
-                        {schedule.enabled ? 'Pause' : 'Enable'}
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.textButton}
-                        onClick={() => void deleteSchedule(schedule)}
-                        disabled={deletingScheduleId !== null}
-                        aria-label={`Delete ${schedule.name}`}
-                      >
-                        <Trash2 size={15} aria-hidden="true" />
-                        {deletingScheduleId === schedule.id ? 'Deleting…' : 'Delete'}
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className={styles.section} aria-labelledby="upcoming-heading">
-            <div className={styles.sectionHeader}>
-              <div>
-                <h2 id="upcoming-heading">Upcoming reminders</h2>
-                <p>
-                  Future appointments appear here only for enabled schedules. Sample appointments are loaded from the dashboard reset;
-                  appointment status is checked again before dispatch.
-                </p>
-              </div>
-            </div>
-            <div className={styles.filters}>
-              <label>
-                Schedule
-                <select value={filterSchedule} onChange={(event) => setFilterSchedule(event.target.value)}>
-                  <option value="all">All schedules</option>
-                  {dashboard.schedules.filter((schedule) => schedule.enabled).map((schedule) => (
-                    <option key={schedule.id} value={schedule.id}>{schedule.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Reminder date
-                <input
-                  type="date"
-                  value={filterReminderDate}
-                  onChange={(event) => setFilterReminderDate(event.target.value)}
-                  aria-label="Filter reminders by reminder date"
-                />
-              </label>
-              <label>
-                Audience
-                <select value={audienceFilter} onChange={(event) => setAudienceFilter(event.target.value as typeof audienceFilter)}>
-                  <option value="all">All patients</option>
-                  <option value="eligible">Consent and contact available</option>
-                  <option value="ineligible">Missing consent or contact</option>
-                </select>
-              </label>
-              <label>
-                Patient search
-                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search patient" />
-              </label>
-            </div>
-            {filteredUpcoming.length === 0 ? (
-              <p className={styles.emptyInline}>No upcoming reminder matches these filters.</p>
-            ) : (
-              <div className={styles.tableWrap}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>Patient</th>
-                      <th>Appointment</th>
-                      <th>Appointment status</th>
-                      <th>Reminder</th>
-                      <th>Channel</th>
-                      <th>Eligibility</th>
-                      <th><span className={styles.visuallyHidden}>Actions</span></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredUpcoming.map((reminder) => (
-                      <tr key={`${reminder.appointmentId}-${reminder.scheduleId}`}>
-                        <td>
-                          <strong>{reminder.patientName}</strong>
-                          <span className={styles.tableSubtext}>{reminder.scheduleName}</span>
-                        </td>
-                        <td>{formatDate(reminder.scheduledAt, selectedPracticeTimezone)}</td>
-                        <td><span className={styles.statusBadge}>{reminder.appointmentStatus}</span></td>
-                        <td>{formatDate(reminder.reminderAt, selectedPracticeTimezone)}</td>
-                        <td>{reminder.channel.toUpperCase()}</td>
-                        <td>
-                          <span className={`${styles.statusBadge} ${reminder.eligible ? styles.enabled : styles.disabled}`}>
-                            {reminder.eligible ? 'Eligible' : 'Consent/contact required'}
+                        <div className={styles.appointmentPerson}>
+                          <strong>{appointment.patientName}</strong>
+                          <span>{formatDate(appointment.scheduledAt, selectedPracticeTimezone)}</span>
+                        </div>
+                        <div className={styles.eligibility}>
+                          <span
+                            title={appointment.smsEligible ? 'SMS consent and phone available' : 'SMS unavailable or opted out'}
+                            className={appointment.smsEligible ? styles.allowed : styles.unavailable}
+                          >
+                            <MessageSquareText size={15} aria-hidden="true" />
+                            SMS
+                            <span className={styles.visuallyHidden}>
+                              {appointment.smsEligible ? ' consent and phone available' : ' unavailable or opted out'}
+                            </span>
                           </span>
-                          <span className={styles.tableSubtext}>{reminder.reminderStatus}</span>
-                        </td>
-                        <td className={styles.actionCell}>
-                          <button
-                            type="button"
-                            className={styles.textButton}
-                            onClick={() => {
-                              setEditingScheduleId(null);
-                              setPreviewOnly(true);
-                              setForm({
-                                ...EMPTY_FORM,
-                                name: reminder.scheduleName,
-                                channel: reminder.channel,
-                                templateId: dashboard.schedules.find((schedule) => schedule.id === reminder.scheduleId)?.templateId ?? '',
-                              });
-                              setPreviewAppointmentId(reminder.appointmentId);
-                              clearPreview();
-                              setFormOpen(true);
-                            }}
-                            aria-label={`Preview reminder for ${reminder.patientName}`}
+                          <span
+                            title={appointment.emailEligible ? 'Email consent and address available' : 'Email unavailable or opted out'}
+                            className={appointment.emailEligible ? styles.allowed : styles.unavailable}
                           >
-                            <Eye size={16} aria-hidden="true" /> Preview
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.textButton}
-                            onClick={() => void sendManually(reminder)}
-                            disabled={
-                              !reminder.eligible ||
-                              !dashboard.providerAvailability[reminder.channel] ||
-                              ['sent', 'delivered', 'processing'].includes(reminder.reminderStatus)
-                            }
-                            aria-label={`Send reminder manually to ${reminder.patientName}`}
-                            title={!dashboard.providerAvailability[reminder.channel] ? 'Messaging provider is not configured' : undefined}
-                          >
-                            <Send size={16} aria-hidden="true" /> Send now
-                          </button>
-                        </td>
-                      </tr>
+                            <Mail size={15} aria-hidden="true" />
+                            Email
+                            <span className={styles.visuallyHidden}>
+                              {appointment.emailEligible ? ' consent and address available' : ' unavailable or opted out'}
+                            </span>
+                          </span>
+                        </div>
+                      </article>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
+                )}
+              </>
             )}
-          </section>
 
-          <section className={styles.section} aria-labelledby="history-heading">
-            <div className={styles.sectionHeader}>
-              <div>
-                <h2 id="history-heading">Delivery history</h2>
-                <p>“Sent” means accepted by a configured provider; delivered status is shown only when provider data confirms it.</p>
-              </div>
-              <label className={styles.compactFilter}>
-                History
-                <select value={historyFilter} onChange={(event) => setHistoryFilter(event.target.value as typeof historyFilter)}>
-                  <option value="all">All attempts</option>
-                  <option value="failed">Failed reminders</option>
-                </select>
-              </label>
-            </div>
-            {filteredHistory.length === 0 ? (
-              <p className={styles.emptyInline}>
-                {historyFilter === 'failed' ? 'No failed reminders.' : 'No reminder delivery history yet.'}
-              </p>
-            ) : (
-              <div className={styles.tableWrap}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>Patient</th>
-                      <th>Schedule</th>
-                      <th>Channel</th>
-                      <th>Status</th>
-                      <th>Attempted</th>
-                      <th>Details</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredHistory.map((reminder) => (
-                      <tr key={reminder.id}>
-                        <td>
-                          <strong>{reminder.patientName}</strong>
-                          <span className={styles.tableSubtext}>{formatDate(reminder.appointmentAt, selectedPracticeTimezone)}</span>
-                        </td>
-                        <td>{reminder.scheduleName}{reminder.manual ? ' · Manual' : ''}</td>
-                        <td>{reminder.channel.toUpperCase()}</td>
-                        <td><span className={`${styles.statusBadge} ${styles[reminder.status] ?? ''}`}>{reminder.status}</span></td>
-                        <td>{reminder.attemptedAt ? formatDate(reminder.attemptedAt, selectedPracticeTimezone) : '—'}</td>
-                        <td className={styles.errorDetail}>{reminder.lastErrorMessage ?? reminder.providerMessageId ?? '—'}</td>
-                      </tr>
+            {tab === 'settings' && (
+              <>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <h2>Reminder settings</h2>
+                    <p>Each enabled schedule targets otherwise-eligible future appointments.</p>
+                  </div>
+                  <button type="button" className={styles.primaryButton} onClick={openCreateForm}>
+                    <Settings2 size={16} aria-hidden="true" /> Configure schedule
+                  </button>
+                </div>
+                {dashboard.schedules.length === 0 ? (
+                  <div className={styles.emptyInline}>
+                    <Settings2 size={26} aria-hidden="true" />
+                    <strong>No reminder schedules configured</strong>
+                    <span>Create a schedule to prepare reminders for eligible appointments.</span>
+                  </div>
+                ) : (
+                  <div className={styles.scheduleList}>
+                    {dashboard.schedules.map((schedule) => (
+                      <article className={styles.scheduleRow} key={schedule.id}>
+                        <div className={styles.scheduleInfo}>
+                          <h3>{schedule.name}</h3>
+                          <p>
+                            {intervalLabel(schedule.interval)} · {schedule.channel.toUpperCase()} · {schedule.localSendTime} local ·
+                            {' '}Template: {schedule.templateName ?? 'Unavailable'} · All eligible appointments
+                          </p>
+                        </div>
+                        <span className={`${styles.statusBadge} ${schedule.enabled ? styles.enabled : styles.scheduleDisabled}`}>
+                          {schedule.enabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                        <div className={styles.scheduleActions}>
+                          <button
+                            type="button"
+                            className={styles.iconButton}
+                            onClick={() => openEditForm(schedule)}
+                            disabled={deletingScheduleId !== null}
+                            aria-label={`Edit ${schedule.name}`}
+                          >
+                            <Pencil size={16} aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.deleteButton}
+                            onClick={() => void deleteSchedule(schedule)}
+                            disabled={deletingScheduleId !== null}
+                            aria-label={`Remove ${schedule.name}`}
+                          >
+                            {deletingScheduleId === schedule.id ? 'Removing…' : 'Remove'}
+                          </button>
+                        </div>
+                      </article>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
+                )}
+                <p className={styles.notice}>
+                  Reminder delivery is subject to appointment status, patient contact details, communication consent, and provider availability.
+                </p>
+              </>
+            )}
+
+            {tab === 'scheduled' && (
+              <>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <h2>Scheduled reminders</h2>
+                    <p>Projected delivery times for future appointments with enabled schedules; status is checked again before dispatch.</p>
+                  </div>
+                  <span className={styles.timezoneBadge}>Practice time: {dashboard.practice.timezone}</span>
+                </div>
+                {upcomingFilters}
+                {filteredUpcoming.length === 0 ? (
+                  <div className={styles.emptyInline}>
+                    <CalendarClock size={26} aria-hidden="true" />
+                    <strong>No scheduled reminders match these filters</strong>
+                    <span>Enable a reminder schedule or adjust your filters.</span>
+                  </div>
+                ) : (
+                  <div className={styles.tableWrap}>
+                    <table className={styles.table}>
+                      <thead>
+                        <tr>
+                          <th>Patient</th>
+                          <th>Appointment</th>
+                          <th>Schedule</th>
+                          <th>Scheduled reminder</th>
+                          <th>Channel</th>
+                          <th>Status</th>
+                          <th>Eligibility</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredUpcoming.map((reminder) => (
+                          <tr key={`${reminder.appointmentId}-${reminder.scheduleId}`}>
+                            <td><strong>{reminder.patientName}</strong></td>
+                            <td>
+                              {formatDate(reminder.scheduledAt, selectedPracticeTimezone)}
+                              <span className={styles.tableSubtext}>{reminder.appointmentStatus}</span>
+                            </td>
+                            <td>{reminder.scheduleName}</td>
+                            <td>{formatDate(reminder.reminderAt, selectedPracticeTimezone)}</td>
+                            <td>{reminder.channel.toUpperCase()}</td>
+                            <td>
+                              <span className={`${styles.statusBadge} ${
+                                reminder.reminderStatus === 'scheduled' || reminder.reminderStatus === 'due'
+                                  ? styles.pending
+                                  : styles[reminder.reminderStatus] ?? ''
+                              }`}>
+                                {reminder.reminderStatus}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`${styles.statusBadge} ${reminder.eligible ? styles.enabled : styles.disabled}`}>
+                                {reminder.eligible ? 'Eligible' : 'Consent/contact required'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+
+            {tab === 'history' && (
+              <>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <h2>Delivery history</h2>
+                    <p>“Sent” means accepted by a configured provider; delivered status is shown only when provider data confirms it.</p>
+                  </div>
+                  <label className={styles.compactFilter}>
+                    History
+                    <select value={historyFilter} onChange={(event) => setHistoryFilter(event.target.value as typeof historyFilter)}>
+                      <option value="all">All attempts</option>
+                      <option value="failed">Failed reminders</option>
+                    </select>
+                  </label>
+                </div>
+                {filteredHistory.length === 0 ? (
+                  <div className={styles.emptyInline}>
+                    <Clock3 size={26} aria-hidden="true" />
+                    <strong>{historyFilter === 'failed' ? 'No failed reminders' : 'No reminder delivery history yet'}</strong>
+                  </div>
+                ) : (
+                  <div className={styles.tableWrap}>
+                    <table className={styles.table}>
+                      <thead>
+                        <tr>
+                          <th>Patient</th>
+                          <th>Schedule</th>
+                          <th>Channel</th>
+                          <th>Status</th>
+                          <th>Attempted</th>
+                          <th>Details</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredHistory.map((reminder) => (
+                          <tr key={reminder.id}>
+                            <td>
+                              <strong>{reminder.patientName}</strong>
+                              <span className={styles.tableSubtext}>{formatDate(reminder.appointmentAt, selectedPracticeTimezone)}</span>
+                            </td>
+                            <td>{reminder.scheduleName}{reminder.manual ? ' · Manual' : ''}</td>
+                            <td>{reminder.channel.toUpperCase()}</td>
+                            <td><span className={`${styles.statusBadge} ${styles[reminder.status] ?? ''}`}>{reminder.status}</span></td>
+                            <td>{reminder.attemptedAt ? formatDate(reminder.attemptedAt, selectedPracticeTimezone) : '—'}</td>
+                            <td className={styles.errorDetail}>{reminder.lastErrorMessage ?? reminder.providerMessageId ?? '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+
+            {tab === 'reports' && (
+              <>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <h2>Appointment reminder report</h2>
+                    <p>Counts represent reminder occurrences; sent means accepted by the messaging provider.</p>
+                  </div>
+                </div>
+                <section className={styles.reportGrid} aria-label="Reminder report">
+                  <StatCard
+                    icon={<CalendarClock size={20} aria-hidden="true" />}
+                    label="Scheduled"
+                    value={dashboard.stats.scheduled.toLocaleString()}
+                  />
+                  <StatCard
+                    icon={<Eye size={20} aria-hidden="true" />}
+                    label="Attempted"
+                    value={dashboard.stats.attempted.toLocaleString()}
+                  />
+                  <StatCard
+                    icon={<Send size={20} aria-hidden="true" />}
+                    label="Sent"
+                    value={dashboard.stats.sent.toLocaleString()}
+                  />
+                  <StatCard
+                    icon={<Mail size={20} aria-hidden="true" />}
+                    label="Delivered"
+                    value={dashboard.stats.delivered.toLocaleString()}
+                  />
+                  <StatCard
+                    icon={<X size={20} aria-hidden="true" />}
+                    label="Failed"
+                    value={dashboard.stats.failed.toLocaleString()}
+                  />
+                  <StatCard
+                    icon={<ChevronRight size={20} aria-hidden="true" />}
+                    label="Skipped"
+                    value={dashboard.stats.skipped.toLocaleString()}
+                  />
+                </section>
+                <p className={styles.notice}>
+                  Provider delivery receipts are not currently integrated, so a sent message is not a confirmed delivery.
+                </p>
+              </>
             )}
           </section>
         </>
@@ -731,20 +884,20 @@ export default function RemindersPage() {
             <div className={styles.modalHeader}>
               <div>
                 <h2 id="schedule-dialog-title">
-                  {previewOnly ? 'Preview appointment reminder' : editingScheduleId ? 'Edit reminder schedule' : 'Add reminder schedule'}
+                  {editingScheduleId ? 'Edit reminder schedule' : 'Add reminder schedule'}
                 </h2>
-                <p>{previewOnly ? 'Review the selected template with this appointment context.' : 'Choose a template and practice-local send time. All eligible appointments are included.'}</p>
+                <p>Choose a template and practice-local send time. All eligible appointments are included.</p>
               </div>
               <button type="button" className={styles.iconButton} onClick={closeScheduleForm} aria-label="Close schedule form">
                 <X size={18} aria-hidden="true" />
               </button>
             </div>
             <form onSubmit={saveSchedule} className={styles.form}>
-              {!previewOnly && <label>
+              <label>
                 Schedule name
                 <input required maxLength={120} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="24-hour SMS reminder" />
-              </label>}
-              {!previewOnly && <div className={styles.formRow}>
+              </label>
+              <div className={styles.formRow}>
                 <label>
                   Interval
                   <select value={form.interval} onChange={(event) => setForm({ ...form, interval: event.target.value as ReminderIntervalValue })}>
@@ -763,12 +916,12 @@ export default function RemindersPage() {
                     <option value="email">Email</option>
                   </select>
                 </label>
-              </div>}
-              {!previewOnly && <label>
+              </div>
+              <label>
                 Local delivery time ({selectedPracticeTimezone})
                 <input type="time" required value={form.localSendTime} onChange={(event) => setForm({ ...form, localSendTime: event.target.value })} />
-              </label>}
-              {!previewOnly && <div className={styles.templatePicker}>
+              </label>
+              <div className={styles.templatePicker}>
                 <div>
                   <strong>{selectedTemplate?.name ?? 'No template selected'}</strong>
                   <span>{selectedTemplate ? `${selectedTemplate.isSystem ? 'System template' : 'Practice template'} · ${selectedTemplate.status}` : 'Select from Appointment Reminders templates.'}</span>
@@ -776,7 +929,7 @@ export default function RemindersPage() {
                 <button type="button" className={styles.secondaryButton} onClick={() => setTemplateDialogOpen(true)}>
                   Choose template
                 </button>
-              </div>}
+              </div>
               <label>
                 Preview appointment
                 <select value={previewAppointmentId} onChange={(event) => {
@@ -791,14 +944,18 @@ export default function RemindersPage() {
                   ))}
                 </select>
               </label>
-              <button type="button" className={styles.secondaryButton} onClick={() => void requestPreview()} disabled={!form.templateId || !previewAppointmentId || previewing}>
-                <Eye size={16} aria-hidden="true" /> {previewing ? 'Rendering…' : 'Preview message'}
-              </button>
-              {!previewOnly && <label className={styles.checkboxLabel}>
+              <label className={styles.enableControl}>
                 <input type="checkbox" checked={form.enabled} onChange={(event) => setForm({ ...form, enabled: event.target.checked })} />
-                Enable automated scheduling
-              </label>}
-              {!previewOnly && <div className={styles.modalActions}>
+                <span>
+                  <strong>Enable scheduled reminders</strong>
+                  <small>When enabled, this schedule will prepare and dispatch reminders for eligible appointments.</small>
+                </span>
+              </label>
+              <div className={styles.modalActions}>
+                <button type="button" className={styles.secondaryButton} onClick={() => void requestPreview()} disabled={!form.templateId || !previewAppointmentId || previewing}>
+                  <Eye size={16} aria-hidden="true" /> {previewing ? 'Rendering…' : 'Preview message'}
+                </button>
+                <span className={styles.actionSpacer} />
                 <button type="button" className={styles.secondaryButton} onClick={closeScheduleForm}>Cancel</button>
                 <button
                   type="submit"
@@ -807,7 +964,7 @@ export default function RemindersPage() {
                 >
                   {saving ? 'Saving…' : editingScheduleId ? 'Save changes' : 'Create schedule'}
                 </button>
-              </div>}
+              </div>
             </form>
           </section>
         </div>

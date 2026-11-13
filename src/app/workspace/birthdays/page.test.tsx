@@ -84,6 +84,8 @@ describe('BirthdaysPage range selection', () => {
     expect(within(metrics).getByText('Next 7 days')).toBeDefined();
     const rangeSelect = screen.getByLabelText('Show') as HTMLSelectElement;
     expect(rangeSelect.value).toBe('next7');
+    expect(within(screen.getByRole('tabpanel')).getByLabelText('Show')).toBe(rangeSelect);
+    expect(screen.queryByText('Practice time: UTC')).toBeNull();
     expect(screen.getByRole('tab', { name: 'Calendar' })).toBeDefined();
     expect(screen.queryByRole('option', { name: 'Custom range' })).toBeNull();
     expect(screen.queryByLabelText('From')).toBeNull();
@@ -110,6 +112,8 @@ describe('BirthdaysPage range selection', () => {
     });
 
     fireEvent.click(screen.getByRole('tab', { name: 'Campaign settings' }));
+    expect(screen.queryByRole('link', { name: 'Manage birthday templates' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Birthday templates' })).toBeDefined();
     fireEvent.click(screen.getByRole('tab', { name: 'Overview' }));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('range=thisMonth'));
@@ -142,7 +146,28 @@ describe('BirthdaysPage range selection', () => {
         lastName: 'Example',
         birthdayDate: '2026-03-04',
         scheduledFor: '2026-03-02T09:00:00.000Z',
+        eligible: true,
         status: 'scheduled',
+      }, {
+        id: 'occurrence-2',
+        campaignName: 'Birthday Reminder',
+        channel: 'sms',
+        firstName: 'Jordan',
+        lastName: 'Sample',
+        birthdayDate: '2026-03-07',
+        scheduledFor: '2026-03-03T10:00:00.000Z',
+        eligible: false,
+        status: 'sent',
+      }, {
+        id: 'occurrence-3',
+        campaignName: 'Birthday Greeting',
+        channel: 'sms',
+        firstName: 'Taylor',
+        lastName: 'Example',
+        birthdayDate: null,
+        scheduledFor: '2026-03-04T09:00:00.000Z',
+        eligible: false,
+        status: 'processing',
       }],
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -157,13 +182,55 @@ describe('BirthdaysPage range selection', () => {
     expect(tabNames.indexOf('Scheduled messages')).toBe(tabNames.indexOf('Campaign settings') + 1);
     fireEvent.click(screen.getByRole('tab', { name: 'Scheduled messages' }));
 
-    expect(await screen.findByRole('heading', { name: 'Scheduled birthday messages' })).toBeDefined();
+    const scheduledHeading = await screen.findByRole('heading', { name: 'Scheduled birthday messages' });
+    expect(scheduledHeading).toBeDefined();
+    const scheduledHeadingRow = scheduledHeading.parentElement?.parentElement;
+    expect(scheduledHeadingRow).not.toBeNull();
+    expect(within(scheduledHeadingRow as HTMLElement).getByText('Practice time: UTC')).toBeDefined();
+    const table = screen.getByRole('table');
     expect(screen.getByText('Avery Example')).toBeDefined();
-    expect(screen.getByText('Birthday Greeting')).toBeDefined();
+    expect(within(table).getAllByText('Birthday Greeting')).toHaveLength(2);
     expect(screen.getByText('March 4')).toBeDefined();
     expect(screen.getByText('EMAIL')).toBeDefined();
-    expect(screen.getByText('Scheduled')).toBeDefined();
+    expect(within(table).getByText('Scheduled')).toBeDefined();
     expect(screen.getByText(/Mar 2, 2026/)).toBeDefined();
+
+    expect(within(table).getAllByRole('row')).toHaveLength(4);
+    expect(within(table).getByRole('columnheader', { name: 'Name' })).toBeDefined();
+    expect(within(table).getByRole('columnheader', { name: 'Scheduled message' })).toBeDefined();
+    expect(within(table).getByRole('columnheader', { name: 'Eligibility' })).toBeDefined();
+    expect(within(table).queryByRole('columnheader', { name: 'Preview and Send now' })).toBeNull();
+    const averyRow = within(table).getByRole('row', { name: /Avery Example/ });
+    expect(within(averyRow).getByText('Avery Example').tagName).toBe('STRONG');
+    expect(within(averyRow).getByText('Eligible')).toBeDefined();
+    const jordanRow = within(table).getByRole('row', { name: /Jordan Sample/ });
+    expect(within(averyRow).queryByRole('button', { name: /Preview|Send now/ })).toBeNull();
+    expect(within(jordanRow).queryByRole('button', { name: /Preview|Send now/ })).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('Campaign'), { target: { value: 'Birthday Greeting' } });
+    expect(within(table).getAllByRole('row')).toHaveLength(3);
+    expect(within(table).queryByRole('row', { name: /Jordan Sample/ })).toBeNull();
+    fireEvent.change(screen.getByLabelText('Campaign'), { target: { value: 'all' } });
+
+    fireEvent.change(screen.getByLabelText('Scheduled date'), { target: { value: '2026-03-03' } });
+    expect(within(table).getAllByRole('row')).toHaveLength(2);
+    expect(within(table).getByRole('row', { name: /Jordan Sample/ })).toBeDefined();
+    fireEvent.change(screen.getByLabelText('Scheduled date'), { target: { value: '' } });
+
+    fireEvent.change(screen.getByLabelText('Channel'), { target: { value: 'sms' } });
+    expect(within(table).getAllByRole('row')).toHaveLength(3);
+    fireEvent.change(screen.getByLabelText('Channel'), { target: { value: 'all' } });
+
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'scheduled' } });
+    expect(within(table).getAllByRole('row')).toHaveLength(2);
+    expect(within(table).getByRole('row', { name: /Avery Example/ })).toBeDefined();
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'all' } });
+
+    fireEvent.change(screen.getByLabelText('Patient search'), { target: { value: 'Taylor' } });
+    expect(within(table).getAllByRole('row')).toHaveLength(2);
+    expect(within(table).getByRole('row', { name: /Taylor Example/ })).toBeDefined();
+    fireEvent.change(screen.getByLabelText('Patient search'), { target: { value: 'No match' } });
+    expect(await screen.findByText('No scheduled birthday messages match these filters')).toBeDefined();
   });
 
   it('shows the persisted delivery status for a scheduled birthday message', async () => {
@@ -193,7 +260,9 @@ describe('BirthdaysPage range selection', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Scheduled messages' }));
 
     expect(await screen.findByText('sent')).toBeDefined();
-    expect(screen.queryByText('Scheduled')).toBeNull();
+    const table = screen.getByRole('table');
+    expect(within(table).getByRole('row', { name: /Avery Example.*sent/ })).toBeDefined();
+    expect(within(table).queryByRole('row', { name: /Avery Example.*Scheduled/ })).toBeNull();
   });
 
   it('lets campaign creators select a channel-compatible birthday template from a picker', async () => {

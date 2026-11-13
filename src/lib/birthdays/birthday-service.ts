@@ -497,6 +497,12 @@ export async function getUpcomingBirthdayMessages(practiceId: string, timeZone: 
         firstName: patients.firstName,
         lastName: patients.lastName,
         dateOfBirth: patients.dateOfBirth,
+        phoneMobile: patients.phoneMobile,
+        phoneHome: patients.phoneHome,
+        email: patients.email,
+        status: patients.status,
+        smsConsent: patients.smsConsent,
+        emailConsent: patients.emailConsent,
       })
       .from(patients)
       .where(
@@ -531,6 +537,14 @@ export async function getUpcomingBirthdayMessages(practiceId: string, timeZone: 
           lastName: patient.lastName,
           birthdayDate: dateKey(occurrence.birthdayDate),
           scheduledFor: occurrence.scheduledFor,
+          eligible: getBirthdaySuppressionReason({
+            patientStatus: patient.status,
+            dateOfBirth: patient.dateOfBirth,
+            hasConsent: campaign.channel === 'sms' ? patient.smsConsent : patient.emailConsent,
+            hasDestination: campaign.channel === 'sms'
+              ? Boolean(patient.phoneMobile || patient.phoneHome)
+              : Boolean(patient.email),
+          }) === null,
         }];
       })
     )
@@ -575,6 +589,7 @@ export async function getUpcomingBirthdayMessages(practiceId: string, timeZone: 
       lastName: message.lastName,
       birthdayDate: message.birthdayDate,
       scheduledFor: occurrence?.scheduledFor ?? message.scheduledFor,
+      eligible: message.eligible,
       status: occurrence?.status === 'pending'
         ? 'scheduled'
         : occurrence?.status ?? 'scheduled',

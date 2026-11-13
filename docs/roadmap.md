@@ -268,13 +268,17 @@ provider, delivery confirmation, and deployment cron are configured.
 - [x] Published centralized Appointment Reminders templates, preview, cloning, and variable checks.
 - [x] Published 24-hour email confirmation template with an explicit, signed patient action.
 - [x] Open Dental appointment confirmation write path and separate local confirmation status.
-- [x] Protected cron endpoints and a two-minute local sample-only runner for reminders, birthdays, and scheduled campaigns, plus manual reminder execution.
+- [x] Protected cron endpoints and a two-minute local sample-only runner for reminders, birthdays, and scheduled campaigns.
 - [x] Local/dev-only shared sample-data catalog and seed/reset workflow for appointments, birthdays, groups, newsletters, and group announcements.
-- [x] Dashboard-only refresh action rebuilds all sample modules for the exact dedicated sample practice; Upcoming reminders is derived from its appointments and enabled schedules.
+- [x] Dashboard-only refresh action rebuilds all sample modules for the exact dedicated sample practice; Scheduled reminders derive from appointments and enabled schedules, while Overview appointments are schedule-independent.
 - [x] Delete configured reminder schedules with confirmation that their occurrence history is also deleted.
 - [x] Sample reset preserves configured reminder schedules other than the legacy sample schedule, clears module histories, turns off enabled birthday campaigns, and refuses while campaigns, reminders, or birthday messages are processing.
 - [x] Consent, contact, patient, appointment status, and ownership rechecks before dispatch.
-- [x] Filter upcoming reminders by practice-local reminder date and show appointment status in the table.
+- [x] Filter scheduled reminders by practice-local reminder date and show appointment status in the table.
+- [x] Organize the reminders page into Overview, Reminder settings, Scheduled reminders, Delivery history, and Reports tabs; show distinct practice-local appointment metrics above the tabs, keep delivery KPI cards in Reports, and omit the calendar view.
+- [x] Show upcoming appointment records in the Overview regardless of reminder schedules, with a practice-local Today, Tomorrow, Next 7 days, and This month filter defaulting to This month, plus SMS/email consent-and-contact indicators.
+- [x] Match Reminder settings row actions, typography, spacing, and button sizing to Birthday campaign settings; manage schedule enablement in the Add/Edit modal, show disabled schedules as Disabled, and place message preview at bottom-left while preserving Edit and Remove behavior.
+- [x] Align Scheduled reminders and Scheduled birthday messages filters: Schedule/Campaign, Scheduled date, Channel, Status, and Patient search.
 - [x] Unit tests for DST boundaries, suppression rules, provider errors, template validity, occurrence uniqueness, and practice membership.
 - [x] Add AWS SES email adapter; AWS credentials and verified sender configuration remain deployment-specific.
 - [ ] Configure production SMS provider and delivery callbacks/polling.
@@ -306,6 +310,8 @@ provider work.
 - [x] Admin-only campaign configuration for channel, birthday-relative send date, practice-local time, optional age rules and offer text.
 - [x] New campaigns default disabled; the protected five-minute worker materializes durable occurrences only for explicitly enabled campaigns.
 - [x] View upcoming delivery schedules calculated from enabled campaigns, including practice-local delivery times and persisted occurrence statuses.
+- [x] Add campaign, scheduled-date, channel, status, and patient filters to Scheduled birthday messages; align the schedule table with the Appointment Reminders table.
+- [x] Show practice time beside the Scheduled birthday messages heading, with bold patient names and eligibility in the schedule table.
 - [x] Birthday-year occurrence uniqueness, atomic worker claims, bounded retries, and send-time checks for patient status, birthdate, template, destination, and opt-out.
 - [x] Leap-day policy uses February 28 in non-leap years; date filters and scheduled delivery use the practice timezone.
 - [x] Omit full birthdates from browser responses and exclude missing/invalid birthdates.

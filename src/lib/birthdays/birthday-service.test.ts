@@ -17,7 +17,10 @@ vi.mock('@/lib/groups/group-repository', () => ({
 import { practices } from '@/db/schema/practices';
 import { birthdayCampaigns, birthdayMessageOccurrences } from '@/db/schema/birthday_engagement';
 import { patients } from '@/db/schema/patients';
-import { getUpcomingBirthdayMessages, previewBirthdayTemplate } from './birthday-service';
+import {
+  getUpcomingBirthdayMessages,
+  previewBirthdayTemplate,
+} from './birthday-service';
 
 const practiceId = 'c2bc15a1-926b-42f8-b9f7-ecb2a1e8e1ae';
 const templateId = 'f7d352f9-9049-451e-a11a-7ac47d6d3d9b';
@@ -120,6 +123,8 @@ describe('getUpcomingBirthdayMessages', () => {
       id: 'campaign-id',
       name: 'Birthday email',
       channel: 'email',
+      templateId,
+      offerText: null,
       daysBefore: 3,
       localDeliveryTime: '09:00',
       eligibilityRules: {},
@@ -129,6 +134,12 @@ describe('getUpcomingBirthdayMessages', () => {
       firstName: 'Taylor',
       lastName: 'Example',
       dateOfBirth: '1990-03-10',
+      status: 'Patient',
+      email: 'taylor@example.test',
+      phoneMobile: null,
+      phoneHome: null,
+      smsConsent: false,
+      emailConsent: true,
     };
 
     mockUpcomingBirthdayQueries(campaign, patient);
@@ -147,6 +158,7 @@ describe('getUpcomingBirthdayMessages', () => {
       lastName: 'Example',
       birthdayDate: '2026-03-10',
       scheduledFor: new Date('2026-03-07T09:00:00.000Z'),
+      eligible: true,
       status: 'scheduled',
     });
   });
@@ -220,4 +232,5 @@ describe('getUpcomingBirthdayMessages', () => {
       scheduledFor: new Date('2026-03-07T09:00:00.000Z'),
     });
   });
+
 });

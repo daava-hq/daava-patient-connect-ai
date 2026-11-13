@@ -354,6 +354,8 @@ export async function getReminderDashboard(practiceId: string, now = new Date())
           reminderStatus: existing?.status ?? (scheduledFor <= now ? 'due' : 'scheduled'),
           lastErrorMessage: existing?.lastErrorMessage ?? null,
           eligible: hasConsent && hasContact && appointment.patientStatus === 'Patient',
+          smsEligible: appointment.smsConsent && appointment.hasSmsNumber,
+          emailEligible: appointment.emailConsent && appointment.hasEmail,
         };
       })
   );
@@ -426,6 +428,13 @@ export async function getReminderDashboard(practiceId: string, now = new Date())
       practice.name === sampleDataCatalog.practice.name &&
       practice.organisationName === sampleDataCatalog.practice.organisationName,
     schedules: scheduleRows,
+    upcomingAppointments: appointmentRows.map((appointment) => ({
+      appointmentId: appointment.id,
+      patientName: `${appointment.patientFirstName} ${appointment.patientLastName}`.trim(),
+      scheduledAt: appointment.scheduledAt,
+      smsEligible: appointment.smsConsent && appointment.hasSmsNumber,
+      emailEligible: appointment.emailConsent && appointment.hasEmail,
+    })),
     upcoming: upcoming.sort((a, b) => a.reminderAt.getTime() - b.reminderAt.getTime()).slice(0, 500),
     history,
     stats: stats ?? { scheduled: 0, attempted: 0, sent: 0, delivered: 0, failed: 0, skipped: 0 },
@@ -579,100 +588,6 @@ export async function previewAppointmentReminder(
     unresolved: rendered.unresolved,
     isValid: isRenderedAppointmentTemplateValid(rendered, template.channel),
   };
-}
-
-export async function queueManualAppointmentReminder(input: {
-  practiceId: string;
-  scheduleId: string;
-  appointmentId: string;
-}) {
-  const schedule = await getSchedule(input.practiceId, input.scheduleId);
-  if (!schedule.enabled) throw new AppError(409, 'Enable this reminder schedule before sending manually', 'SCHEDULE_DISABLED');
-
-  const appointment = await getAppointmentContext(input.practiceId, input.appointmentId);
-  if (!isEligibleAppointment(appointment.status, appointment.patientStatus)) {
-    throw new AppError(409, 'Only active patients with scheduled appointments are eligible', 'APPOINTMENT_INELIGIBLE');
-  }
-  if (appointment.scheduledAt <= new Date()) {
-    throw new AppError(409, 'The appointment time has passed', 'APPOINTMENT_PASSED');
-  }
-
-  const [inserted] = await db
-    .insert(appointmentReminders)
-    .values({
-      practiceId: input.practiceId,
-      scheduleId: schedule.id,
-      appointmentId: input.appointmentId,
-      patientId: appointment.patientId,
-      channel: schedule.channel,
-      scheduledFor: new Date(),
-      manual: true,
-    })
-    .onConflictDoNothing()
-    .returning();
-
-  if (inserted) return inserted;
-
-  const existing = await db
-    .select()
-    .from(appointmentReminders)
-    .where(
-      and(
-        eq(appointmentReminders.practiceId, input.practiceId),
-        eq(appointmentReminders.appointmentId, input.appointmentId),
-        eq(appointmentReminders.scheduleId, schedule.id),
-        eq(appointmentReminders.patientId, appointment.patientId),
-        eq(appointmentReminders.channel, schedule.channel)
-      )
-    )
-    .limit(1);
-  const reminder = existing[0];
-  if (!reminder || reminder.status !== 'pending') {
-    throw new AppError(409, 'A reminder for this appointment and schedule has already been attempted', 'REMINDER_ALREADY_ATTEMPTED');
-  }
-
-  const [queued] = await db
-    .update(appointmentReminders)
-    .set({ scheduledFor: new Date(), manual: true, updatedAt: new Date() })
-    .where(
-      and(
-        eq(appointmentReminders.id, reminder.id),
-        eq(appointmentReminders.practiceId, input.practiceId),
-        eq(appointmentReminders.status, 'pending')
-      )
-    )
-    .returning();
-  return queued ?? reminder;
-}
-
-export async function executeManualAppointmentReminder(input: {
-  practiceId: string;
-  scheduleId: string;
-  appointmentId: string;
-}) {
-  const reminder = await queueManualAppointmentReminder(input);
-  if (reminder.status !== 'pending') {
-    throw new AppError(409, 'This reminder has already been processed', 'REMINDER_ALREADY_ATTEMPTED');
-  }
-
-  await dispatchAppointmentReminder(reminder.id, input.practiceId, new Date());
-  const [updated] = await db
-    .select({
-      id: appointmentReminders.id,
-      status: appointmentReminders.status,
-      attemptedAt: appointmentReminders.attemptedAt,
-      sentAt: appointmentReminders.sentAt,
-      lastErrorMessage: appointmentReminders.lastErrorMessage,
-    })
-    .from(appointmentReminders)
-    .where(
-      and(
-        eq(appointmentReminders.id, reminder.id),
-        eq(appointmentReminders.practiceId, input.practiceId)
-      )
-    )
-    .limit(1);
-  return updated ?? reminder;
 }
 
 export async function processDueAppointmentReminders(input: {

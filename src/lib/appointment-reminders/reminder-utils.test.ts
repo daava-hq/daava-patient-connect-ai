@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildAppointmentTemplateContext,
   calculateReminderTime,
+  getAppointmentDateMetrics,
   getSampleAppointmentTimes,
   getDateKeyInTimeZone,
   getReminderSuppressionReason,
@@ -20,6 +21,24 @@ describe('appointment reminder utilities', () => {
     expect(getDateKeyInTimeZone(instant, 'America/Los_Angeles')).toBe('2026-11-05');
     expect(getDateKeyInTimeZone(instant, 'America/New_York')).toBe('2026-11-05');
     expect(getDateKeyInTimeZone(instant, 'Asia/Tokyo')).toBe('2026-11-06');
+  });
+
+  it('counts unique appointments in practice-local date ranges', () => {
+    const metrics = getAppointmentDateMetrics([
+      { appointmentId: 'today', scheduledAt: '2026-11-06T03:00:00.000Z' },
+      { appointmentId: 'today', scheduledAt: '2026-11-06T04:00:00.000Z' },
+      { appointmentId: 'tomorrow', scheduledAt: '2026-11-07T07:00:00.000Z' },
+      { appointmentId: 'next-seven-days', scheduledAt: '2026-11-11T20:00:00.000Z' },
+      { appointmentId: 'same-month', scheduledAt: '2026-11-12T20:00:00.000Z' },
+      { appointmentId: 'next-month', scheduledAt: '2026-12-01T20:00:00.000Z' },
+    ], new Date('2026-11-06T01:30:00.000Z'), 'America/Los_Angeles');
+
+    expect(metrics).toEqual({
+      today: 1,
+      tomorrow: 1,
+      next7Days: 3,
+      thisMonth: 4,
+    });
   });
 
   it('creates ten sample appointment times across five days at two appointments per day', () => {

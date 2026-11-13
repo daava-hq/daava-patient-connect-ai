@@ -41,6 +41,38 @@ export function getDateKeyInTimeZone(date: Date, timeZone: string): string {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
+export function addDaysToDateKey(dateKey: string, days: number): string {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+}
+
+export function getAppointmentDateMetrics(
+  appointments: readonly { appointmentId: string; scheduledAt: string }[],
+  now: Date,
+  timeZone: string
+) {
+  const today = getDateKeyInTimeZone(now, timeZone);
+  const tomorrow = addDaysToDateKey(today, 1);
+  const nextSevenDays = addDaysToDateKey(today, 6);
+  const appointmentDates = new Map<string, string>();
+
+  for (const appointment of appointments) {
+    appointmentDates.set(
+      appointment.appointmentId,
+      getDateKeyInTimeZone(new Date(appointment.scheduledAt), timeZone)
+    );
+  }
+
+  const dates = Array.from(appointmentDates.values());
+  return {
+    today: dates.filter((date) => date === today).length,
+    tomorrow: dates.filter((date) => date === tomorrow).length,
+    next7Days: dates.filter((date) => date >= today && date <= nextSevenDays).length,
+    thisMonth: dates.filter((date) => date.startsWith(today.slice(0, 7))).length,
+  };
+}
+
 export function localDateTimeToInstant(
   dateParts: { year: number; month: number; day: number },
   time: string,

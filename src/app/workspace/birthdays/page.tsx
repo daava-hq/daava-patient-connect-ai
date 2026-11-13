@@ -83,6 +83,7 @@ interface ScheduledBirthdayMessage {
   lastName: string;
   birthdayDate: string | null;
   scheduledFor: string;
+  eligible: boolean;
   status: 'scheduled' | 'processing' | 'sent' | 'delivered' | 'failed' | 'skipped';
 }
 
@@ -160,6 +161,17 @@ function formatTime(value: string, timeZone: string): string {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value));
+}
+
+function getDateKeyInTimeZone(value: string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(value));
+  const values = new Map(parts.map((part) => [part.type, part.value]));
+  return `${values.get('year')}-${values.get('month')}-${values.get('day')}`;
 }
 
 function formatBirthdayDate(value: string): string {
@@ -603,20 +615,6 @@ export default function BirthdaysPage() {
                 </button>
               ))}
             </div>
-            {tab === 'overview' && (
-              <div className={styles.rangeControls}>
-                <label htmlFor="birthdayRange">Show</label>
-                <select
-                  id="birthdayRange"
-                  value={range}
-                  onChange={(event) => setSelectedRange(event.target.value as BirthdayRange)}
-                >
-                  {RANGE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-            )}
           </div>
 
           {loadError && <div className={styles.errorBanner} role="alert">{loadError}</div>}
@@ -630,7 +628,18 @@ export default function BirthdaysPage() {
                       <h2>Upcoming birthdays</h2>
                       <p>Patients with known birthdays in the selected range. Birth years are not displayed.</p>
                     </div>
-                    <span className={styles.timezoneBadge}>Practice time: {dashboard.timezone}</span>
+                    <div className={styles.rangeControls}>
+                      <label htmlFor="birthdayRange">Show</label>
+                      <select
+                        id="birthdayRange"
+                        value={range}
+                        onChange={(event) => setSelectedRange(event.target.value as BirthdayRange)}
+                      >
+                        {RANGE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                   {range === 'next7' ? (
                     <>
@@ -712,14 +721,9 @@ export default function BirthdaysPage() {
                       <h2>Birthday campaign settings</h2>
                       <p>Campaigns remain disabled until an administrator explicitly enables them.</p>
                     </div>
-                    <div className={styles.headerActions}>
-                      <button className={styles.primaryButton} onClick={startCreateCampaign}>
-                        <Plus size={16} /> Configure schedule
-                      </button>
-                      <Link className={styles.secondaryButton} href="/workspace/templates?category=birthdays">
-                        Manage birthday templates
-                      </Link>
-                    </div>
+                    <button className={styles.primaryButton} onClick={startCreateCampaign}>
+                      <Plus size={16} /> Configure schedule
+                    </button>
                   </div>
                   {dashboard.campaigns.length === 0 ? (
                     <div className={styles.emptyInline}>
@@ -1008,47 +1012,140 @@ function ScheduledMessagesTable({
   messages: ScheduledBirthdayMessage[];
   timezone: string;
 }) {
-  if (messages.length === 0) {
-    return (
-      <div className={styles.emptyInline}>
-        <Clock3 size={26} />
-        <strong>No scheduled birthday messages</strong>
-        <span>Enable a campaign to schedule messages for eligible patients.</span>
-      </div>
-    );
-  }
+  const [campaignFilter, setCampaignFilter] = useState('all');
+  const [scheduledDateFilter, setScheduledDateFilter] = useState('');
+  const [channelFilter, setChannelFilter] = useState<'all' | Channel>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | ScheduledBirthdayMessage['status']>('all');
+  const [patientSearch, setPatientSearch] = useState('');
+
+  const campaignNames = useMemo(
+    () => Array.from(new Set(messages.map((message) => message.campaignName))).sort((a, b) => a.localeCompare(b)),
+    [messages],
+  );
+  const filteredMessages = useMemo(() => {
+    const searchTerm = patientSearch.trim().toLowerCase();
+    return messages.filter((message) => {
+      if (campaignFilter !== 'all' && message.campaignName !== campaignFilter) return false;
+      if (channelFilter !== 'all' && message.channel !== channelFilter) return false;
+      if (statusFilter !== 'all' && message.status !== statusFilter) return false;
+      if (
+        scheduledDateFilter &&
+        getDateKeyInTimeZone(message.scheduledFor, timezone) !== scheduledDateFilter
+      ) return false;
+      if (
+        searchTerm &&
+        !`${message.firstName} ${message.lastName}`.toLowerCase().includes(searchTerm)
+      ) return false;
+      return true;
+    });
+  }, [campaignFilter, channelFilter, messages, patientSearch, scheduledDateFilter, statusFilter, timezone]);
 
   return (
-    <div className={styles.tableWrap}>
-      <table className={styles.historyTable}>
-        <thead>
-          <tr>
-            <th>Patient</th>
-            <th>Campaign</th>
-            <th>Birthday</th>
-            <th>Scheduled delivery</th>
-            <th>Channel</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {messages.map((message) => (
-            <tr key={message.id}>
-              <td>{message.firstName} {message.lastName}</td>
-              <td>{message.campaignName}</td>
-              <td>{message.birthdayDate ? formatBirthdayDate(message.birthdayDate) : '—'}</td>
-              <td>{formatTime(message.scheduledFor, timezone)}</td>
-              <td>{message.channel.toUpperCase()}</td>
-              <td>
-                <span className={`${styles.statusBadge} ${message.status === 'scheduled' ? styles.pending : styles[message.status]}`}>
-                  {message.status === 'scheduled' ? 'Scheduled' : message.status}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <div className={styles.scheduleFilters}>
+        <label className={styles.field}>
+          Campaign
+          <select value={campaignFilter} onChange={(event) => setCampaignFilter(event.target.value)}>
+            <option value="all">All campaigns</option>
+            {campaignNames.map((campaignName) => (
+              <option key={campaignName} value={campaignName}>{campaignName}</option>
+            ))}
+          </select>
+        </label>
+        <label className={styles.field}>
+          Scheduled date
+          <input
+            type="date"
+            value={scheduledDateFilter}
+            onChange={(event) => setScheduledDateFilter(event.target.value)}
+          />
+        </label>
+        <label className={styles.field}>
+          Channel
+          <select value={channelFilter} onChange={(event) => setChannelFilter(event.target.value as 'all' | Channel)}>
+            <option value="all">All channels</option>
+            <option value="sms">SMS</option>
+            <option value="email">Email</option>
+          </select>
+        </label>
+        <label className={styles.field}>
+          Status
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as 'all' | ScheduledBirthdayMessage['status'])}
+          >
+            <option value="all">All statuses</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="processing">Processing</option>
+            <option value="sent">Sent</option>
+            <option value="delivered">Delivered</option>
+            <option value="failed">Failed</option>
+            <option value="skipped">Skipped</option>
+          </select>
+        </label>
+        <label className={styles.field}>
+          Patient search
+          <input
+            type="search"
+            value={patientSearch}
+            onChange={(event) => setPatientSearch(event.target.value)}
+            placeholder="Search patient"
+          />
+        </label>
+      </div>
+      {filteredMessages.length === 0 ? (
+        <div className={styles.emptyInline}>
+          <Clock3 size={26} />
+          <strong>
+            {messages.length === 0
+              ? 'No scheduled birthday messages'
+              : 'No scheduled birthday messages match these filters'}
+          </strong>
+          <span>
+            {messages.length === 0
+              ? 'Enable a campaign to schedule messages for eligible patients.'
+              : 'Adjust or clear your filters to see scheduled messages.'}
+          </span>
+        </div>
+      ) : (
+        <div className={styles.scheduledTableWrap}>
+          <table className={styles.scheduledTable}>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Birthday</th>
+                <th>Campaign</th>
+                <th>Scheduled message</th>
+                <th>Channel</th>
+                <th>Status</th>
+                <th>Eligibility</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredMessages.map((message) => (
+                <tr key={message.id}>
+                  <td><strong>{message.firstName} {message.lastName}</strong></td>
+                  <td>{message.birthdayDate ? formatBirthdayDate(message.birthdayDate) : '—'}</td>
+                  <td>{message.campaignName}</td>
+                  <td>{formatTime(message.scheduledFor, timezone)}</td>
+                  <td>{message.channel.toUpperCase()}</td>
+                  <td>
+                    <span className={`${styles.statusBadge} ${message.status === 'scheduled' ? styles.pending : styles[message.status]}`}>
+                      {message.status === 'scheduled' ? 'Scheduled' : message.status}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`${styles.statusBadge} ${message.eligible ? styles.enabledBadge : styles.disabledBadge}`}>
+                      {message.eligible ? 'Eligible' : 'Consent/contact required'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
   );
 }
 
