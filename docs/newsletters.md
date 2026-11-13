@@ -33,8 +33,9 @@ Newsletter history reports load the selected campaign's status, delivery
 statistics, and recipient activity in a campaign-specific dialog. Draft and
 cancelled newsletters can be soft-deleted from history; the history row and
 dashboard counts refresh after a successful delete. Dashboard and report
-statistics use labeled icon cards with matching size and vertical alignment,
-consistent with Birthday engagement reports.
+statistics use the shared `StatCard` component with labeled icons and matching
+size and vertical alignment, consistent with Birthday engagement and group
+announcement reports.
 
 Audience filters support all active patients, selected static or dynamic
 groups, and synchronized birthday-month / appointment-date filters. Selected

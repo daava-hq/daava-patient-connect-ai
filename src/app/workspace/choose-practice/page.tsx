@@ -4,9 +4,14 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
+import EmptyState from '@/components/feedback/EmptyState/EmptyState';
+import ErrorState from '@/components/feedback/ErrorState/ErrorState';
+import LoadingState from '@/components/feedback/LoadingState/LoadingState';
+import StatusBadge from '@/components/ui/StatusBadge/StatusBadge';
 import { Building2, ArrowRight, ArrowLeft } from 'lucide-react';
+import styles from './ChoosePracticePage.module.css';
 
-interface Clinic {
+interface PracticeOption {
   id: string;
   name: string;
   slug?: string;
@@ -18,7 +23,7 @@ interface Clinic {
 
 export default function ChooseClinicPage() {
   const router = useRouter();
-  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [clinics, setClinics] = useState<PracticeOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -53,13 +58,16 @@ export default function ChooseClinicPage() {
 
   const renderRoleBadge = (role?: string) => {
     const r = role?.toLowerCase() || 'member';
-    if (r === 'owner') return <span style={{ backgroundColor: 'rgb(37 99 235 / 0.1)', color: 'var(--color-primary)', border: '1px solid rgb(37 99 235 / 0.25)', padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-full)', fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-semibold)' }}>Owner</span>;
-    if (r === 'admin' || r === 'org-admin' || r === 'system-admin') return <span style={{ backgroundColor: '#ede9fe', color: '#6d28d9', border: '1px solid #ddd6fe', padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-full)', fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-semibold)' }}>{r === 'system-admin' ? 'System Admin' : r === 'org-admin' ? 'Org Admin' : 'Admin'}</span>;
-    return <span style={{ backgroundColor: '#f1f5f9', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-full)', fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-medium)' }}>Member</span>;
+    if (r === 'owner') return <StatusBadge status="info">Owner</StatusBadge>;
+    if (r === 'admin' || r === 'org-admin' || r === 'system-admin') {
+      const label = r === 'system-admin' ? 'System Admin' : r === 'org-admin' ? 'Org Admin' : 'Admin';
+      return <StatusBadge status="info">{label}</StatusBadge>;
+    }
+    return <StatusBadge status="default">Member</StatusBadge>;
   };
 
   return (
-    <div style={{ maxWidth: '44rem', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+    <div className={styles.container}>
       <PageHeader
         title="Select Practice Location"
         description="Choose a dental practice clinic to manage appointments, patients, and engagement."
@@ -67,20 +75,7 @@ export default function ChooseClinicPage() {
         actions={
           <Link
             href="/workspace/dashboard"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              backgroundColor: 'var(--color-surface)',
-              color: 'var(--color-text)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-md)',
-              padding: '0.5rem 1rem',
-              fontSize: 'var(--font-size-sm)',
-              fontWeight: 'var(--font-weight-medium)',
-              textDecoration: 'none',
-              transition: 'background-color var(--transition-fast)',
-            }}
+            className={styles.backLink}
           >
             <ArrowLeft size={16} />
             <span>Back to Dashboard</span>
@@ -89,113 +84,72 @@ export default function ChooseClinicPage() {
       />
 
       {loading ? (
-        <div style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: 'var(--space-8)' }}>
-          Loading practices...
-        </div>
+        <LoadingState text="Loading practice locations..." />
       ) : loadError ? (
-        <div role="alert" style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-error)' }}>
-          <p>{loadError}</p>
-          <button type="button" onClick={() => setAttempt((current) => current + 1)}>Try again</button>
-        </div>
+        <ErrorState
+          title="Unable to load practices"
+          message={loadError}
+          onRetry={() => setAttempt((current) => current + 1)}
+        />
       ) : clinics.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>
-          No practice locations assigned to your account.
-        </div>
+        <EmptyState
+          title="No practice locations assigned"
+          description="Contact your organisation administrator if you need access to a practice."
+          icon={<Building2 size={32} />}
+        />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        <div className={styles.practiceList}>
           {clinics.map((clinic) => (
             <div
               key={clinic.id}
               onClick={() => handleSelectClinic(clinic.id)}
-              style={{
-                backgroundColor: 'var(--color-surface)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-lg)',
-                padding: 'var(--space-6)',
-                boxShadow: 'var(--shadow-sm)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                transition: 'all var(--transition-fast)',
-              }}
+              className={styles.practiceCard}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
                   handleSelectClinic(clinic.id);
                 }
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-4)' }}>
-                <div
-                  style={{
-                    width: '3rem',
-                    height: '3rem',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: 'rgb(37 99 235 / 0.1)',
-                    color: 'var(--color-primary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
+              <div className={styles.practiceCardContent}>
+                <div className={styles.practiceIcon}>
                   <Building2 size={24} />
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
-                    <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 'var(--font-weight-bold)', color: 'var(--color-text)', margin: 0 }}>
+                <div className={styles.practiceDetails}>
+                  <div className={styles.practiceTitleRow}>
+                    <h3 className={styles.practiceName}>
                       {clinic.name}
                     </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
+                    <div className={styles.practiceBadges}>
                       {renderRoleBadge(clinic.role)}
                       {clinic.slug === 'appointment-reminder-sample' && (
-                        <span
-                          aria-label="Test practice"
-                          style={{
-                            backgroundColor: 'var(--color-warning)',
-                            color: 'var(--color-surface)',
-                            borderRadius: 'var(--radius-full)',
-                            padding: '0.15rem 0.5rem',
-                            fontSize: 'var(--font-size-xs)',
-                            fontWeight: 'var(--font-weight-semibold)',
-                          }}
-                        >
+                        <StatusBadge status="warning">
                           Test Practice
-                        </span>
+                        </StatusBadge>
                       )}
                     </div>
                   </div>
                   {clinic.organisationName && (
-                    <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-primary)', fontWeight: 'var(--font-weight-medium)', margin: 0 }}>
+                    <p className={styles.organisationName}>
                       Organisation: {clinic.organisationName}
                     </p>
                   )}
                   {clinic.address && (
-                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', margin: 0 }}>
+                    <p className={styles.practiceAddress}>
                       {clinic.address}
                     </p>
                   )}
                   {clinic.phone && (
-                    <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', margin: 0 }}>
+                    <p className={styles.practicePhone}>
                       Phone: {clinic.phone}
                     </p>
                   )}
                 </div>
               </div>
 
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-2)',
-                  color: 'var(--color-primary)',
-                  fontWeight: 'var(--font-weight-medium)',
-                  fontSize: 'var(--font-size-sm)',
-                  flexShrink: 0,
-                }}
-              >
+              <div className={styles.launchAction}>
                 <span>Launch</span>
                 <ArrowRight size={18} />
               </div>

@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import FormField from '@/components/form/FormField/FormField';
+import ErrorState from '@/components/feedback/ErrorState/ErrorState';
+import LoadingState from '@/components/feedback/LoadingState/LoadingState';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
 import styles from './profile.module.css';
 import {
@@ -174,13 +176,9 @@ export default function ProfilePage() {
       />
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>
-          Loading your profile...
-        </div>
+        <LoadingState text="Loading your profile..." />
       ) : !user ? (
-        <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>
-          Profile details could not be found.
-        </div>
+        <ErrorState title="Profile unavailable" message="Profile details could not be found." />
       ) : (
         <div className={styles.grid}>
           {/* ── CARD 1: USER DETAILS ── */}
@@ -199,7 +197,7 @@ export default function ProfilePage() {
               <div className={styles.avatarText}>
                 <h3 className={styles.userName}>{user.name}</h3>
                 <p className={styles.userEmail}>{user.email}</p>
-                <div style={{ marginTop: 'var(--space-1)' }}>
+                <div className={styles.roleBadgeWrap}>
                   <span className={`${styles.badge} ${styles.badgePrimary}`}>
                     <ShieldCheck size={12} />
                     {user.role === 'admin' ? 'System Administrator' : 'Staff Member'}
@@ -255,19 +253,19 @@ export default function ProfilePage() {
             </form>
 
             {/* Assigned practices */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
-              <h3 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-text)', margin: 0 }}>
+            <div className={styles.assignedPractices}>
+              <h3 className={styles.assignedPracticesTitle}>
                 Assigned Practices ({practices.length})
               </h3>
               {practices.length === 0 ? (
-                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+                <p className={styles.emptyPractices}>
                   No practice assignments found.
                 </p>
               ) : (
                 practices.map((p) => (
                   <div key={p.practiceId} className={styles.practiceItem}>
                     <div className={styles.practiceInfo}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                      <div className={styles.practiceNameLine}>
                         <Building2 size={16} color="var(--color-primary)" />
                         <span className={styles.practiceTitle}>{p.practiceName}</span>
                       </div>

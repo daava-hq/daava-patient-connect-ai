@@ -114,15 +114,66 @@ Separate components, pages, CSS Modules, validation, domain services, repositori
 
 Do not put an entire feature in one file.
 
-## CSS
+## CSS and UI architecture
 
-- Design tokens in styles/tokens.css.
-- Global resets and base styles in styles/globals.css.
-- Feature styles in CSS Modules.
-- Reuse shared components and tokens.
-- Avoid arbitrary colors, duplicate styles and unnecessary inline styles.
-- Provide responsive layouts, keyboard navigation, accessible contrast and visible focus indicators.
-- Include loading, empty, error, success and disabled states.
+### Styling rules
+
+- Use CSS Modules (`*.module.css`) for all component- and page-specific styling.
+- Import styles with `import styles from './ComponentName.module.css'` and apply them through `className`.
+- Do not use React inline styles (`style={{ ... }}`), style objects, or the HTML `style` attribute for application UI.
+- Do not use JavaScript to generate CSS strings or inject component styles.
+- For genuinely dynamic visual values, prefer CSS custom properties set through a documented, narrowly scoped mechanism; do not use this as a workaround for ordinary styling.
+- Keep design tokens in `styles/tokens.css` and global resets, typography defaults and base element styles in `styles/globals.css`.
+- Keep global styles minimal. Do not add feature-specific selectors or page layouts to global stylesheets.
+- Use CSS class names in camelCase and descriptive names that reflect the component's purpose.
+- Avoid arbitrary color values, duplicated declarations, overly specific selectors, `!important`, and unnecessary CSS overrides.
+- Do not add a styling framework or dependency without first checking the existing project setup and explaining why it is needed.
+
+### Shared design system
+
+- Inspect the existing shared component library before creating or changing UI components.
+- Reuse shared components for buttons, inputs, selects, textareas, cards, tables, pagination, dialogs, tabs, badges, alerts, dropdowns, tooltips and loading indicators.
+- If a reusable component is missing and the pattern is used in multiple places, create it in the established shared-components location rather than duplicating markup and styles.
+- Keep shared component APIs typed, accessible and consistent. Avoid feature-specific behavior in generic components.
+- Centralize reusable design tokens for colors, typography, spacing, sizing, borders, radii, shadows, layering and breakpoints.
+- Do not introduce a second design system or duplicate existing tokens/components.
+
+### Component and page structure
+
+- Keep each page and substantial UI component focused; move reusable UI into components and keep its styles in the corresponding CSS Module.
+- Do not place an entire feature's UI in one large page or component file.
+- Separate presentation from data fetching, business logic and API interaction.
+- Prefer existing shared layout, form and table components over bespoke implementations.
+- Use semantic HTML and accessible labels, descriptions and error associations.
+- Provide visible keyboard focus, logical tab order, accessible contrast and appropriate ARIA attributes only when semantic HTML is insufficient.
+- Support responsive desktop, tablet and mobile layouts. Handle narrow screens intentionally rather than relying on horizontal overflow.
+- Include consistent loading, empty, error, success, disabled and validation states.
+- Ensure hover, focus, active, selected and disabled states are visually consistent.
+
+### UI refactoring and review
+
+When modifying an existing module or page:
+
+1. Inspect the page, its child components, existing CSS, shared components and relevant design tokens before editing.
+2. Identify inline styles, duplicated styling, untyped props, and inconsistent UI patterns in the requested scope.
+3. Reuse or improve existing shared components before introducing new ones.
+4. Move component-specific styling into CSS Modules and remove the corresponding inline styles.
+5. Preserve existing functionality, API contracts, data flows and business rules unless the task explicitly requests a behavior change.
+6. Check responsive behavior and accessibility for the changed screens.
+7. Remove unused styles and imports introduced by the refactor.
+8. Run the relevant lint, type-check, tests and build scripts, and report their actual results.
+
+For a task explicitly requesting a UI/CSS refactor, apply these rules to every module included in the requested scope. Do not silently expand the scope to unrelated modules.
+
+### CSS/UI acceptance criteria
+
+- No `style={{ ... }}` or HTML `style` attributes remain in the refactored application UI scope.
+- Component- and page-specific styles are in CSS Modules.
+- Global CSS contains only shared foundations and genuinely global rules.
+- Existing shared components and design tokens are reused consistently.
+- No unnecessary duplicate component libraries or styling dependencies are introduced.
+- Changed screens are responsive and keyboard accessible.
+- Existing behavior is preserved and relevant verification commands pass.
 
 ## Server and database
 

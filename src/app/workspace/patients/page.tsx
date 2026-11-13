@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type ChangeEvent } from 'react';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import DataTable from '@/components/ui/DataTable/DataTable';
 import FilterBar from '@/components/ui/FilterBar/FilterBar';
@@ -12,24 +12,16 @@ import SectionCard from '@/components/ui/SectionCard/SectionCard';
 import EmptyState from '@/components/feedback/EmptyState/EmptyState';
 import Link from 'next/link';
 import { formatDob } from '@/lib/patients/patient-utils';
+import type { OpenDentalPatient, OpenDentalPatientDetails } from '@/lib/opendental/types';
+import styles from './PatientsPage.module.css';
 
-interface OpenDentalPatientRow {
-  PatNum: number;
-  FName: string;
-  LName: string;
-  Birthdate?: string;
-  WirelessPhone?: string;
-  HmPhone?: string;
-  Email?: string;
-  PatStatus?: string;
-  emailConsent?: boolean;
-  smsConsent?: boolean;
-}
+type PatientDirectoryRow = OpenDentalPatient &
+  Pick<OpenDentalPatientDetails, 'emailConsent' | 'smsConsent'>;
 
 const PAGE_SIZE = 20;
 
 export default function PatientsPage() {
-  const [patients, setPatients] = useState<OpenDentalPatientRow[]>([]);
+  const [patients, setPatients] = useState<PatientDirectoryRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -117,32 +109,32 @@ export default function PatientsPage() {
   const columns = [
     {
       header: 'OD PatNum',
-      accessorKey: (row: OpenDentalPatientRow) => `#${row.PatNum}`,
+      accessorKey: (row: PatientDirectoryRow) => `#${row.PatNum}`,
     },
     {
       header: 'Last Name',
-      accessorKey: (row: OpenDentalPatientRow) => row.LName || '—',
+      accessorKey: (row: PatientDirectoryRow) => row.LName || '—',
     },
     {
       header: 'First Name',
-      accessorKey: (row: OpenDentalPatientRow) => row.FName || '—',
+      accessorKey: (row: PatientDirectoryRow) => row.FName || '—',
     },
     {
       header: 'DOB',
-      accessorKey: (row: OpenDentalPatientRow) => formatDob(row.Birthdate),
+      accessorKey: (row: PatientDirectoryRow) => formatDob(row.Birthdate),
     },
     {
       header: 'Mobile Phone',
-      accessorKey: (row: OpenDentalPatientRow) => row.WirelessPhone || row.HmPhone || '—',
+      accessorKey: (row: PatientDirectoryRow) => row.WirelessPhone || row.HmPhone || '—',
     },
     {
       header: 'Email',
-      accessorKey: (row: OpenDentalPatientRow) => row.Email || '—',
+      accessorKey: (row: PatientDirectoryRow) => row.Email || '—',
     },
     {
       header: 'Consent Status',
-      accessorKey: (row: OpenDentalPatientRow) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+      accessorKey: (row: PatientDirectoryRow) => (
+        <span className={styles.consentIndicators}>
           {row.Email?.trim() && typeof row.emailConsent === 'boolean' && (
             <span
               role="img"
@@ -152,7 +144,7 @@ export default function PatientsPage() {
               <Mail
                 size={16}
                 aria-hidden="true"
-                style={{ color: row.emailConsent ? 'var(--color-success)' : 'var(--color-error)' }}
+                className={row.emailConsent ? styles.consentYes : styles.consentNo}
               />
             </span>
           )}
@@ -165,7 +157,7 @@ export default function PatientsPage() {
               <Phone
                 size={16}
                 aria-hidden="true"
-                style={{ color: row.smsConsent ? 'var(--color-success)' : 'var(--color-error)' }}
+                className={row.smsConsent ? styles.consentYes : styles.consentNo}
               />
             </span>
           )}
@@ -174,13 +166,20 @@ export default function PatientsPage() {
     },
     {
       header: 'Status',
-      accessorKey: (row: OpenDentalPatientRow) => (
+      accessorKey: (row: PatientDirectoryRow) => (
         <StatusBadge status={row.PatStatus === 'Patient' ? 'success' : 'default'}>
           {row.PatStatus || 'Patient'}
         </StatusBadge>
       ),
     },
   ];
+
+  const isKeysMissing = Boolean(
+    error &&
+      ['keys', 'credentials', 'not configured'].some((term) =>
+        error.toLowerCase().includes(term)
+      )
+  );
 
   return (
     <div>
@@ -191,96 +190,63 @@ export default function PatientsPage() {
       />
 
       {error && (
-        <div style={{ padding: '1rem', marginBottom: '1rem', backgroundColor: 'rgb(220 38 38 / 0.1)', color: 'var(--color-error)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div className={styles.errorBanner} role="alert">
           <span>{error}</span>
-          {error.includes('keys') && (
+          {isKeysMissing && (
             <div>
-              <a
-                href="/workspace/settings"
-                style={{
-                  color: 'var(--color-primary)',
-                  fontWeight: 'var(--font-weight-medium)',
-                  textDecoration: 'underline',
-                }}
-              >
+              <Link href="/workspace/settings" className={styles.settingsLink}>
                 Go to Practice Settings → Open Dental Integration
-              </a>
+              </Link>
             </div>
           )}
         </div>
       )}
 
-      {(() => {
-        const isKeysMissing = Boolean(
-          error && (error.toLowerCase().includes('keys') || error.toLowerCase().includes('credentials') || error.toLowerCase().includes('not configured'))
-        );
-
-        if (isKeysMissing) {
-          return (
-            <SectionCard title="Open Dental Integration">
-              <EmptyState
-                icon={<Key size={32} />}
-                title="Integration Keys Not Configured"
-                description="Open Dental integration keys have not been added for this practice. Please configure your developer and customer keys in Practice Settings to view and sync patients."
-                action={
-                  <Link
-                    href="/workspace/settings"
-                    style={{
-                      display: 'inline-block',
-                      backgroundColor: 'var(--color-primary)',
-                      color: 'var(--color-surface)',
-                      padding: '0.5rem 1rem',
-                      borderRadius: 'var(--radius-md)',
-                      fontSize: 'var(--font-size-sm)',
-                      fontWeight: 'var(--font-weight-medium)',
-                      textDecoration: 'none',
-                    }}
-                  >
-                    Go to Practice Settings
-                  </Link>
-                }
-              />
-            </SectionCard>
-          );
-        }
-
-        return (
-          <>
-            {error && (
-              <div style={{ padding: '1rem', marginBottom: '1rem', backgroundColor: 'rgb(220 38 38 / 0.1)', color: 'var(--color-error)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <span>{error}</span>
+      {isKeysMissing ? (
+        <SectionCard title="Open Dental Integration">
+          <EmptyState
+            icon={<Key size={32} />}
+            title="Integration Keys Not Configured"
+            description="Open Dental integration keys have not been added for this practice. Please configure your developer and customer keys in Practice Settings to view and sync patients."
+            action={
+              <Link href="/workspace/settings" className={styles.integrationLink}>
+                Go to Practice Settings
+              </Link>
+            }
+          />
+        </SectionCard>
+      ) : (
+        <>
+          {patients.length > 0 && !error && (
+            <FilterBar>
+              <div className={styles.searchControl}>
+                <SearchInput
+                  value={search}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    setSearch(event.target.value)
+                  }
+                  placeholder="Search patients by name, DOB, email, phone..."
+                />
               </div>
-            )}
+            </FilterBar>
+          )}
 
-            {patients.length > 0 && !error && (
-              <FilterBar>
-                <div style={{ width: '100%', maxWidth: '24rem' }}>
-                  <SearchInput
-                    value={search}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-                    placeholder="Search patients by name, DOB, email, phone..."
-                  />
-                </div>
-              </FilterBar>
-            )}
+          <DataTable
+            columns={columns}
+            data={filteredPatients}
+            keyExtractor={(row: PatientDirectoryRow) => row.PatNum}
+            emptyMessage={loading ? 'Fetching patients from Open Dental API...' : 'No patients found.'}
+          />
 
-            <DataTable
-              columns={columns}
-              data={filteredPatients}
-              keyExtractor={(row: OpenDentalPatientRow) => row.PatNum}
-              emptyMessage={loading ? 'Fetching patients from Open Dental API...' : 'No patients found.'}
+          {patients.length > 0 && !error && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
             />
-
-            {patients.length > 0 && !error && (
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={handlePageChange}
-              />
-            )}
-          </>
-        );
-      })()}
+          )}
+        </>
+      )}
     </div>
   );
 }

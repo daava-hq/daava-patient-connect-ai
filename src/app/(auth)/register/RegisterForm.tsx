@@ -220,7 +220,7 @@ export default function RegisterForm({ orgToken, orgName }: Props) {
           </FormField>
 
           {/* ── Admin account ── */}
-          <p className={styles.sectionTitle} style={{ marginTop: '0.5rem' }}>Admin account</p>
+          <p className={`${styles.sectionTitle} ${styles.adminSectionTitle}`}>Admin account</p>
 
           <FormField label="Your Name" htmlFor="adminName" required error={errors.adminName}>
             <div className={styles.inputWrapper}>

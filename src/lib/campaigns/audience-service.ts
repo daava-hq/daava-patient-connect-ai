@@ -65,6 +65,12 @@ async function getAudienceConditions(practiceId: string, filter: AudienceFilter)
     conditions.push(eq(patients.emailConsent, true));
     conditions.push(sql`${patients.email} ~* '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'`);
   }
+  if (filter.destinationChannel === 'sms') {
+    conditions.push(sql`(
+      NULLIF(BTRIM(${patients.phoneMobile}), '') IS NOT NULL OR
+      NULLIF(BTRIM(${patients.phoneHome}), '') IS NOT NULL
+    )`);
+  }
 
   // Birthday month filter
   if (filter.birthdayMonth !== undefined) {

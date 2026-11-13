@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
-import { createDefaultDocument, extractTemplateBody, renderDocumentToHtml, TemplateDocument, CanvasBlock } from '@/lib/templates/document-schema';
+import { createDefaultDocument, extractTemplateBody, renderDocumentToHtml } from '@/lib/templates/document-schema';
+import type { CanvasBlock, TemplateDocument } from '@/lib/templates/document-schema';
 import { VARIABLE_REGISTRY } from '@/lib/templates/variable-registry';
 import RichEditorToolbar from '@/components/ui/RichEditorToolbar/RichEditorToolbar';
+import styles from '../TemplateEditor.module.css';
+import { getBlockStyle, getSectionStyle } from '../template-editor-styles';
 import {
   Save,
   Eye,
@@ -333,11 +335,11 @@ export default function NewTemplateEditorPage() {
   const activeBlock = selectedBlock || doc.sections[0]?.blocks[0] || null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#f8fafc' }}>
+    <div className={styles.editorRoot}>
       {/* Top Toolbar */}
-      <header style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0.75rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          <button onClick={() => router.push('/workspace/templates')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#64748b' }}>
+      <header className={styles.header}>
+        <div className={styles.headerFields}>
+          <button type="button" onClick={() => router.push('/workspace/templates')} className={styles.backButton}>
             <ArrowLeft size={18} /> Templates
           </button>
           <input
@@ -345,11 +347,11 @@ export default function NewTemplateEditorPage() {
             value={templateName}
             onChange={(e) => setTemplateName(e.target.value)}
             aria-label="Template name"
-            style={{ fontSize: '1rem', fontWeight: 600, border: '1px solid #cbd5e1', padding: '0.35rem 0.6rem', borderRadius: '4px', background: '#fff', width: '220px' }}
+            className={styles.templateNameInput}
           />
           {channel === 'email' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Starter Layout:</label>
+            <label className={styles.headerField}>
+              <span className={styles.headerFieldLabel}>Starter Layout</span>
               <select
                 onChange={(e) => {
                   if (e.target.value) {
@@ -358,7 +360,7 @@ export default function NewTemplateEditorPage() {
                   }
                 }}
                 defaultValue="newsletter"
-                style={{ padding: '0.35rem 0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
+                className={`${styles.select} ${styles.starterSelect}`}
               >
                 <option value="newsletter">Dental Newsletter</option>
                 <option value="announcement">Practice Announcement</option>
@@ -369,33 +371,38 @@ export default function NewTemplateEditorPage() {
                 <option value="referral">Referral Thank-You</option>
                 <option value="survey">Survey Invitation</option>
               </select>
-            </div>
+            </label>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Category:</label>
+          <label className={styles.headerField} htmlFor="template-category">
+            <span className={styles.headerFieldLabel}>Category</span>
             <select
+              id="template-category"
               value={selectedCategoryId}
               onChange={(e) => setSelectedCategoryId(e.target.value)}
-              style={{ padding: '0.35rem 0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
+              className={`${styles.select} ${styles.headerFieldSelect}`}
             >
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
-          </div>
+          </label>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div className={styles.headerActions}>
           {channel === 'email' && (
-            <div style={{ display: 'flex', background: '#f1f5f9', padding: '2px', borderRadius: '6px' }}>
+            <div className={styles.deviceControls}>
               <button
+                type="button"
                 onClick={() => setPreviewMode('desktop')}
-                style={{ background: previewMode === 'desktop' ? '#fff' : 'none', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
+                className={`${styles.deviceButton} ${previewMode === 'desktop' ? styles.deviceButtonActive : ''}`}
+                aria-pressed={previewMode === 'desktop'}
               >
                 <Monitor size={16} /> Desktop
               </button>
               <button
+                type="button"
                 onClick={() => setPreviewMode('mobile')}
-                style={{ background: previewMode === 'mobile' ? '#fff' : 'none', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
+                className={`${styles.deviceButton} ${previewMode === 'mobile' ? styles.deviceButtonActive : ''}`}
+                aria-pressed={previewMode === 'mobile'}
               >
                 <Smartphone size={16} /> Mobile
               </button>
@@ -403,16 +410,19 @@ export default function NewTemplateEditorPage() {
           )}
           {channel === 'email' && (
             <button
+              type="button"
               onClick={() => setShowHtmlPreview(!showHtmlPreview)}
-              style={{ background: '#f1f5f9', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              className={styles.secondaryButton}
+              aria-pressed={showHtmlPreview}
             >
               <Eye size={16} /> {showHtmlPreview ? 'Visual Editor' : 'HTML Code'}
             </button>
           )}
           <button
+            type="button"
             onClick={() => handleSave('published')}
             disabled={saving}
-            style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '0.5rem 1.25rem', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            className={styles.primaryButton}
           >
             <Save size={16} /> {saving ? 'Saving...' : 'Save & Publish'}
           </button>
@@ -420,20 +430,20 @@ export default function NewTemplateEditorPage() {
       </header>
 
       {/* Main Workspace */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div className={styles.workspace}>
         {/* Left Sidebar: Element Library & Variables */}
-        <aside style={{ width: '300px', background: '#fff', borderRight: '1px solid #e2e8f0', padding: '1.25rem', overflowY: 'auto' }}>
-          <div style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid #e2e8f0' }}>
-            <h4 style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Message Settings</h4>
-            <fieldset style={{ border: 0, padding: 0, margin: '0 0 0.75rem' }}>
-              <legend style={{ marginBottom: '0.35rem', fontSize: '0.8rem', color: '#475569', fontWeight: 500 }}>
+        <aside className={styles.sidebar}>
+          <div className={`${styles.sidebarSection} ${styles.messageSettings}`}>
+            <h2 className={styles.sectionTitle}>Message Settings</h2>
+            <fieldset className={styles.templateTypeGroup}>
+              <legend className={styles.fieldLabel}>
                 Template type
               </legend>
-              <div style={{ display: 'flex', gap: '1rem' }}>
+              <div className={styles.radioGroup}>
                 {(['email', 'sms'] as const).map((templateChannel) => (
                   <label
                     key={templateChannel}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: '#475569', fontWeight: 500 }}
+                    className={styles.radioOption}
                   >
                     <input
                       type="radio"
@@ -451,7 +461,7 @@ export default function NewTemplateEditorPage() {
               </div>
             </fieldset>
             {channel === 'email' && (
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem', color: '#475569', fontWeight: 500 }}>
+              <label className={styles.subjectField}>
                 <span>
                   Email subject <span aria-hidden="true">*</span>
                 </span>
@@ -462,20 +472,21 @@ export default function NewTemplateEditorPage() {
                   placeholder="Enter email subject"
                   aria-label="Email subject"
                   required
-                  style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff', fontWeight: 400 }}
+                  className={styles.input}
                 />
               </label>
             )}
           </div>
-          <div style={{ marginBottom: '1.5rem' }}>
+          <div className={styles.sidebarSection}>
             {channel === 'email' && (
               <>
-                <h4 style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Layout & Content Blocks</h4>
-                <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>Drag elements onto the canvas or click to add.</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <h2 className={styles.sectionTitle}>Layout &amp; Content Blocks</h2>
+                <p className={styles.layoutDescription}>Drag elements onto the canvas or click to add.</p>
+                <div className={styles.blockLibrary}>
                   {(['heading', 'paragraph', 'image', 'logo', 'button', 'divider', 'spacer', 'footer'] as const).map((type) => (
-                <div
+                <button
                   key={type}
+                  type="button"
                   draggable
                   onDragStart={(e) => {
                     e.dataTransfer.setData('application/json', JSON.stringify({ type: 'add', elementType: type }));
@@ -483,7 +494,7 @@ export default function NewTemplateEditorPage() {
                     e.dataTransfer.effectAllowed = 'copy';
                   }}
                   onClick={() => addBlock(type)}
-                  style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '0.6rem', borderRadius: '6px', cursor: 'grab', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', textTransform: 'capitalize', userSelect: 'none' }}
+                  className={styles.blockLibraryItem}
                 >
                   {type === 'heading' && <Type size={16} />}
                   {type === 'paragraph' && <FileText size={16} />}
@@ -494,7 +505,7 @@ export default function NewTemplateEditorPage() {
                   {type === 'spacer' && <Layout size={16} />}
                   {type === 'footer' && <FileText size={16} />}
                   <span>{type}</span>
-                </div>
+                </button>
                   ))}
                 </div>
               </>
@@ -502,18 +513,18 @@ export default function NewTemplateEditorPage() {
           </div>
 
           <div>
-            <h4 style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Dynamic Variables</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '250px', overflowY: 'auto' }}>
+            <h2 className={styles.sectionTitle}>Dynamic Variables</h2>
+            <div className={styles.variableList}>
               {VARIABLE_REGISTRY.map((v) => (
                 <button
                   key={v.key}
                   onClick={() => insertVariable(v.key)}
                   type="button"
                   aria-label={`Insert ${v.key}`}
-                  style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '0.5rem 0.75rem', borderRadius: '4px', textAlign: 'left', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  className={styles.variableButton}
                 >
-                  <span style={{ fontWeight: 500, color: '#1e293b' }}>{v.label}</span>
-                  <span style={{ fontFamily: 'monospace', fontSize: '0.7rem', color: '#2563eb' }}>{`{{${v.key}}}`}</span>
+                  <span className={styles.variableLabel}>{v.label}</span>
+                  <span className={styles.variableToken}>{`{{${v.key}}}`}</span>
                 </button>
               ))}
             </div>
@@ -522,7 +533,7 @@ export default function NewTemplateEditorPage() {
 
         {/* Center Canvas with Rich Formatting Toolbar */}
         <main
-          style={{ flex: 1, padding: '2rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+          className={styles.canvas}
           onDragOver={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -531,8 +542,8 @@ export default function NewTemplateEditorPage() {
           onDrop={(e) => handleDrop(e)}
         >
           {channel === 'sms' ? (
-            <div style={{ width: '100%', maxWidth: '480px', background: '#fff', padding: '1.5rem', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-              <label htmlFor="sms-message" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#334155' }}>SMS message</label>
+            <div className={styles.smsCard}>
+              <label htmlFor="sms-message" className={styles.smsLabel}>SMS message</label>
               <textarea
                 id="sms-message"
                 aria-label="SMS message"
@@ -540,12 +551,12 @@ export default function NewTemplateEditorPage() {
                 value={smsBody}
                 onChange={(e) => setSmsBody(e.target.value)}
                 placeholder="Write the text message. Use Dynamic Variables to personalize it."
-                style={{ width: '100%', resize: 'vertical', padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: '6px', font: 'inherit', lineHeight: 1.5 }}
+                className={styles.smsTextarea}
               />
-              <div style={{ textAlign: 'right', fontSize: '0.75rem', color: '#64748b', marginTop: '0.35rem' }}>{smsBody.length} characters</div>
-              <div style={{ marginTop: '1.25rem', padding: '1rem', background: '#f0f4f8', borderRadius: '8px' }}>
-                <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>SMS PREVIEW</p>
-                <div style={{ display: 'inline-block', maxWidth: '90%', padding: '0.75rem 1rem', background: '#fff', borderRadius: '12px', color: '#1e293b', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', boxShadow: '0 1px 2px rgba(0,0,0,0.08)' }}>
+              <div className={styles.characterCount}>{smsBody.length} characters</div>
+              <div className={styles.smsPreview}>
+                <p className={styles.smsPreviewTitle}>SMS PREVIEW</p>
+                <div className={styles.smsBubble}>
                   {smsBody || 'Your text message will appear here.'}
                 </div>
               </div>
@@ -554,7 +565,7 @@ export default function NewTemplateEditorPage() {
             <>
           {/* Modern WYSIWYG Rich Text Toolbar */}
           {!showHtmlPreview && activeBlock && (
-            <div style={{ width: '100%', maxWidth: previewMode === 'desktop' ? '650px' : '380px' }}>
+            <div className={`${styles.editorToolbarWrap} ${previewMode === 'desktop' ? styles.desktopWidth : styles.mobileWidth}`}>
               <RichEditorToolbar
                 activeBlock={activeBlock}
                 onFormat={applyFormattingToBlock}
@@ -564,16 +575,16 @@ export default function NewTemplateEditorPage() {
           )}
 
           {showHtmlPreview ? (
-            <div style={{ width: '100%', maxWidth: '650px', background: '#fff', padding: '2rem', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', overflowX: 'auto' }}>
-              <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Generated HTML Output</h3>
-              <pre style={{ background: '#1e293b', color: '#f8fafc', padding: '1rem', borderRadius: '6px', fontSize: '0.8rem', overflowX: 'auto' }}>
+            <div className={styles.htmlPreview}>
+              <h2 className={styles.htmlPreviewTitle}>Generated HTML Output</h2>
+              <pre className={styles.htmlCode}>
                 {renderDocumentToHtml(doc)}
               </pre>
             </div>
           ) : (
-            <div style={{ width: '100%', maxWidth: previewMode === 'desktop' ? '650px' : '380px', background: '#fff', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px', borderTopLeftRadius: activeBlock ? '0' : '8px', borderTopRightRadius: activeBlock ? '0' : '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', padding: '2rem', transition: 'width 0.2s ease', minHeight: '600px' }}>
+            <div className={`${styles.canvasFrame} ${previewMode === 'desktop' ? styles.desktopWidth : styles.mobileWidth} ${activeBlock ? '' : styles.canvasFrameWithoutToolbar}`}>
               {doc.subject && (
-                <div style={{ fontSize: '0.85rem', fontWeight: 500, color: '#64748b', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                <div className={styles.subjectPreview}>
                   Subject: {doc.subject}
                 </div>
               )}
@@ -587,10 +598,11 @@ export default function NewTemplateEditorPage() {
                     e.dataTransfer.dropEffect = 'copy';
                   }}
                   onDrop={(e) => handleDrop(e)}
-                  style={{ background: sec.backgroundColor || '#fff', padding: sec.padding || '1rem', borderRadius: '6px', marginBottom: '1rem', border: '2px dashed #cbd5e1', minHeight: '120px' }}
+                  className={styles.templateSection}
+                  style={getSectionStyle(sec)}
                 >
                   {sec.blocks.length === 0 ? (
-                    <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.875rem', padding: '2rem 0' }}>Drag and drop blocks here or click to add.</p>
+                    <p className={styles.emptySection}>Drag and drop blocks here or click to add.</p>
                   ) : (
                     sec.blocks.map((b) => (
                       <div
@@ -609,20 +621,13 @@ export default function NewTemplateEditorPage() {
                         }}
                         onDrop={(e) => handleDrop(e, b.id)}
                         onClick={() => setSelectedBlockId(b.id)}
-                        style={{
-                          padding: '0.75rem',
-                          marginBottom: '0.75rem',
-                          borderRadius: '6px',
-                          border: selectedBlockId === b.id ? '2px solid #2563eb' : '1px solid #e2e8f0',
-                          background: selectedBlockId === b.id ? '#eff6ff' : '#f8fafc',
-                          cursor: selectedBlockId === b.id ? 'default' : 'grab',
-                          position: 'relative',
-                        }}
+                        className={`${styles.canvasBlock} ${selectedBlockId === b.id ? styles.canvasBlockSelected : ''}`}
+                        style={getBlockStyle(b)}
                       >
                         {/* Drag Handle & Delete */}
-                        <div style={{ position: 'absolute', top: '4px', right: '4px', display: 'flex', gap: '4px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 6px', zIndex: 10, alignItems: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                          <span title="Drag to reorder" style={{ cursor: 'grab', display: 'flex', alignItems: 'center', gap: '2px', color: '#475569', fontSize: '0.75rem', fontWeight: 500 }}><GripVertical size={14} /> Drag</span>
-                          <button title="Delete" onClick={(e) => { e.stopPropagation(); deleteBlock(b.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#dc2626', display: 'flex', alignItems: 'center' }}><Trash2 size={16} /></button>
+                        <div className={styles.blockActions}>
+                          <span title="Drag to reorder" className={styles.dragHandle}><GripVertical size={14} /> Drag</span>
+                          <button type="button" title="Delete" aria-label="Delete block" onClick={(e) => { e.stopPropagation(); deleteBlock(b.id); }} className={styles.deleteBlockButton}><Trash2 size={16} /></button>
                         </div>
 
                         {b.type === 'heading' && (
@@ -634,23 +639,10 @@ export default function NewTemplateEditorPage() {
                               onBlur={(e) => updateBlockProperty(b.id, 'text', e.currentTarget.innerHTML)}
                               onClick={(e) => e.stopPropagation()}
                               dangerouslySetInnerHTML={{ __html: b.properties.text || '' }}
-                              style={{ 
-                                width: '100%', 
-                                padding: '12px', 
-                                border: 'none',
-                                borderRadius: '6px', 
-                                fontSize: b.properties.fontSize || '22px', 
-                                fontFamily: b.properties.fontFamily || 'sans-serif', 
-                                color: b.properties.color || '#1e293b', 
-                                background: 'transparent', 
-                                outline: 'none',
-                                minHeight: '60px',
-                                textAlign: b.properties.alignment || 'left',
-                                cursor: 'text'
-                              }}
+                              className={`${styles.editableBlock} ${styles.editableHeading}`}
                             />
                           ) : (
-                            <h3 style={{ color: b.properties.color || '#1e293b', textAlign: b.properties.alignment || 'left', fontFamily: b.properties.fontFamily || 'sans-serif', fontSize: b.properties.fontSize || '22px', margin: 0 }} dangerouslySetInnerHTML={{ __html: b.properties.text || '' }} />
+                            <h3 className={styles.renderedHeading} dangerouslySetInnerHTML={{ __html: b.properties.text || '' }} />
                           )
                         )}
                         {b.type === 'paragraph' && (
@@ -662,36 +654,22 @@ export default function NewTemplateEditorPage() {
                               onBlur={(e) => updateBlockProperty(b.id, 'text', e.currentTarget.innerHTML)}
                               onClick={(e) => e.stopPropagation()}
                               dangerouslySetInnerHTML={{ __html: b.properties.text || '' }}
-                              style={{ 
-                                width: '100%', 
-                                padding: '12px', 
-                                border: 'none',
-                                borderRadius: '6px', 
-                                fontSize: b.properties.fontSize || '15px', 
-                                fontFamily: b.properties.fontFamily || 'sans-serif', 
-                                color: b.properties.color || '#475569', 
-                                background: 'transparent', 
-                                outline: 'none',
-                                minHeight: '80px',
-                                lineHeight: '1.7',
-                                textAlign: b.properties.alignment || 'left',
-                                cursor: 'text'
-                              }}
+                              className={`${styles.editableBlock} ${styles.editableParagraph}`}
                             />
                           ) : (
-                            <p style={{ color: b.properties.color || '#475569', textAlign: b.properties.alignment || 'left', fontFamily: b.properties.fontFamily || 'sans-serif', fontSize: b.properties.fontSize || '15px', margin: 0, lineHeight: 1.4 }} dangerouslySetInnerHTML={{ __html: b.properties.text || '' }} />
+                            <p className={styles.renderedParagraph} dangerouslySetInnerHTML={{ __html: b.properties.text || '' }} />
                           )
                         )}
                         {b.type === 'image' && (
-                          <div style={{ textAlign: b.properties.alignment || 'center' }}>
-                            <img src={b.properties.url} alt={b.properties.alt} style={{ width: b.properties.width || '100%', maxWidth: '100%', maxHeight: '220px', borderRadius: '4px' }} />
+                          <div className={styles.blockAlignment}>
+                            <img src={b.properties.url} alt={b.properties.alt || ''} className={styles.blockImage} />
                             {selectedBlockId === b.id && (
-                              <div onClick={(e) => e.stopPropagation()} style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '4px', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.8rem' }}>
-                                <input type="text" placeholder="Image URL" value={b.properties.url || ''} onChange={(e) => updateBlockProperty(b.id, 'url', e.target.value)} style={{ padding: '0.2rem 0.4rem', border: '1px solid #cbd5e1', borderRadius: '3px' }} />
-                                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                                  <span style={{ fontSize: '0.75rem', fontWeight: 500 }}>Auto-Resize Width:</span>
+                              <div onClick={(e) => e.stopPropagation()} className={`${styles.blockInspector} ${styles.inspectorColumn}`}>
+                                <input type="text" aria-label="Image URL" placeholder="Image URL" value={b.properties.url || ''} onChange={(e) => updateBlockProperty(b.id, 'url', e.target.value)} className={styles.input} />
+                                <div className={styles.inspectorRow}>
+                                  <span className={styles.sizeLabel}>Auto-Resize Width:</span>
                                   {(['25%', '50%', '75%', '100%'] as const).map((w) => (
-                                    <button key={w} onClick={() => updateBlockProperty(b.id, 'width', w)} style={{ padding: '1px 6px', background: b.properties.width === w ? '#2563eb' : '#fff', color: b.properties.width === w ? '#fff' : '#334155', border: '1px solid #cbd5e1', borderRadius: '3px', fontSize: '0.7rem', cursor: 'pointer' }}>{w}</button>
+                                    <button type="button" key={w} onClick={() => updateBlockProperty(b.id, 'width', w)} className={`${styles.sizeButton} ${b.properties.width === w ? styles.sizeButtonSelected : ''}`} aria-pressed={b.properties.width === w}>{w}</button>
                                   ))}
                                 </div>
                               </div>
@@ -699,31 +677,31 @@ export default function NewTemplateEditorPage() {
                           </div>
                         )}
                         {b.type === 'logo' && (
-                          <div style={{ textAlign: b.properties.alignment || 'center' }}>
-                            <img src={b.properties.url} alt="Logo" style={{ width: b.properties.width || '120px', maxWidth: '100%' }} />
+                          <div className={styles.blockAlignment}>
+                            <img src={b.properties.url} alt="Logo" className={styles.logoImage} />
                             {selectedBlockId === b.id && (
-                              <div onClick={(e) => e.stopPropagation()} style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '4px', display: 'flex', gap: '4px', alignItems: 'center', fontSize: '0.8rem' }}>
-                                <input type="text" placeholder="Logo URL" value={b.properties.url || ''} onChange={(e) => updateBlockProperty(b.id, 'url', e.target.value)} style={{ flex: 1, padding: '0.2rem 0.4rem', border: '1px solid #cbd5e1', borderRadius: '3px' }} />
+                              <div onClick={(e) => e.stopPropagation()} className={styles.blockInspector}>
+                                <input type="text" aria-label="Logo URL" placeholder="Logo URL" value={b.properties.url || ''} onChange={(e) => updateBlockProperty(b.id, 'url', e.target.value)} className={styles.input} />
                               </div>
                             )}
                           </div>
                         )}
                         {b.type === 'button' && (
-                          <div style={{ textAlign: b.properties.alignment || 'center' }}>
-                            <span style={{ background: b.properties.backgroundColor || '#2563eb', color: b.properties.color || '#fff', padding: '0.5rem 1rem', borderRadius: '4px', display: 'inline-block', fontWeight: 500, fontSize: '0.85rem' }}>
+                          <div className={styles.blockAlignment}>
+                            <span className={styles.buttonPreview}>
                               {b.properties.text}
                             </span>
                             {selectedBlockId === b.id && (
-                              <div onClick={(e) => e.stopPropagation()} style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '4px', display: 'flex', gap: '4px', fontSize: '0.8rem' }}>
-                                <input type="text" placeholder="Button Text" value={b.properties.text || ''} onChange={(e) => updateBlockProperty(b.id, 'text', e.target.value)} style={{ flex: 1, padding: '0.2rem 0.4rem', border: '1px solid #cbd5e1', borderRadius: '3px' }} />
-                                <input type="text" placeholder="URL" value={b.properties.url || ''} onChange={(e) => updateBlockProperty(b.id, 'url', e.target.value)} style={{ flex: 1, padding: '0.2rem 0.4rem', border: '1px solid #cbd5e1', borderRadius: '3px' }} />
+                              <div onClick={(e) => e.stopPropagation()} className={styles.blockInspector}>
+                                <input type="text" aria-label="Button text" placeholder="Button Text" value={b.properties.text || ''} onChange={(e) => updateBlockProperty(b.id, 'text', e.target.value)} className={styles.input} />
+                                <input type="text" aria-label="Button URL" placeholder="URL" value={b.properties.url || ''} onChange={(e) => updateBlockProperty(b.id, 'url', e.target.value)} className={styles.input} />
                               </div>
                             )}
                           </div>
                         )}
-                        {b.type === 'divider' && <hr style={{ border: 'none', borderTop: '1px solid #cbd5e1', margin: '0.5rem 0' }} />}
+                        {b.type === 'divider' && <hr className={styles.divider} />}
                         {b.type === 'spacer' && (
-                          <div style={{ height: b.properties.height || '20px', background: '#f1f5f9', border: '1px dashed #cbd5e1', textAlign: 'center', fontSize: '10px', color: '#94a3b8' }}>
+                          <div className={styles.spacerBlock}>
                             Spacer: {b.properties.height || '20px'}
                           </div>
                         )}
@@ -736,23 +714,10 @@ export default function NewTemplateEditorPage() {
                               onBlur={(e) => updateBlockProperty(b.id, 'text', e.currentTarget.innerHTML)}
                               onClick={(e) => e.stopPropagation()}
                               dangerouslySetInnerHTML={{ __html: b.properties.text || '' }}
-                              style={{ 
-                                width: '100%', 
-                                padding: '12px', 
-                                border: 'none',
-                                borderRadius: '6px', 
-                                fontSize: '12px', 
-                                fontFamily: b.properties.fontFamily || 'sans-serif', 
-                                color: '#94a3b8', 
-                                background: 'transparent', 
-                                outline: 'none',
-                                minHeight: '60px',
-                                textAlign: 'center',
-                                cursor: 'text'
-                              }}
+                              className={`${styles.editableBlock} ${styles.editableFooter}`}
                             />
                           ) : (
-                            <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center', fontFamily: b.properties.fontFamily || 'sans-serif' }} dangerouslySetInnerHTML={{ __html: b.properties.text || '' }} />
+                            <div className={styles.renderedFooter} dangerouslySetInnerHTML={{ __html: b.properties.text || '' }} />
                           )
                         )}
                       </div>

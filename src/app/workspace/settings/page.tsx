@@ -48,6 +48,7 @@ interface PracticeData {
     customerKeyHint: string;
     lastPatientSyncedAt: string | null;
     lastApptSyncedAt: string | null;
+    lastRecallSyncedAt: string | null;
   };
 }
 
@@ -85,6 +86,7 @@ export default function SettingsPage() {
   const [savingCommunicationSettings, setSavingCommunicationSettings] = useState(false);
   const [syncingPatients, setSyncingPatients] = useState(false);
   const [syncingAppts, setSyncingAppts] = useState(false);
+  const [syncingRecalls, setSyncingRecalls] = useState(false);
 
   // Practice form state
   const [practice, setPractice] = useState<PracticeData | null>(null);
@@ -344,6 +346,29 @@ export default function SettingsPage() {
       showToast(msg, 'error');
     } finally {
       setSyncingAppts(false);
+    }
+  };
+
+  const handleSyncRecalls = async () => {
+    if (!practiceId) return;
+    setSyncingRecalls(true);
+    try {
+      const res = await fetch(`/api/practices/${practiceId}/sync-recalls`, { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || 'Recall synchronization failed');
+      }
+      const skippedCount = Number(json.data.skippedCount ?? 0);
+      showToast(
+        `Synchronized ${json.data.count} Open Dental recalls${skippedCount ? `; skipped ${skippedCount} unavailable records` : ''}.`,
+        skippedCount ? 'info' : 'success',
+      );
+      fetchPracticeData(practiceId);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Recall sync failed';
+      showToast(msg, 'error');
+    } finally {
+      setSyncingRecalls(false);
     }
   };
 
@@ -630,19 +655,18 @@ export default function SettingsPage() {
                     </div>
                   </FormField>
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                      <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+                  <div className={styles.practiceIdFooter}>
+                    <div className={styles.practiceIdInfo}>
+                      <span className={styles.metaLabel}>
                         Practice UUID:
                       </span>
-                      <code style={{ fontSize: 'var(--font-size-xs)', backgroundColor: 'var(--color-background)', padding: '0.2rem 0.5rem', borderRadius: 'var(--radius-sm)' }}>
+                      <code className={styles.practiceIdValue}>
                         {practiceId}
                       </code>
                       <button
                         type="button"
                         onClick={copyPracticeId}
-                        className={styles.btnSecondary}
-                        style={{ padding: '0.25rem 0.5rem', fontSize: 'var(--font-size-xs)' }}
+                        className={`${styles.btnSecondary} ${styles.compactButton}`}
                         aria-label="Copy practice ID"
                       >
                         {copiedId ? <Check size={14} /> : <Copy size={14} />}
@@ -754,7 +778,7 @@ export default function SettingsPage() {
                         <th className={styles.th}>Member</th>
                         <th className={styles.th}>Practice Role</th>
                         <th className={styles.th}>Joined</th>
-                        <th className={styles.th} style={{ textAlign: 'right' }}>Actions</th>
+                        <th className={`${styles.th} ${styles.textRight}`}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -780,11 +804,11 @@ export default function SettingsPage() {
                               {renderRoleBadge(m.role)}
                             </td>
                             <td className={styles.td}>
-                              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+                              <span className={styles.tableMeta}>
                                 {new Date(m.joinedAt).toLocaleDateString()}
                               </span>
                             </td>
-                            <td className={styles.td} style={{ textAlign: 'right' }}>
+                            <td className={`${styles.td} ${styles.textRight}`}>
                               {isCurrentUser ? (
                                 <span className={styles.currentUserBadge}>Current User</span>
                               ) : canRemove ? (
@@ -798,7 +822,7 @@ export default function SettingsPage() {
                                   <span>Remove</span>
                                 </button>
                               ) : (
-                                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>—</span>
+                                <span className={styles.tableMeta}>—</span>
                               )}
                             </td>
                           </tr>
@@ -838,18 +862,18 @@ export default function SettingsPage() {
                 </div>
 
                 {!(practice.userRole?.toLowerCase() === 'owner' || practice.userRole?.toLowerCase() === 'system-admin') && (
-                  <div style={{ padding: 'var(--space-4)', backgroundColor: 'rgb(217 119 6 / 0.1)', border: '1px solid rgb(217 119 6 / 0.25)', borderRadius: 'var(--radius-md)', color: 'var(--color-warning)', fontSize: 'var(--font-size-sm)' }}>
+                  <div className={styles.warningBanner}>
                     Open Dental integration credentials and synchronization actions are restricted to practice owners.
                   </div>
                 )}
 
                 {/* Sync status cards */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-4)' }}>
-                  <div style={{ padding: 'var(--space-4)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', backgroundColor: '#f8fafc' }}>
-                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', fontWeight: 'var(--font-weight-medium)' }}>
+                <div className={styles.syncStatusGrid}>
+                  <div className={styles.syncStatusCard}>
+                    <span className={styles.syncStatusLabel}>
                       PATIENT SYNC STATUS
                     </span>
-                    <p style={{ margin: 'var(--space-1) 0 var(--space-3)', fontSize: 'var(--font-size-sm)', color: 'var(--color-text)', fontWeight: 'var(--font-weight-semibold)' }}>
+                    <p className={styles.syncStatusTimestamp}>
                       {practice.credentials.lastPatientSyncedAt
                         ? new Date(practice.credentials.lastPatientSyncedAt).toLocaleString()
                         : 'Never synced'}
@@ -858,19 +882,18 @@ export default function SettingsPage() {
                       type="button"
                       disabled={syncingPatients || !(practice.userRole?.toLowerCase() === 'owner' || practice.userRole?.toLowerCase() === 'system-admin')}
                       onClick={handleSyncPatients}
-                      className={styles.btnSecondary}
-                      style={{ width: '100%' }}
+                      className={`${styles.btnSecondary} ${styles.fullWidthButton}`}
                     >
                       <RefreshCw size={14} className={syncingPatients ? 'animate-spin' : ''} />
                       <span>{syncingPatients ? 'Syncing...' : 'Sync Patients Now'}</span>
                     </button>
                   </div>
 
-                  <div style={{ padding: 'var(--space-4)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', backgroundColor: '#f8fafc' }}>
-                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', fontWeight: 'var(--font-weight-medium)' }}>
+                  <div className={styles.syncStatusCard}>
+                    <span className={styles.syncStatusLabel}>
                       APPOINTMENT SYNC STATUS
                     </span>
-                    <p style={{ margin: 'var(--space-1) 0 var(--space-3)', fontSize: 'var(--font-size-sm)', color: 'var(--color-text)', fontWeight: 'var(--font-weight-semibold)' }}>
+                    <p className={styles.syncStatusTimestamp}>
                       {practice.credentials.lastApptSyncedAt
                         ? new Date(practice.credentials.lastApptSyncedAt).toLocaleString()
                         : 'Never synced'}
@@ -879,27 +902,43 @@ export default function SettingsPage() {
                       type="button"
                       disabled={syncingAppts || !(practice.userRole?.toLowerCase() === 'owner' || practice.userRole?.toLowerCase() === 'system-admin')}
                       onClick={handleSyncAppts}
-                      className={styles.btnSecondary}
-                      style={{ width: '100%' }}
+                      className={`${styles.btnSecondary} ${styles.fullWidthButton}`}
                     >
                       <RefreshCw size={14} className={syncingAppts ? 'animate-spin' : ''} />
                       <span>{syncingAppts ? 'Syncing...' : 'Sync Appointments Now'}</span>
+                    </button>
+                  </div>
+
+                  <div className={styles.syncStatusCard}>
+                    <span className={styles.syncStatusLabel}>RECALL SYNC STATUS</span>
+                    <p className={styles.syncStatusTimestamp}>
+                      {practice.credentials.lastRecallSyncedAt
+                        ? new Date(practice.credentials.lastRecallSyncedAt).toLocaleString()
+                        : 'Never synced'}
+                    </p>
+                    <button
+                      type="button"
+                      disabled={syncingRecalls || !(practice.userRole?.toLowerCase() === 'owner' || practice.userRole?.toLowerCase() === 'system-admin')}
+                      onClick={handleSyncRecalls}
+                      className={`${styles.btnSecondary} ${styles.fullWidthButton}`}
+                    >
+                      <RefreshCw size={14} className={syncingRecalls ? 'animate-spin' : ''} />
+                      <span>{syncingRecalls ? 'Syncing...' : 'Sync Recall Data Now'}</span>
                     </button>
                   </div>
                 </div>
 
                 {/* API Credentials form */}
                 {(practice.userRole?.toLowerCase() === 'owner' || practice.userRole?.toLowerCase() === 'system-admin') && (
-                  <form onSubmit={handleSaveCredentials} className={styles.section} style={{ marginTop: 'var(--space-2)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-text)', margin: 0 }}>
+                  <form onSubmit={handleSaveCredentials} className={`${styles.section} ${styles.credentialsForm}`}>
+                    <div className={styles.credentialsHeader}>
+                      <h3 className={styles.credentialsTitle}>
                         API Credentials (ODFHIR)
                       </h3>
                       <button
                         type="button"
                         onClick={() => setShowKeys(!showKeys)}
-                        className={styles.btnSecondary}
-                        style={{ fontSize: 'var(--font-size-xs)', padding: '0.25rem 0.6rem' }}
+                        className={`${styles.btnSecondary} ${styles.compactButton}`}
                       >
                         {showKeys ? <EyeOff size={14} /> : <Eye size={14} />}
                         <span>{showKeys ? 'Hide Inputs' : 'Enter New Keys'}</span>
@@ -907,10 +946,10 @@ export default function SettingsPage() {
                     </div>
 
                     {practice.credentials.configured && !showKeys && (
-                      <div style={{ padding: 'var(--space-3) var(--space-4)', backgroundColor: 'var(--color-background)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)' }}>
-                        Developer Key: <code style={{ color: 'var(--color-text)' }}>{practice.credentials.developerKeyHint}</code>
+                      <div className={styles.credentialsHint}>
+                        Developer Key: <code className={styles.credentialsHintValue}>{practice.credentials.developerKeyHint}</code>
                         {' · '}
-                        Customer Key: <code style={{ color: 'var(--color-text)' }}>{practice.credentials.customerKeyHint}</code>
+                        Customer Key: <code className={styles.credentialsHintValue}>{practice.credentials.customerKeyHint}</code>
                       </div>
                     )}
 
@@ -949,7 +988,7 @@ export default function SettingsPage() {
                     )}
 
                     {showKeys && (
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-3)' }}>
+                      <div className={styles.credentialsActions}>
                         <button
                           type="button"
                           onClick={() => setShowKeys(false)}
@@ -1056,7 +1095,7 @@ export default function SettingsPage() {
                 </div>
               </FormField>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
+              <div className={styles.modalActions}>
                 <button
                   type="button"
                   onClick={() => setIsInviteModalOpen(false)}

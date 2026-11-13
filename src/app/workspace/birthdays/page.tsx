@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import {
   Cake,
@@ -19,7 +19,9 @@ import {
   Users,
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
+import StatCard from '@/components/ui/StatCard/StatCard';
 import TemplatePickerDialog from '@/components/feature/TemplatePicker/TemplatePickerDialog';
+import GroupAudienceSelector, { type GroupOption } from '@/components/feature/GroupAudienceSelector/GroupAudienceSelector';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
 import styles from './Birthdays.module.css';
 
@@ -55,7 +57,7 @@ interface BirthdayCampaign {
   daysBefore: number;
   localDeliveryTime: string;
   offerText: string | null;
-  eligibilityRules: { minimumAge?: number; maximumAge?: number };
+  eligibilityRules: { minimumAge?: number; maximumAge?: number; groupIds?: string[] };
   enabled: boolean;
   templateName: string | null;
   templateStatus: string | null;
@@ -118,6 +120,7 @@ interface BirthdayCampaignDraft {
   offerText: string;
   minimumAge: string;
   maximumAge: string;
+  groupIds: string[];
   enabled: boolean;
 }
 
@@ -130,6 +133,7 @@ const EMPTY_DRAFT: BirthdayCampaignDraft = {
   offerText: '',
   minimumAge: '',
   maximumAge: '',
+  groupIds: [],
   enabled: false,
 };
 
@@ -201,6 +205,9 @@ export default function BirthdaysPage() {
   const [practiceId, setPracticeId] = useState('');
   const [dashboard, setDashboard] = useState<BirthdayDashboard | null>(null);
   const [templates, setTemplates] = useState<BirthdayTemplate[]>([]);
+  const [groupOptions, setGroupOptions] = useState<GroupOption[]>([]);
+  const [groupOptionsLoading, setGroupOptionsLoading] = useState(true);
+  const [groupOptionsError, setGroupOptionsError] = useState('');
   const [range, setRange] = useState<BirthdayRange>('next7');
   const [calendarMonth, setCalendarMonth] = useState('');
   const [tab, setTab] = useState<Tab>('overview');
@@ -218,6 +225,7 @@ export default function BirthdaysPage() {
   const editorRef = useRef<HTMLElement>(null);
   const previewDialogRef = useRef<HTMLElement>(null);
   const previewRequestIdRef = useRef(0);
+  const groupOptionsRequestIdRef = useRef(0);
 
   const clearPreview = useCallback(() => {
     previewRequestIdRef.current += 1;
@@ -349,6 +357,36 @@ export default function BirthdaysPage() {
     return () => { active = false; };
   }, [practiceId, showToast]);
 
+  const loadGroupOptions = useCallback(async (selectedPracticeId: string) => {
+    const requestId = ++groupOptionsRequestIdRef.current;
+    setGroupOptionsLoading(true);
+    setGroupOptionsError('');
+    try {
+      const response = await fetch(`/api/groups/options?practiceId=${encodeURIComponent(selectedPracticeId)}`);
+      const body = await response.json() as ApiResponse<GroupOption[]>;
+      const error = responseError(response, body, 'Failed to load active patient groups');
+      if (error || !body.data) throw new Error(error || 'Patient groups are unavailable');
+      if (requestId === groupOptionsRequestIdRef.current) setGroupOptions(body.data);
+    } catch (error) {
+      if (requestId === groupOptionsRequestIdRef.current) {
+        setGroupOptionsError(error instanceof Error ? error.message : 'Failed to load active patient groups');
+      }
+    } finally {
+      if (requestId === groupOptionsRequestIdRef.current) setGroupOptionsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (practiceId) {
+      void loadGroupOptions(practiceId);
+      return;
+    }
+    groupOptionsRequestIdRef.current++;
+    setGroupOptions([]);
+    setGroupOptionsError('');
+    setGroupOptionsLoading(false);
+  }, [loadGroupOptions, practiceId]);
+
   const filteredTemplates = useMemo(
     () => templates.filter((template) => template.channel === draft.channel),
     [draft.channel, templates]
@@ -409,6 +447,7 @@ export default function BirthdaysPage() {
       offerText: campaign.offerText ?? '',
       minimumAge: campaign.eligibilityRules.minimumAge?.toString() ?? '',
       maximumAge: campaign.eligibilityRules.maximumAge?.toString() ?? '',
+      groupIds: campaign.eligibilityRules.groupIds ?? [],
       enabled: campaign.enabled,
     });
     setEditingCampaignId(campaign.id);
@@ -420,6 +459,14 @@ export default function BirthdaysPage() {
     event.preventDefault();
     if (!practiceId || !draft.templateId) {
       showToast('Choose a birthday template before saving', 'error');
+      return;
+    }
+    if (
+      groupOptionsLoading ||
+      groupOptionsError ||
+      draft.groupIds.some((groupId) => !groupOptions.some((group) => group.id === groupId))
+    ) {
+      showToast('Resolve unavailable patient groups before saving', 'error');
       return;
     }
     setSaving(true);
@@ -440,6 +487,7 @@ export default function BirthdaysPage() {
             eligibilityRules: {
               ...(draft.minimumAge !== '' ? { minimumAge: Number(draft.minimumAge) } : {}),
               ...(draft.maximumAge !== '' ? { maximumAge: Number(draft.maximumAge) } : {}),
+              groupIds: draft.groupIds,
             },
             enabled: draft.enabled,
           }),
@@ -539,6 +587,9 @@ export default function BirthdaysPage() {
   }
 
   const selectedTemplate = templates.find((template) => template.id === draft.templateId);
+  const hasUnavailableGroup = draft.groupIds.some(
+    (groupId) => !groupOptions.some((group) => group.id === groupId)
+  );
   const calendarEvents = dashboard?.birthdays ?? [];
   const [calendarYear, calendarMonthNumber] = calendarMonth.split('-').map(Number);
   const daysInCalendarMonth = calendarMonth ? new Date(Date.UTC(calendarYear, calendarMonthNumber, 0)).getUTCDate() : 0;
@@ -573,12 +624,12 @@ export default function BirthdaysPage() {
         </div>
       ) : (
         <>
-          <div className={styles.metricGrid}>
-            <MetricCard icon={<Cake />} label="Today" value={dashboard?.metrics.today} />
-            <MetricCard icon={<Clock3 />} label="Tomorrow" value={dashboard?.metrics.tomorrow} />
-            <MetricCard icon={<Users />} label="Next 7 days" value={dashboard?.metrics.next7Days} />
-            <MetricCard icon={<CalendarDays />} label="This month" value={dashboard?.metrics.thisMonth} />
-          </div>
+          <section className={styles.metricGrid} aria-label="Birthday metrics">
+            <StatCard icon={<Cake size={20} aria-hidden="true" />} label="Today" value={dashboard?.metrics.today ?? '—'} />
+            <StatCard icon={<Clock3 size={20} aria-hidden="true" />} label="Tomorrow" value={dashboard?.metrics.tomorrow ?? '—'} />
+            <StatCard icon={<Users size={20} aria-hidden="true" />} label="Next 7 days" value={dashboard?.metrics.next7Days ?? '—'} />
+            <StatCard icon={<CalendarDays size={20} aria-hidden="true" />} label="This month" value={dashboard?.metrics.thisMonth ?? '—'} />
+          </section>
 
           <div className={styles.toolbar}>
             <div className={styles.tabs} role="tablist" aria-label="Birthday engagement views">
@@ -734,7 +785,10 @@ export default function BirthdaysPage() {
                             <h3>{campaign.name}</h3>
                             <p>
                               {campaign.channel === 'sms' ? 'SMS' : 'Email'} · {campaign.templateName ?? 'Template unavailable'} ·
-                              {' '}{campaign.daysBefore === 0 ? 'On birthday' : `${campaign.daysBefore} days before`} at {campaign.localDeliveryTime}
+                              {' '}{campaign.daysBefore === 0 ? 'On birthday' : `${campaign.daysBefore} days before`} at {campaign.localDeliveryTime} ·
+                              {' '}{campaign.eligibilityRules.groupIds?.length
+                                ? `${campaign.eligibilityRules.groupIds.length} patient group${campaign.eligibilityRules.groupIds.length === 1 ? '' : 's'}`
+                                : 'All eligible patients'}
                             </p>
                           </div>
                           <span className={campaign.enabled ? styles.enabledBadge : styles.disabledBadge}>
@@ -779,10 +833,14 @@ export default function BirthdaysPage() {
                     </div>
                   </div>
                   <div className={styles.reportGrid}>
-                    <ReportCard icon={<Send />} label="Sent" value={dashboard.report.sent ?? 0} />
-                    <ReportCard icon={<Clock3 />} label="Pending / processing" value={(dashboard.report.pending ?? 0) + (dashboard.report.processing ?? 0)} />
-                    <ReportCard icon={<MessageSquareText />} label="Skipped" value={dashboard.report.skipped ?? 0} />
-                    <ReportCard icon={<Mail />} label="Failed" value={dashboard.report.failed ?? 0} />
+                    <StatCard icon={<Send size={20} aria-hidden="true" />} label="Sent" value={dashboard.report.sent ?? 0} />
+                    <StatCard
+                      icon={<Clock3 size={20} aria-hidden="true" />}
+                      label="Pending / processing"
+                      value={(dashboard.report.pending ?? 0) + (dashboard.report.processing ?? 0)}
+                    />
+                    <StatCard icon={<MessageSquareText size={20} aria-hidden="true" />} label="Skipped" value={dashboard.report.skipped ?? 0} />
+                    <StatCard icon={<Mail size={20} aria-hidden="true" />} label="Failed" value={dashboard.report.failed ?? 0} />
                   </div>
                   <p className={styles.notice}>Provider delivery receipts are not currently integrated, so a sent message is not a confirmed delivery.</p>
                 </>
@@ -888,6 +946,16 @@ export default function BirthdaysPage() {
                   </label>
                 </div>
               </fieldset>
+              <GroupAudienceSelector
+                groups={groupOptions}
+                selectedGroupIds={draft.groupIds}
+                onChange={(groupIds) => setDraft((current) => ({ ...current, groupIds }))}
+                loading={groupOptionsLoading}
+                error={groupOptionsError}
+                onRetry={() => {
+                  if (practiceId) void loadGroupOptions(practiceId);
+                }}
+              />
               <label className={styles.enableControl}>
                 <input type="checkbox" checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })} />
                 <span>
@@ -906,7 +974,11 @@ export default function BirthdaysPage() {
                 </button>
                 <span className={styles.actionSpacer} />
                 <button type="button" className={styles.secondaryButton} onClick={closeCampaignEditor}>Cancel</button>
-                <button type="submit" className={styles.primaryButton} disabled={saving || !draft.templateId}>
+                <button
+                  type="submit"
+                  className={styles.primaryButton}
+                  disabled={saving || !draft.templateId || groupOptionsLoading || Boolean(groupOptionsError) || hasUnavailableGroup}
+                >
                   {saving ? 'Saving…' : 'Save campaign'}
                 </button>
               </div>
@@ -960,28 +1032,6 @@ export default function BirthdaysPage() {
         </div>
       )}
     </div>
-  );
-}
-
-function MetricCard({ icon, label, value }: { icon: ReactNode; label: string; value?: number }) {
-  return (
-    <article className={styles.metricCard}>
-      <span className={styles.metricIcon}>{icon}</span>
-      <div>
-        <span className={styles.metricLabel}>{label}</span>
-        <strong className={styles.metricValue}>{value ?? '—'}</strong>
-      </div>
-    </article>
-  );
-}
-
-function ReportCard({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
-  return (
-    <article className={styles.reportCard}>
-      <span className={styles.metricIcon}>{icon}</span>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </article>
   );
 }
 

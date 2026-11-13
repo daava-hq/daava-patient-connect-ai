@@ -27,6 +27,7 @@ import { AppError } from '@/lib/errors';
 
 const practiceId = 'c2bc15a1-926b-42f8-b9f7-ecb2a1e8e1ae';
 const templateId = 'c52d0f0d-e50a-4da9-85da-f7c10a184e88';
+const groupId = '5f5297c3-1d15-4858-9d3e-80691372da91';
 
 describe('/api/birthdays/campaigns', () => {
   afterEach(() => {
@@ -46,6 +47,7 @@ describe('/api/birthdays/campaigns', () => {
         templateId,
         daysBefore: 0,
         localDeliveryTime: '09:00',
+        eligibilityRules: { groupIds: [groupId] },
         enabled: true,
       }),
     }));
@@ -74,9 +76,39 @@ describe('/api/birthdays/campaigns', () => {
     expect(mocks.createBirthdayCampaign).toHaveBeenCalledWith(
       practiceId,
       'admin-id',
-      expect.objectContaining({ enabled: false })
+      expect.objectContaining({
+        enabled: false,
+        eligibilityRules: {},
+      })
     );
     expect(body.data.enabled).toBe(false);
+  });
+
+  it('passes selected groups through birthday campaign validation', async () => {
+    mocks.getServerSession.mockResolvedValue({ user: { id: 'admin-id' } });
+    mocks.requirePracticeAdmin.mockResolvedValue({ practiceId, role: 'admin' });
+    mocks.createBirthdayCampaign.mockResolvedValue({ id: 'campaign-id', enabled: false });
+
+    const response = await POST(new NextRequest('http://localhost/api/birthdays/campaigns', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        practiceId,
+        name: 'Birthday greetings',
+        channel: 'sms',
+        templateId,
+        daysBefore: 0,
+        localDeliveryTime: '09:00',
+        eligibilityRules: { groupIds: [groupId] },
+      }),
+    }));
+
+    expect(response.status).toBe(201);
+    expect(mocks.createBirthdayCampaign).toHaveBeenCalledWith(
+      practiceId,
+      'admin-id',
+      expect.objectContaining({ eligibilityRules: { groupIds: [groupId] } })
+    );
   });
 
   it('validates campaign channel and time before creating configuration', async () => {

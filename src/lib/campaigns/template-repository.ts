@@ -4,7 +4,7 @@ import { messageTemplates, MessageTemplate, NewMessageTemplate } from '@/db/sche
 import { eq, and, isNull } from 'drizzle-orm';
 import { NotFoundError } from '@/lib/errors';
 
-const VARIABLE_PATTERN = /\{\{(\w+)\}\}/g;
+const VARIABLE_PATTERN = /\{\{([\w.]+)\}\}/g;
 
 export async function getPracticeTemplates(practiceId: string, channel?: 'sms' | 'email') {
   const conditions = [eq(messageTemplates.practiceId, practiceId), isNull(messageTemplates.deletedAt)];

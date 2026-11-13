@@ -1,0 +1,11 @@
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--space-6);
+  margin-bottom: var(--space-8);
+}
+
+.activityText {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}

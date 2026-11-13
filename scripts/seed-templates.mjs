@@ -12,6 +12,7 @@ const sql = postgres(process.env.DATABASE_URL);
 
 async function main() {
   console.log('Seeding template categories and block-based sample system templates...');
+  const recallOnly = process.argv.includes('--recall-only');
 
   const categories = [
     { slug: 'appointment-reminders', name: 'Appointment Reminders', sort_order: 1 },
@@ -25,7 +26,7 @@ async function main() {
     { slug: 'connect', name: 'Connect / Two-Way Texting', sort_order: 9 },
   ];
 
-  for (const cat of categories) {
+  for (const cat of categories.filter((category) => !recallOnly || category.slug === 'recall')) {
     await sql`
       INSERT INTO template_categories (slug, name, sort_order)
       VALUES (${cat.slug}, ${cat.name}, ${cat.sort_order})
@@ -407,6 +408,30 @@ async function main() {
       version: 1
     },
     {
+      category_slug: 'recall',
+      name: 'Preventive Care Recall SMS',
+      description: 'Concise text reminder for a patient with a due preventive recall',
+      template_type: 'sms',
+      channel: 'sms',
+      content: JSON.stringify({
+        version: 1,
+        sections: [{
+          id: 'recall-sms',
+          blocks: [{
+            id: 'recall-sms-message',
+            type: 'paragraph',
+            properties: {
+              text: 'Hi {{patient.firstName}}, your preventive care at {{practice.name}} is due on {{recall.dueDate}}. Call {{practice.phone}} to schedule.',
+            },
+          }],
+        }],
+      }),
+      variables: JSON.stringify(['patient.firstName', 'practice.name', 'recall.dueDate', 'practice.phone']),
+      status: 'published',
+      is_system: true,
+      version: 1
+    },
+    {
       category_slug: 'referrals',
       name: 'Patient Referral Program Invitation',
       description: 'Inviting patients to refer friends and family',
@@ -482,6 +507,7 @@ async function main() {
   const confirmationOnly = process.argv.includes('--appointment-confirmation-only');
   for (const s of samples) {
     if (confirmationOnly && s.name !== '24-Hour Appointment Reminder (EMAIL)') continue;
+    if (recallOnly && (s.category_slug !== 'recall' || s.name !== 'Preventive Care Recall SMS')) continue;
     const category_id = catMap.get(s.category_slug);
     if (category_id) {
       const [existing] = await sql`

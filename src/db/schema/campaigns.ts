@@ -1,6 +1,7 @@
 import { pgTable, uuid, text, timestamp, jsonb } from 'drizzle-orm/pg-core';
 import { practices } from './practices';
 import { messageTemplates } from './message_templates';
+import { templates } from './templates';
 
 /**
  * Campaign states:
@@ -47,6 +48,7 @@ export type AudienceFilter = {
   appointmentAfter?: string;
   appointmentBefore?: string;
   patientIds?: string[];
+  destinationChannel?: 'sms' | 'email';
 };
 
 export const campaigns = pgTable('campaigns', {
@@ -59,6 +61,7 @@ export const campaigns = pgTable('campaigns', {
   channel: text('channel').notNull(), // 'sms' | 'email'
   status: text('status').notNull().default('draft'),
   templateId: uuid('template_id').references(() => messageTemplates.id, { onDelete: 'set null' }),
+  sourceTemplateId: uuid('source_template_id').references(() => templates.id, { onDelete: 'set null' }),
   audienceFilter: jsonb('audience_filter').$type<AudienceFilter>().notNull().default({}),
   scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
   startedAt: timestamp('started_at', { withTimezone: true }),

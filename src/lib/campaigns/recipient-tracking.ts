@@ -184,11 +184,8 @@ export async function getCampaignRecipientHistory(campaignId: string, limit = 10
   return db
     .select({
       recipientId: campaignRecipients.id,
-      patientId: campaignRecipients.patientId,
       status: campaignRecipients.status,
       retryCount: campaignRecipients.retryCount,
-      providerMessageId: campaignRecipients.providerMessageId,
-      lastErrorMessage: campaignRecipients.lastErrorMessage,
       updatedAt: campaignRecipients.updatedAt,
     })
     .from(campaignRecipients)

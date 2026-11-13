@@ -149,9 +149,10 @@ destination subscribed to the SNS topic configured by
 unsubscribe headers additionally require an SES contact list/topic and the two
 optional `AWS_SES_*` contact-list settings. See [newsletter setup](./newsletters.md).
 
-Run `pnpm seed:templates` after migrations to load the six starter newsletter
-templates. Binary image uploads are not configured; use HTTPS-hosted images
-until managed media storage is selected.
+Run `pnpm seed:templates` after migrations to load starter system templates.
+To add only the published SMS Recall starter to an existing local/dev library,
+run `pnpm seed:templates -- --recall-only`. Binary image uploads are not
+configured; use HTTPS-hosted images until managed media storage is selected.
 
 ### Appointment reminder scheduler
 

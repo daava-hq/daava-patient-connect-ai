@@ -11,6 +11,7 @@ export const practiceOpendentalCredentials = pgTable('practice_opendental_creden
   customerKeyEnc: text('customer_key_enc').notNull(),
   lastPatientSyncedAt: timestamp('last_patient_synced_at', { withTimezone: true }),
   lastApptSyncedAt: timestamp('last_appt_synced_at', { withTimezone: true }),
+  lastRecallSyncedAt: timestamp('last_recall_synced_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });

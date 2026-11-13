@@ -1,12 +1,68 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
+import EmptyState from '@/components/feedback/EmptyState/EmptyState';
+import ErrorState from '@/components/feedback/ErrorState/ErrorState';
+import LoadingState from '@/components/feedback/LoadingState/LoadingState';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
-import { FileText, Plus, Search, X, Image as ImageIcon, Eye, Edit3, Copy, Trash2 } from 'lucide-react';
+import StatusBadge from '@/components/ui/StatusBadge/StatusBadge';
+import { FileText, Plus, Search, X, Eye, Edit3, Copy, Trash2 } from 'lucide-react';
 import EmailMessagePreview from '@/components/feature/EmailMessagePreview/EmailMessagePreview';
-import { extractTemplateBody, renderDocumentToHtml } from '@/lib/templates/document-schema';
+import {
+  CanvasBlock,
+  CanvasSection,
+  extractTemplateBody,
+  renderDocumentToHtml,
+  TemplateDocument,
+} from '@/lib/templates/document-schema';
+import styles from './TemplatesLibraryPage.module.css';
+
+interface TemplateCategoryData {
+  id: string;
+  slug: string;
+  name: string;
+}
+
+interface TemplateContent extends Record<string, unknown> {
+  body?: string;
+  subject?: string;
+  title?: string;
+  description?: string;
+  questions?: Array<{ text: string }>;
+  version?: number;
+  sections?: CanvasSection[];
+  blocks?: CanvasBlock[];
+}
+
+interface TemplateListItem {
+  id: string;
+  categoryId: string;
+  name: string;
+  description?: string | null;
+  channel: string;
+  isSystem: boolean;
+  content?: TemplateContent | null;
+}
+
+interface TemplatesApiResponse {
+  data?: {
+    categories?: TemplateCategoryData[];
+    templates?: TemplateListItem[];
+  };
+  error?: string;
+}
+
+interface PracticesApiResponse {
+  data?: Array<{ id?: unknown }>;
+  error?: string;
+}
+
+interface CloneApiResponse {
+  data?: { id?: string };
+  error?: string;
+}
 
 const previewSampleVars: Record<string, string> = {
   'patient.firstName': 'Jane',
@@ -27,85 +83,148 @@ export default function TemplatesLibraryPage() {
   const router = useRouter();
   const { showToast } = useToast();
   const [practiceId, setPracticeId] = useState<string>('');
-  const [categories, setCategories] = useState<any[]>([]);
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [categories, setCategories] = useState<TemplateCategoryData[]>([]);
+  const [templates, setTemplates] = useState<TemplateListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [cloningTemplateId, setCloningTemplateId] = useState<string | null>(null);
 
-  // Preview modal state
-  const [previewTemplate, setPreviewTemplate] = useState<any | null>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<TemplateListItem | null>(null);
+  const previewDialogRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    async function init() {
-      let pId = localStorage.getItem('selectedClinicId');
-      if (!pId) {
-        try {
-          const res = await fetch('/api/practices');
-          const json = await res.json();
-          const firstPracticeId: unknown = json.data?.[0]?.id;
-          if (res.ok && typeof firstPracticeId === 'string') {
-            pId = firstPracticeId;
-            localStorage.setItem('selectedClinicId', firstPracticeId);
-          }
-        } catch {
-          // ignore
-        }
+    if (!previewTemplate) return;
+
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])';
+    const dialog = previewDialogRef.current;
+    const focusable = dialog
+      ? Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector))
+      : [];
+    focusable[0]?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setPreviewTemplate(null);
+        return;
       }
-      if (pId) {
-        setPracticeId(pId);
-        fetchTemplates(pId, undefined, new URLSearchParams(window.location.search).get('category') ?? undefined);
-      } else {
-        setLoading(false);
+      if (event.key !== 'Tab' || !focusable.length) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     }
-    init();
-  }, []);
 
-  async function fetchTemplates(pId: string, catId?: string, categorySlug?: string) {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      previousFocus?.focus();
+    };
+  }, [previewTemplate]);
+
+  const fetchTemplates = useCallback(async (pId: string, categoryId?: string, categorySlug?: string) => {
+    if (!pId) return;
+    setLoading(true);
+    setLoadError('');
     try {
-      let url = `/api/templates?practiceId=${pId}`;
-      if (catId) url += `&categoryId=${catId}`;
-      const res = await fetch(url);
-      const json = await res.json();
-      if (res.ok) {
-        setCategories(json.data.categories || []);
-        if (categorySlug && !catId) {
-          const category = json.data.categories?.find((item: { slug: string; id: string }) => item.slug === categorySlug);
-          if (category) {
-            setSelectedCategory(category.id);
-            await fetchTemplates(pId, category.id);
-            return;
-          }
-        }
-        setSelectedCategory(catId ?? '');
-        setTemplates(json.data.templates || []);
-      } else {
-        showToast(json.error || 'Failed to load templates', 'error');
-      }
-    } catch {
-      showToast('Failed to load templates', 'error');
+      const params = new URLSearchParams({ practiceId: pId });
+      if (categoryId) params.set('categoryId', categoryId);
+      const res = await fetch(`/api/templates?${params}`);
+      const json: TemplatesApiResponse = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to load templates.');
+
+      const nextCategories = json.data?.categories ?? [];
+      const nextTemplates = json.data?.templates ?? [];
+      const categoryFromSlug = categorySlug
+        ? nextCategories.find((category) => category.slug === categorySlug)
+        : undefined;
+      const resolvedCategoryId = categoryId ?? categoryFromSlug?.id ?? '';
+      setCategories(nextCategories);
+      setSelectedCategory(resolvedCategoryId);
+      setTemplates(
+        categoryFromSlug && !categoryId
+          ? nextTemplates.filter((template) => template.categoryId === categoryFromSlug.id)
+          : nextTemplates,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load templates.';
+      setLoadError(message);
+      showToast(message, 'error');
     } finally {
       setLoading(false);
     }
-  }
+  }, [showToast]);
+
+  useEffect(() => {
+    async function initialize() {
+      setLoading(true);
+      setLoadError('');
+      try {
+        let currentPracticeId = localStorage.getItem('selectedClinicId') || '';
+        if (!currentPracticeId) {
+          const res = await fetch('/api/practices');
+          const json: PracticesApiResponse = await res.json();
+          if (!res.ok) throw new Error(json.error || 'Failed to load practices.');
+
+          const firstPracticeId = json.data?.[0]?.id;
+          if (typeof firstPracticeId === 'string') {
+            currentPracticeId = firstPracticeId;
+            localStorage.setItem('selectedClinicId', firstPracticeId);
+          }
+        }
+
+        if (!currentPracticeId) {
+          setPracticeId('');
+          setCategories([]);
+          setTemplates([]);
+          setLoading(false);
+          return;
+        }
+
+        setPracticeId(currentPracticeId);
+        const categorySlug = new URLSearchParams(window.location.search).get('category') ?? undefined;
+        await fetchTemplates(currentPracticeId, undefined, categorySlug);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to initialize templates.';
+        setLoadError(message);
+        showToast(message, 'error');
+        setLoading(false);
+      }
+    }
+
+    void initialize();
+  }, [fetchTemplates, retryAttempt, showToast]);
 
   async function handleCloneTemplate(templateId: string) {
+    setCloningTemplateId(templateId);
     try {
       const res = await fetch(`/api/templates/${templateId}/clone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ practiceId }),
       });
-      const json = await res.json();
+      const json: CloneApiResponse = await res.json();
       if (res.ok) {
+        if (!json.data?.id) throw new Error('Template was cloned without returning its ID.');
         showToast('Template cloned successfully', 'success');
         router.push(`/workspace/templates/${json.data.id}/edit`);
       } else {
         showToast(json.error || 'Failed to clone template', 'error');
       }
-    } catch {
-      showToast('Failed to clone template', 'error');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Failed to clone template', 'error');
+    } finally {
+      setCloningTemplateId(null);
     }
   }
 
@@ -118,21 +237,22 @@ export default function TemplatesLibraryPage() {
       const res = await fetch(`/api/templates/${templateId}?practiceId=${practiceId}`, {
         method: 'DELETE',
       });
-      const json = await res.json();
+      const json: { error?: string } = await res.json();
       if (res.ok) {
         showToast('Template deleted successfully', 'success');
         fetchTemplates(practiceId, selectedCategory);
       } else {
         showToast(json.error || 'Failed to delete template', 'error');
       }
-    } catch {
-      showToast('Failed to delete template', 'error');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Failed to delete template', 'error');
     }
   }
 
-  function getInterpolatedContent(t: any, forCard = false) {
-    if (t.content?.body) {
-      let text = t.content.body;
+  function getInterpolatedContent(template: TemplateListItem, forCard = false) {
+    const content = template.content;
+    if (typeof content?.body === 'string') {
+      let text = content.body;
       for (const [k, v] of Object.entries(previewSampleVars)) {
         text = text.replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'g'), v);
       }
@@ -141,22 +261,18 @@ export default function TemplatesLibraryPage() {
       return `<div style="padding: ${pad}; font-family: sans-serif; color: #1e293b; line-height: 1.5; background: #fff; font-size: ${size};">${text}</div>`;
     }
 
-    if (Array.isArray(t.content?.sections) || Array.isArray(t.content?.blocks)) {
-      const sourceSections = Array.isArray(t.content.sections)
-        ? t.content.sections
-        : [{ id: 'preview-section', blocks: t.content.blocks }];
-      const document = {
-        ...t.content,
-        sections: sourceSections.map((section: any, sectionIndex: number) => ({
+    if (content?.sections || content?.blocks) {
+      const sourceSections = content.sections ?? [{ id: 'preview-section', blocks: content.blocks ?? [] }];
+      const document: TemplateDocument = {
+        version: content.version ?? 1,
+        subject: content.subject,
+        sections: sourceSections.map((section, sectionIndex) => ({
           ...section,
           id: section.id || `preview-section-${sectionIndex}`,
-          blocks: (Array.isArray(section.blocks) ? section.blocks : []).map((block: any, blockIndex: number) => ({
+          blocks: section.blocks.map((block, blockIndex) => ({
             ...block,
             id: block.id || `preview-block-${sectionIndex}-${blockIndex}`,
-            properties: {
-              ...block,
-              ...(block.properties && typeof block.properties === 'object' ? block.properties : {}),
-            },
+            properties: { ...block.properties },
           })),
         })),
       };
@@ -170,13 +286,13 @@ export default function TemplatesLibraryPage() {
       return html;
     }
 
-    if (t.content?.questions) {
+    if (content?.questions) {
       const pad = forCard ? '0.75rem' : '1.5rem';
       const size = forCard ? '0.75rem' : '1rem';
       let html = `<div style="padding: ${pad}; font-family: sans-serif; background: #fff; font-size: ${size};">`;
-      html += `<h4 style="color: #1e293b; margin-bottom: 0.25rem;">${t.content.title || t.name}</h4>`;
-      html += `<p style="color: #64748b; margin-bottom: 0.75rem;">${t.content.description || ''}</p>`;
-      for (const q of t.content.questions.slice(0, 2)) {
+      html += `<h4 style="color: #1e293b; margin-bottom: 0.25rem;">${content.title || template.name}</h4>`;
+      html += `<p style="color: #64748b; margin-bottom: 0.75rem;">${content.description || ''}</p>`;
+      for (const q of content.questions.slice(0, 2)) {
         html += `<div style="margin-bottom: 0.5rem; padding: 0.5rem; background: #f8fafc; border-radius: 4px;"><div style="font-weight: 500; color: #334155;">${q.text}</div></div>`;
       }
       html += `</div>`;
@@ -186,172 +302,239 @@ export default function TemplatesLibraryPage() {
     return '<div style="padding: 1rem; color: #64748b; background: #fff;">No preview available</div>';
   }
 
-  function getInterpolatedText(t: any) {
-    let text = extractTemplateBody(t.content || {});
+  function getInterpolatedText(template: TemplateListItem) {
+    let text = extractTemplateBody(template.content ?? {});
     for (const [key, value] of Object.entries(previewSampleVars)) {
       text = text.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g'), value);
     }
     return text;
   }
 
-  const filteredTemplates = templates.filter((t) =>
-    t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (t.description && t.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  const searchTerm = searchQuery.trim().toLocaleLowerCase();
+  const filteredTemplates = templates.filter((template) =>
+    template.name.toLocaleLowerCase().includes(searchTerm) ||
+    (template.description && template.description.toLocaleLowerCase().includes(searchTerm))
   );
 
   return (
-    <div style={{ padding: '2rem' }}>
+    <div className={styles.page}>
       <PageHeader
         title="Centralized Templates Library"
-        description="Browse, clone, and manage modern system and practice templates with live visual previews across all 9 engagement categories."
+        description="Browse, clone, and manage system and practice templates across all nine engagement categories."
         actions={
           <button
+            type="button"
+            className={styles.primaryButton}
             onClick={() => router.push('/workspace/templates/new')}
-            style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '6px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
           >
-            <Plus size={18} /> New Template (Visual Builder)
+            <Plus size={18} aria-hidden="true" />
+            New Template
           </button>
         }
       />
 
-      <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: '280px', position: 'relative' }}>
-          <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-          <input
-            type="text"
-            placeholder="Search templates across all categories..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ width: '100%', padding: '0.6rem 0.6rem 0.6rem 2.5rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
-          />
+      {practiceId && (
+        <div className={styles.filters}>
+          <label className={styles.searchField} htmlFor="template-search">
+            <Search size={18} aria-hidden="true" />
+            <span className={styles.visuallyHidden}>Search templates</span>
+            <input
+              id="template-search"
+              type="search"
+              placeholder="Search templates across all categories..."
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+          </label>
+          <label className={styles.categoryField} htmlFor="template-category">
+            <span>Category</span>
+            <select
+              id="template-category"
+              value={selectedCategory}
+              onChange={(event) => {
+                setSelectedCategory(event.target.value);
+                void fetchTemplates(practiceId, event.target.value);
+              }}
+            >
+              <option value="">All Categories</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>{category.name}</option>
+              ))}
+            </select>
+          </label>
         </div>
-        <div>
-          <select
-            value={selectedCategory}
-            onChange={(e) => {
-              setSelectedCategory(e.target.value);
-              fetchTemplates(practiceId, e.target.value);
-            }}
-            style={{ padding: '0.6rem 1rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem', background: '#fff' }}
-          >
-            <option value="">All Categories (9)</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+      )}
 
       {loading ? (
-        <p>Loading templates library...</p>
+        <LoadingState text="Loading templates library..." />
+      ) : loadError ? (
+        <ErrorState
+          title="Templates could not be loaded"
+          message={loadError}
+          onRetry={() => setRetryAttempt((current) => current + 1)}
+        />
+      ) : !practiceId ? (
+        <EmptyState
+          title="No practice is available"
+          description="Select a practice with template access to browse the library."
+          icon={<FileText size={32} />}
+        />
       ) : filteredTemplates.length === 0 ? (
-        <div style={{ background: '#fff', padding: '4rem 2rem', borderRadius: '8px', textAlign: 'center', color: '#64748b', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <FileText size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-          <h3>No templates found</h3>
-          <p>Try adjusting your search or category filter, or create a new template.</p>
-        </div>
+        <EmptyState
+          title="No templates found"
+          description={
+            templates.length > 0
+              ? 'Try adjusting your search or category filter.'
+              : 'Create a practice template or check back after system templates are configured.'
+          }
+          icon={<FileText size={32} />}
+          action={
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => router.push('/workspace/templates/new')}
+            >
+              <Plus size={16} aria-hidden="true" />
+              Create template
+            </button>
+          }
+        />
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
-          {filteredTemplates.map((t) => (
-            <div key={t.id} style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', transition: 'transform 0.15s ease' }}>
-              {/* Top: Direct Visual Preview Frame with Tags */}
+        <div className={styles.templateGrid}>
+          {filteredTemplates.map((template) => (
+            <article key={template.id} className={styles.templateCard}>
               <div
-                style={{ width: '100%', height: '170px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', position: 'relative', overflow: 'hidden', cursor: 'pointer' }}
-                onClick={() => setPreviewTemplate(t)}
+                className={styles.cardPreview}
+                role="button"
+                tabIndex={0}
+                aria-label={`Preview ${template.name}`}
+                onClick={() => setPreviewTemplate(template)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setPreviewTemplate(template);
+                  }
+                }}
               >
                 <EmailMessagePreview
-                  html={getInterpolatedContent(t, true)}
-                  style={{ height: '170px', minHeight: 0, border: 0, borderRadius: 0, pointerEvents: 'none' }}
+                  html={getInterpolatedContent(template, true)}
+                  className={styles.cardPreviewFrame}
                 />
-                {/* Tags: Top Left */}
-                <div style={{ position: 'absolute', top: '8px', left: '8px', display: 'flex', gap: '0.4rem', flexDirection: 'column', alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#1e293b', textTransform: 'uppercase', background: '#fff', padding: '0.25rem 0.6rem', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                    {t.channel}
-                  </span>
-                  {t.isSystem && (
-                    <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#2563eb', textTransform: 'uppercase', background: '#dbeafe', padding: '0.25rem 0.6rem', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                      System Template
-                    </span>
+                <div className={styles.previewTags}>
+                  <StatusBadge status="default">{template.channel}</StatusBadge>
+                  {template.isSystem && (
+                    <StatusBadge status="info">System Template</StatusBadge>
                   )}
                 </div>
-                {/* Preview Hint: Bottom Right */}
-                <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(0,0,0,0.75)', color: '#fff', padding: '0.25rem 0.6rem', borderRadius: '4px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 500 }}>
-                  <Eye size={12} /> Click to preview
-                </div>
+                <span className={styles.previewHint}>
+                  <Eye size={12} aria-hidden="true" />
+                  Preview
+                </span>
               </div>
 
-              {/* Middle: Title, Description */}
-              <div style={{ padding: '1.25rem 1.5rem', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div className={styles.templateDetails}>
                 <div>
-                  <h4 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#1e293b', marginBottom: '0.35rem' }}>{t.name}</h4>
-                  <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem', lineHeight: '1.4' }}>{t.description || 'No description provided.'}</p>
+                  <h2 className={styles.templateName}>{template.name}</h2>
+                  <p className={styles.templateDescription}>
+                    {template.description || 'No description provided.'}
+                  </p>
                 </div>
-
-                {/* Bottom: Action Buttons Only */}
-                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                  {t.isSystem ? (
+                <div className={styles.templateActions}>
+                  {template.isSystem ? (
                     <button
-                      onClick={() => handleCloneTemplate(t.id)}
-                      style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '0.4rem 0.85rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                      type="button"
+                      className={styles.primaryButton}
+                      disabled={cloningTemplateId !== null}
+                      onClick={() => void handleCloneTemplate(template.id)}
                     >
-                      <Copy size={14} /> Clone
+                      <Copy size={14} aria-hidden="true" />
+                      {cloningTemplateId === template.id ? 'Cloning...' : 'Clone'}
                     </button>
                   ) : (
                     <>
                       <button
-                        onClick={() => router.push(`/workspace/templates/${t.id}/edit`)}
-                        style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '0.4rem 0.85rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                        type="button"
+                        className={styles.editButton}
+                        onClick={() => router.push(`/workspace/templates/${template.id}/edit`)}
                       >
-                        <Edit3 size={14} /> Edit
+                        <Edit3 size={14} aria-hidden="true" />
+                        Edit
                       </button>
                       <button
-                        onClick={() => handleDeleteTemplate(t.id, t.name)}
-                        style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '0.4rem 0.85rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                        type="button"
+                        className={styles.deleteButton}
+                        onClick={() => void handleDeleteTemplate(template.id, template.name)}
                       >
-                        <Trash2 size={14} /> Delete
+                        <Trash2 size={14} aria-hidden="true" />
+                        Delete
                       </button>
                     </>
                   )}
                 </div>
               </div>
-            </div>
+            </article>
           ))}
         </div>
       )}
 
-      {/* Template preview modal */}
       {previewTemplate && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
-          <div style={{ background: '#f1f5f9', borderRadius: '12px', width: '100%', maxWidth: '720px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)' }}>
-            <div style={{ background: '#1e293b', color: '#fff', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTopLeftRadius: '12px', borderTopRightRadius: '12px' }}>
+        <div
+          className={styles.previewBackdrop}
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setPreviewTemplate(null);
+          }}
+        >
+          <section
+            ref={previewDialogRef}
+            className={styles.previewDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="template-preview-title"
+            tabIndex={-1}
+          >
+            <header className={styles.previewHeader}>
               <div>
-                <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>{previewTemplate.channel === 'sms' ? 'SMS Preview' : 'Email Preview'}: {previewTemplate.name}</h3>
-                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{previewTemplate.channel === 'sms' ? 'Text message preview with sample data' : 'Simulated Email Client View with Sample Data'}</span>
+                <h2 id="template-preview-title" className={styles.previewTitle}>
+                  {previewTemplate.channel === 'sms' ? 'SMS Preview' : 'Email Preview'}: {previewTemplate.name}
+                </h2>
+                <p className={styles.previewSubtitle}>
+                  {previewTemplate.channel === 'sms'
+                    ? 'Text message preview with sample data'
+                    : 'Email preview with sample data'}
+                </p>
               </div>
-              <button onClick={() => setPreviewTemplate(null)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}><X size={20} /></button>
-            </div>
-            <div style={{ padding: '1.5rem' }}>
+              <button
+                type="button"
+                className={styles.closeButton}
+                onClick={() => setPreviewTemplate(null)}
+                aria-label="Close template preview"
+              >
+                <X size={20} aria-hidden="true" />
+              </button>
+            </header>
+            <div className={styles.previewBody}>
               {previewTemplate.channel === 'sms' ? (
-                <div style={{ maxWidth: '480px', padding: '1rem', background: '#e2e8f0', borderRadius: '12px' }}>
-                  <div style={{ display: 'inline-block', padding: '0.75rem 1rem', background: '#fff', borderRadius: '12px', color: '#1e293b', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', boxShadow: '0 1px 2px rgba(0,0,0,0.08)' }}>
+                <div className={styles.smsPreview}>
+                  <div className={styles.smsMessage}>
                     {getInterpolatedText(previewTemplate) || 'No message content available.'}
                   </div>
                 </div>
               ) : (
                 <>
-                  <div style={{ background: '#fff', padding: '1rem 1.25rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid #e2e8f0', fontSize: '0.875rem' }}>
-                    <div style={{ marginBottom: '0.4rem', color: '#64748b' }}><strong>From:</strong> Smile Dental Care &lt;notifications@smiledental.com&gt;</div>
-                    <div style={{ marginBottom: '0.4rem', color: '#64748b' }}><strong>To:</strong> Jane Doe &lt;jane@example.com&gt;</div>
-                    <div style={{ color: '#0f172a' }}><strong>Subject:</strong> {previewTemplate.content?.subject || previewTemplate.name}</div>
+                  <div className={styles.emailDetails}>
+                    <p><strong>From:</strong> Smile Dental Care &lt;notifications@smiledental.com&gt;</p>
+                    <p><strong>To:</strong> Jane Doe &lt;jane@example.com&gt;</p>
+                    <p><strong>Subject:</strong> {previewTemplate.content?.subject || previewTemplate.name}</p>
                   </div>
                   <EmailMessagePreview
-                    html={getInterpolatedContent(previewTemplate, false)}
-                    style={{ height: 'min(60vh, 640px)', minHeight: '360px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+                    html={getInterpolatedContent(previewTemplate)}
+                    className={styles.modalPreviewFrame}
                   />
                 </>
               )}
             </div>
-          </div>
+          </section>
         </div>
       )}
     </div>

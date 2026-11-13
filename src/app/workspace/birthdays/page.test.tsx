@@ -32,14 +32,21 @@ function createFetchMock(
   campaigns: Array<Record<string, unknown>> = [],
   previewResult?: { subject: string; body: string; unresolved: string[] },
   scheduledMessages: Array<Record<string, unknown>> = [],
+  groupOptions: Array<{ id: string; name: string; groupType: 'static' | 'dynamic' }> = [],
 ) {
-  return vi.fn(async (input: RequestInfo | URL) => {
+  return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.startsWith('/api/birthdays?')) {
       return Response.json({ data: { ...dashboard, campaigns, scheduledMessages } });
     }
+    if (url.startsWith('/api/groups/options?')) {
+      return Response.json({ data: groupOptions });
+    }
     if (url.startsWith('/api/birthdays/campaigns?')) {
       return Response.json({ data: { templates } });
+    }
+    if (url === '/api/birthdays/campaigns' && init?.method === 'POST') {
+      return Response.json({ data: { id: 'new-campaign', enabled: false } }, { status: 201 });
     }
     if (url === '/api/birthdays/preview' && previewResult) {
       return Response.json({ data: previewResult });
@@ -72,6 +79,9 @@ describe('BirthdaysPage range selection', () => {
     );
 
     await screen.findByText('Upcoming birthdays');
+    const metrics = screen.getByRole('region', { name: 'Birthday metrics' });
+    expect(within(metrics).getByText('Today')).toBeDefined();
+    expect(within(metrics).getByText('Next 7 days')).toBeDefined();
     const rangeSelect = screen.getByLabelText('Show') as HTMLSelectElement;
     expect(rangeSelect.value).toBe('next7');
     expect(screen.getByRole('tab', { name: 'Calendar' })).toBeDefined();
@@ -209,6 +219,35 @@ describe('BirthdaysPage range selection', () => {
     expect(await screen.findByText('Birthday email')).toBeDefined();
     expect(screen.queryByRole('dialog', { name: 'Birthday templates' })).toBeNull();
     expect((screen.getByRole('button', { name: 'Save campaign' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('saves the selected reusable group audience with the campaign', async () => {
+    fetchMock = createFetchMock([birthdayEmailTemplate], [], undefined, [], [
+      { id: 'group-1', name: 'New patients', groupType: 'static' },
+    ]);
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <ToastProvider>
+        <BirthdaysPage />
+      </ToastProvider>,
+    );
+
+    await screen.findByText('Upcoming birthdays');
+    fireEvent.click(screen.getByRole('button', { name: 'New campaign' }));
+    fireEvent.change(screen.getByLabelText('Campaign name'), { target: { value: 'Group birthday campaign' } });
+    fireEvent.change(screen.getByLabelText('Channel'), { target: { value: 'email' } });
+    fireEvent.click(await screen.findByRole('checkbox', { name: /New patients/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Choose template' }));
+    const picker = await screen.findByRole('dialog', { name: 'Birthday templates' });
+    fireEvent.click(within(picker).getByRole('button', { name: 'Select' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save campaign' }));
+
+    await waitFor(() => {
+      const request = fetchMock.mock.calls.find(([input]) => String(input) === '/api/birthdays/campaigns');
+      expect(request).toBeDefined();
+      const payload = JSON.parse(String(request?.[1]?.body));
+      expect(payload.eligibilityRules.groupIds).toEqual(['group-1']);
+    });
   });
 
   it('lets campaign editors replace a template without closing the editor', async () => {

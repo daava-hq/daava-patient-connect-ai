@@ -1,7 +1,7 @@
 import 'server-only';
 import { db } from '@/db';
 import { campaignJobRuns } from '@/db/schema/campaign_job_runs';
-import { eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, lte, sql } from 'drizzle-orm';
 import { getCampaignById, transitionCampaign, materializeRecipients } from '@/lib/campaigns/campaign-service';
 import {
   getPendingRecipients,
@@ -18,9 +18,11 @@ import {
 import { getAdapter } from '@/lib/messaging/stub-adapter';
 import { logInfo, logError } from '@/lib/logger';
 import { practices } from '@/db/schema/practices';
-import { isValidEmailAddress } from '@/lib/campaigns/audience-service';
+import { isValidEmailAddress, resolveAudience } from '@/lib/campaigns/audience-service';
 import { AppError } from '@/lib/errors';
 import { isPracticeChannelEnabled } from '@/lib/messaging/practice-channel-settings';
+import { ensureRecallAudienceGroups } from '@/lib/groups/group-repository';
+import { opendentalRecalls } from '@/db/schema/opendental_recalls';
 
 export const DISPATCH_BATCH_SIZE = 50;
 
@@ -74,6 +76,10 @@ export async function runCampaignDispatch(
     await transitionCampaign(practiceId, campaignId, 'processing');
     claimedProcessing = true;
 
+    if (campaign.type === 'recall') {
+      await ensureRecallAudienceGroups(practiceId, campaign.audienceFilter.groupIds ?? []);
+    }
+
     // 2. Materialize recipients: idempotent, safe to call on retry
     const newlyAdded = await materializeRecipients(practiceId, campaignId);
     logInfo('Campaign recipients materialized', { campaignId, newlyAdded });
@@ -88,6 +94,7 @@ export async function runCampaignDispatch(
       email: practices.email,
       address: practices.address,
       website: practices.website,
+      timezone: practices.timezone,
     }).from(practices).where(eq(practices.id, practiceId)).limit(1);
 
     // 4. Get messaging adapter
@@ -106,7 +113,56 @@ export async function runCampaignDispatch(
         break;
       }
 
+      let eligibleRecallPatientIds: Set<string> | null = null;
+      const recallDueDateByPatient = new Map<string, string>();
+      if (campaign.type === 'recall') {
+        const currentlyEligible = await resolveAudience(practiceId, {
+          ...campaign.audienceFilter,
+          patientIds: batch.map((recipient) => recipient.patientId),
+        });
+        eligibleRecallPatientIds = new Set(currentlyEligible.map((patient) => patient.id));
+
+        const practiceToday = new Intl.DateTimeFormat('en-CA', {
+          timeZone: practice?.timezone ?? 'UTC',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(new Date());
+        const dueRecalls = eligibleRecallPatientIds.size
+          ? await db.select({
+              patientId: opendentalRecalls.patientId,
+              dueDate: opendentalRecalls.dueDate,
+            }).from(opendentalRecalls).where(and(
+              eq(opendentalRecalls.practiceId, practiceId),
+              inArray(opendentalRecalls.patientId, [...eligibleRecallPatientIds]),
+              eq(opendentalRecalls.isDisabled, false),
+              isNotNull(opendentalRecalls.dueDate),
+              lte(opendentalRecalls.dueDate, practiceToday),
+            )).orderBy(asc(opendentalRecalls.dueDate))
+          : [];
+        for (const recall of dueRecalls) {
+          if (recall.dueDate && !recallDueDateByPatient.has(recall.patientId)) {
+            recallDueDateByPatient.set(recall.patientId, new Intl.DateTimeFormat('en-US', {
+              dateStyle: 'long',
+              timeZone: 'UTC',
+            }).format(new Date(`${recall.dueDate}T00:00:00.000Z`)));
+          }
+        }
+      }
+
       for (const recipient of batch) {
+        if (eligibleRecallPatientIds && !eligibleRecallPatientIds.has(recipient.patientId)) {
+          await markRecipientSkipped(recipient.id, 'recall_audience_changed');
+          totalSkipped++;
+          continue;
+        }
+        const recallDueDate = recallDueDateByPatient.get(recipient.patientId);
+        if (campaign.type === 'recall' && !recallDueDate) {
+          await markRecipientSkipped(recipient.id, 'recall_no_longer_due');
+          totalSkipped++;
+          continue;
+        }
+
         if (recipient.patientStatus !== 'Patient') {
           await markRecipientSkipped(recipient.id, 'inactive_patient');
           totalSkipped++;
@@ -124,10 +180,9 @@ export async function runCampaignDispatch(
         }
 
         // Determine destination address
-        const destination =
-          campaign.channel === 'sms'
-            ? recipient.phoneMobile || recipient.phoneHome
-            : recipient.email;
+        const destination = campaign.channel === 'sms'
+          ? recipient.phoneMobile?.trim() || recipient.phoneHome?.trim()
+          : recipient.email?.trim();
 
         if (!destination || (campaign.channel === 'email' && !isValidEmailAddress(destination))) {
           await markRecipientSkipped(recipient.id, 'no_destination');
@@ -154,23 +209,26 @@ export async function runCampaignDispatch(
           'practice.address': practice?.address ?? '',
           'practice.website': practice?.website ?? '',
           'campaign.name': campaign.name,
+          'recall.dueDate': recallDueDate ?? '',
         };
-        const usesStructuredEmailContent = campaign.type === 'newsletter' || campaign.type === 'group_announcement';
+        const usesStructuredEmailContent = campaign.type === 'newsletter' ||
+          campaign.type === 'group_announcement' ||
+          (campaign.type === 'recall' && campaign.channel === 'email');
+        const interpolationVariables = campaign.type === 'recall'
+          ? newsletterVariables
+          : {
+              first_name: recipient.firstName,
+              practice_name: practice?.name ?? '',
+            };
         const body = template
           ? usesStructuredEmailContent
             ? replaceNewsletterVariables(template.body, newsletterVariables)
-            : interpolateTemplate(template.body, {
-                first_name: recipient.firstName,
-                practice_name: practice?.name ?? '',
-              }).rendered
+            : interpolateTemplate(template.body, interpolationVariables).rendered
           : '';
         const subject = template?.subject
           ? usesStructuredEmailContent
             ? replaceNewsletterVariables(template.subject, newsletterVariables)
-            : interpolateTemplate(template.subject, {
-                first_name: recipient.firstName,
-                practice_name: practice?.name ?? '',
-              }).rendered
+            : interpolateTemplate(template.subject, interpolationVariables).rendered
           : undefined;
         const html = usesStructuredEmailContent && template?.htmlBody
           ? interpolateNewsletterHtml(template.htmlBody, newsletterVariables)

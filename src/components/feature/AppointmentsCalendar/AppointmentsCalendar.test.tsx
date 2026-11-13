@@ -79,8 +79,15 @@ describe('AppointmentsCalendar', () => {
     expect(localStorage.getItem('selectedClinicId')).toBe('c2bc15a1-926b-42f8-b9f7-ecb2a1e8e1ae');
   });
 
-  it('renders the two scheduled sample appointments for a selected sample day', async () => {
+  it('renders appointments returned for the next available day', async () => {
     localStorage.setItem('selectedClinicId', 'c2bc15a1-926b-42f8-b9f7-ecb2a1e8e1ae');
+    const nextDate = new Date();
+    nextDate.setDate(nextDate.getDate() + 1);
+    const nextDateString = [
+      nextDate.getFullYear(),
+      String(nextDate.getMonth() + 1).padStart(2, '0'),
+      String(nextDate.getDate()).padStart(2, '0'),
+    ].join('-');
     const appointments = [
       { patientName: 'Clark, William', time: '09:00:00', appointmentId: 7801, patientId: 8901 },
       { patientName: 'Jenkins, Sarah', time: '10:00:00', appointmentId: 7802, patientId: 8902 },
@@ -94,7 +101,7 @@ describe('AppointmentsCalendar', () => {
           json: () => Promise.resolve({
             data: [],
             columns: [],
-            nextAppointmentDate: '2026-11-13',
+            nextAppointmentDate: nextDateString,
           }),
         })
         .mockResolvedValueOnce({
@@ -104,7 +111,7 @@ describe('AppointmentsCalendar', () => {
             data: appointments.map(({ patientName, time, appointmentId, patientId }) => ({
               AptNum: appointmentId,
               PatNum: patientId,
-              AptDateTime: `2026-11-13 ${time}`,
+              AptDateTime: `${nextDateString} ${time}`,
               Op: 3,
               AptStatus: 'Scheduled',
               patientName,
@@ -291,5 +298,23 @@ describe('AppointmentsCalendar', () => {
     // Mouse leave hides the popover
     fireEvent.mouseLeave(card);
     expect(screen.queryByText('Production: $0.00')).toBeNull();
+  });
+
+  it('renders a fetch error once in an accessible alert', async () => {
+    localStorage.setItem('selectedClinicId', 'c2bc15a1-926b-42f8-b9f7-ecb2a1e8e1ae');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ error: 'Schedule service unavailable' }),
+      })
+    );
+
+    render(<AppointmentsCalendar />);
+
+    const alerts = await screen.findAllByRole('alert');
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0].textContent).toContain('Schedule service unavailable');
   });
 });

@@ -1,84 +1,158 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { Users2 } from 'lucide-react';
+import DataTable from '@/components/ui/DataTable/DataTable';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
-import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
-import { Users2, Plus } from 'lucide-react';
+import StatusBadge from '@/components/ui/StatusBadge/StatusBadge';
+import EmptyState from '@/components/feedback/EmptyState/EmptyState';
+import ErrorState from '@/components/feedback/ErrorState/ErrorState';
+import LoadingState from '@/components/feedback/LoadingState/LoadingState';
+import styles from './ReferralsPage.module.css';
+
+interface ReferralRecord {
+  id: string;
+  patientId: string;
+  patientName: string;
+  referredTo: string;
+  referrerName: string | null;
+  status: string;
+  createdAt: string;
+}
+
+interface ApiResponse<T> {
+  data?: T;
+  error?: string;
+}
+
+type StatusVariant = 'success' | 'warning' | 'error' | 'info' | 'default';
+
+function getStatusVariant(status: string): StatusVariant {
+  switch (status.toLowerCase()) {
+    case 'completed':
+      return 'success';
+    case 'consulted':
+      return 'info';
+    case 'pending':
+      return 'warning';
+    case 'declined':
+      return 'error';
+    default:
+      return 'default';
+  }
+}
 
 export default function ReferralsPage() {
-  const { showToast } = useToast();
-  const [practiceId, setPracticeId] = useState<string>('');
-  const [referrals, setReferrals] = useState<any[]>([]);
+  const [practiceId, setPracticeId] = useState<string | null>(null);
+  const [referrals, setReferrals] = useState<ReferralRecord[]>([]);
+  const [referralsPracticeId, setReferralsPracticeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadVersion, setReloadVersion] = useState(0);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('selectedClinicId');
-    if (saved) {
-      setPracticeId(saved);
-      fetchReferrals(saved);
-    } else {
-      setLoading(false);
+  const fetchReferrals = useCallback(async (selectedPracticeId: string, signal: AbortSignal) => {
+    setLoading(true);
+    setLoadError('');
+
+    try {
+      const searchParams = new URLSearchParams({ practiceId: selectedPracticeId });
+      const response = await fetch(`/api/referrals?${searchParams.toString()}`, { signal });
+      const body = await response.json() as ApiResponse<ReferralRecord[]>;
+      if (!response.ok) throw new Error(body.error || 'Failed to load referrals');
+      if (!Array.isArray(body.data)) throw new Error('Referral data is unavailable.');
+      if (signal.aborted) return;
+      setReferrals(body.data);
+      setReferralsPracticeId(selectedPracticeId);
+    } catch (error) {
+      if (signal.aborted) return;
+      setLoadError(error instanceof Error ? error.message : 'Failed to load referrals');
+    } finally {
+      if (!signal.aborted) setLoading(false);
     }
   }, []);
 
-  async function fetchReferrals(pId: string) {
-    try {
-      const res = await fetch(`/api/referrals?practiceId=${pId}`);
-      const json = await res.json();
-      if (res.ok) setReferrals(json.data || []);
-      else showToast(json.error || 'Failed to load referrals', 'error');
-    } catch {
-      showToast('Failed to load referrals', 'error');
-    } finally {
+  useEffect(() => {
+    const syncPractice = () => setPracticeId(localStorage.getItem('selectedClinicId') || '');
+    syncPractice();
+    window.addEventListener('practiceChanged', syncPractice);
+    window.addEventListener('storage', syncPractice);
+    return () => {
+      window.removeEventListener('practiceChanged', syncPractice);
+      window.removeEventListener('storage', syncPractice);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (practiceId === null) return;
+    if (!practiceId) {
+      setReferrals([]);
+      setReferralsPracticeId('');
+      setLoadError('');
       setLoading(false);
+      return;
     }
-  }
+
+    const controller = new AbortController();
+    void fetchReferrals(practiceId, controller.signal);
+    return () => controller.abort();
+  }, [fetchReferrals, practiceId, reloadVersion]);
+
+  const columns = [
+    {
+      header: 'Patient Name',
+      accessorKey: (referral: ReferralRecord) => <strong className={styles.patientName}>{referral.patientName}</strong>,
+    },
+    { header: 'Referred To', accessorKey: (referral: ReferralRecord) => referral.referredTo },
+    { header: 'Referrer', accessorKey: (referral: ReferralRecord) => referral.referrerName || '—' },
+    {
+      header: 'Status',
+      accessorKey: (referral: ReferralRecord) => (
+        <StatusBadge status={getStatusVariant(referral.status)}>{referral.status}</StatusBadge>
+      ),
+    },
+    {
+      header: 'Date',
+      accessorKey: (referral: ReferralRecord) => new Date(referral.createdAt).toLocaleDateString(),
+    },
+  ];
+  const isLoadingPractice = practiceId === null
+    || loading
+    || (!!practiceId && referralsPracticeId !== practiceId && !loadError);
 
   return (
-    <div style={{ padding: '2rem' }}>
+    <main className={styles.page}>
       <PageHeader
         title="Patient Referrals"
         description="Track inbound and outbound specialist and patient referrals."
       />
 
-      {loading ? (
-        <p>Loading referrals...</p>
+      {isLoadingPractice ? (
+        <LoadingState text="Loading referrals..." />
+      ) : !practiceId ? (
+        <EmptyState
+          icon={<Users2 size={32} aria-hidden="true" />}
+          title="Select a practice"
+          description="Choose a practice in the workspace before viewing referrals."
+        />
+      ) : loadError ? (
+        <ErrorState
+          title="Referrals could not be loaded"
+          message={loadError}
+          onRetry={() => setReloadVersion((version) => version + 1)}
+        />
       ) : referrals.length === 0 ? (
-        <div style={{ background: '#fff', padding: '3rem', borderRadius: '8px', textAlign: 'center', color: '#64748b' }}>
-          <Users2 size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-          <h3>No referral records yet</h3>
-          <p>Track your patient referrals and specialist networks here.</p>
-        </div>
+        <EmptyState
+          icon={<Users2 size={32} aria-hidden="true" />}
+          title="No referral records yet"
+          description="Track your patient referrals and specialist networks here."
+        />
       ) : (
-        <div style={{ background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontSize: '0.875rem' }}>
-                <th style={{ padding: '1rem' }}>Patient Name</th>
-                <th style={{ padding: '1rem' }}>Referred To</th>
-                <th style={{ padding: '1rem' }}>Referrer</th>
-                <th style={{ padding: '1rem' }}>Status</th>
-                <th style={{ padding: '1rem' }}>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {referrals.map((r) => (
-                <tr key={r.id} style={{ borderBottom: '1px solid #f1f5f9', fontSize: '0.875rem' }}>
-                  <td style={{ padding: '1rem', fontWeight: 500, color: '#1e293b' }}>{r.patientName}</td>
-                  <td style={{ padding: '1rem', color: '#1e293b' }}>{r.referredTo}</td>
-                  <td style={{ padding: '1rem', color: '#64748b' }}>{r.referrerName || '—'}</td>
-                  <td style={{ padding: '1rem' }}>
-                    <span style={{ padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 500, background: '#e0f2fe', color: '#0369a1' }}>
-                      {r.status}
-                    </span>
-                  </td>
-                  <td style={{ padding: '1rem', color: '#64748b' }}>{new Date(r.createdAt).toLocaleDateString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={columns}
+          data={referrals}
+          keyExtractor={(referral) => referral.id}
+        />
       )}
-    </div>
+    </main>
   );
 }

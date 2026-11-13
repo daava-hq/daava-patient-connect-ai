@@ -208,6 +208,36 @@
   color: var(--color-text-muted);
 }
 
+.roleBadgeWrap {
+  margin-top: var(--space-1);
+}
+
+.assignedPractices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.assignedPracticesTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin: 0;
+}
+
+.emptyPractices {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.practiceNameLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

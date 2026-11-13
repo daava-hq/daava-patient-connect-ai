@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useCallback } from 'react';
+import type { CSSProperties } from 'react';
 import {
   Bold,
   Italic,
@@ -59,8 +60,8 @@ function ToolbarBtn({ title, active, onClick, children, disabled }: ToolbarBtnPr
       aria-pressed={active}
       onMouseDown={(e) => {
         e.preventDefault(); // Prevent focus loss from contentEditable
-        onClick();
       }}
+      onClick={onClick}
       disabled={disabled}
       className={`${styles.btn} ${active ? styles.btnActive : ''}`}
     >
@@ -81,6 +82,9 @@ export default function RichEditorToolbar({ activeBlock, onFormat, onPropChange 
   const fontFamily = props.fontFamily ?? 'sans-serif';
   const fontSize = props.fontSize ? props.fontSize.replace('px', '') : '16';
   const textColor = props.color ?? '#334155';
+  const colorPreviewStyle: CSSProperties & { '--toolbar-color': string } = {
+    '--toolbar-color': textColor,
+  };
 
   const handleFormat = useCallback((format: string, value?: string) => {
     onFormat(activeBlock.id, format, value);
@@ -93,11 +97,10 @@ export default function RichEditorToolbar({ activeBlock, onFormat, onPropChange 
           {/* Font family */}
           <div className={styles.group}>
             <select
-              className={styles.select}
+              className={`${styles.select} ${styles.fontFamilySelect}`}
               value={fontFamily}
               aria-label="Font family"
               onChange={(e) => onPropChange(activeBlock.id, 'fontFamily', e.target.value)}
-              style={{ width: 132 }}
             >
               {FONT_FAMILIES.map((f) => (
                 <option key={f.value} value={f.value}>
@@ -110,11 +113,10 @@ export default function RichEditorToolbar({ activeBlock, onFormat, onPropChange 
           {/* Font size */}
           <div className={styles.group}>
             <select
-              className={styles.select}
+              className={`${styles.select} ${styles.fontSizeSelect}`}
               value={fontSize}
               aria-label="Font size"
               onChange={(e) => onPropChange(activeBlock.id, 'fontSize', `${e.target.value}px`)}
-              style={{ width: 64 }}
             >
               {FONT_SIZES.map((s) => (
                 <option key={s} value={s}>
@@ -174,11 +176,11 @@ export default function RichEditorToolbar({ activeBlock, onFormat, onPropChange 
               aria-label="Text color"
               onMouseDown={(e) => {
                 e.preventDefault();
-                colorRef.current?.click();
               }}
+              onClick={() => colorRef.current?.click()}
             >
               <Palette size={15} />
-              <span className={styles.colorPreview} style={{ background: textColor }} />
+              <span className={styles.colorPreview} style={colorPreviewStyle} />
             </button>
             <input
               ref={colorRef}
@@ -200,11 +202,10 @@ export default function RichEditorToolbar({ activeBlock, onFormat, onPropChange 
           <div className={styles.group}>
             <span className={styles.label}>Width</span>
             <select
-              className={styles.select}
+              className={`${styles.select} ${styles.widthSelect}`}
               value={props.width ?? '100%'}
               aria-label="Element width"
               onChange={(e) => onPropChange(activeBlock.id, 'width', e.target.value)}
-              style={{ width: 80 }}
             >
               {['25%', '33%', '50%', '66%', '75%', '100%'].map((w) => (
                 <option key={w} value={w}>

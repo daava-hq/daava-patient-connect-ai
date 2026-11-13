@@ -2,10 +2,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   select: vi.fn(),
+  getPatientIdsInGroups: vi.fn(),
 }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/db', () => ({ db: { select: mocks.select } }));
+vi.mock('@/lib/groups/group-repository', () => ({
+  ensurePracticeGroups: vi.fn(),
+  getGroupAudienceCondition: vi.fn(),
+  getPatientIdsInGroups: mocks.getPatientIdsInGroups,
+  isPatientInGroups: vi.fn(),
+}));
 
 import { practices } from '@/db/schema/practices';
 import { birthdayCampaigns, birthdayMessageOccurrences } from '@/db/schema/birthday_engagement';
@@ -14,6 +21,7 @@ import { getUpcomingBirthdayMessages, previewBirthdayTemplate } from './birthday
 
 const practiceId = 'c2bc15a1-926b-42f8-b9f7-ecb2a1e8e1ae';
 const templateId = 'f7d352f9-9049-451e-a11a-7ac47d6d3d9b';
+const groupId = '5f5297c3-1d15-4858-9d3e-80691372da91';
 
 function mockUpcomingBirthdayQueries(
   campaign: Record<string, unknown>,
@@ -141,6 +149,34 @@ describe('getUpcomingBirthdayMessages', () => {
       scheduledFor: new Date('2026-03-07T09:00:00.000Z'),
       status: 'scheduled',
     });
+  });
+
+  it("excludes patients outside a campaign's selected group audience", async () => {
+    const campaign = {
+      id: 'campaign-id',
+      name: 'Birthday email',
+      channel: 'email',
+      daysBefore: 3,
+      localDeliveryTime: '09:00',
+      eligibilityRules: { groupIds: [groupId] },
+    };
+    const patient = {
+      id: 'patient-id',
+      firstName: 'Taylor',
+      lastName: 'Example',
+      dateOfBirth: '1990-03-10',
+    };
+    mocks.getPatientIdsInGroups.mockResolvedValue([]);
+    mockUpcomingBirthdayQueries(campaign, patient);
+
+    const result = await getUpcomingBirthdayMessages(
+      practiceId,
+      'UTC',
+      new Date('2026-03-01T12:00:00.000Z')
+    );
+
+    expect(result).toEqual([]);
+    expect(mocks.getPatientIdsInGroups).toHaveBeenCalledWith(practiceId, [groupId]);
   });
 
   it('uses the persisted occurrence status after a birthday email is sent', async () => {

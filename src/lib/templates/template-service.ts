@@ -68,6 +68,25 @@ export async function getPublishedNewsletterTemplate(practiceId: string, templat
   return category?.slug === 'newsletters' ? template : null;
 }
 
+export async function getPublishedRecallTemplate(
+  practiceId: string,
+  templateId: string,
+  channel: 'sms' | 'email',
+): Promise<Template | null> {
+  const template = await getTemplateById(practiceId, templateId);
+  if (!template || template.status !== 'published' || template.channel !== channel) return null;
+  if (channel === 'sms' && template.templateType !== 'sms') return null;
+  if (channel === 'email' && !['email', 'newsletter'].includes(template.templateType)) return null;
+
+  const [category] = await db
+    .select({ slug: templateCategories.slug })
+    .from(templateCategories)
+    .where(eq(templateCategories.id, template.categoryId))
+    .limit(1);
+
+  return category?.slug === 'recall' ? template : null;
+}
+
 export async function createTemplate(data: NewTemplate): Promise<Template> {
   const [created] = await db.insert(templates).values(data).returning();
   await db.insert(templateVersions).values({

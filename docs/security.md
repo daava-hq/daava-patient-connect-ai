@@ -79,9 +79,30 @@ Every `route.ts` must:
   member writes check both group and patient practice ownership in a
   transaction. Campaign filters accept only group IDs belonging to the
   authorized practice; archived groups are excluded from audience resolution.
+  Birthday campaigns and appointment reminder schedules apply the same
+  same-practice and active-group validation when saved. Selected groups form a
+  union; no selected groups means no group restriction. Birthday and reminder
+  dispatch recheck current group membership so archived groups and audience
+  changes do not leave stale queued recipients eligible. The
+  `/api/groups/options` route returns minimal active-group choices only after
+  verifying practice membership.
   Dynamic group criteria use a strict allow-list of synchronized demographic,
-  appointment, status, and contact-availability fields. Clinical attributes
-  are rejected, age/date-of-birth is used only for server-side filtering, and
+  appointment, status, contact-availability, and Open Dental due-recall fields.
+  Recall sync and audience resolution are practice-scoped; sync requires owner
+  authorization. Recall campaigns require active dynamic groups with the
+  approved due-recall criterion and are constrained to active patients with
+  channel-specific consent and a usable destination. Recall scheduling/send-now
+  and cancellation require a practice owner or admin. Dispatch re-evaluates
+  current due-recall group eligibility, active status, consent, destination,
+  and practice channel settings before sending; email template content is
+  rendered through the structured, escaped newsletter renderer. Scheduling
+  also requires the campaign's source template to remain published for Recall
+  and match its channel. Recipient-history responses expose only the internal
+  recipient reference, delivery status, retry count, and update time—not patient
+  IDs, provider message IDs, or raw delivery errors. If multiple active due
+  recalls exist, the earliest due date is used in the message.
+  Audience preview returns sample names only, never contact details or
+  birthdates. Clinical attributes   are rejected, age/date-of-birth is used only for server-side filtering, and
   birthdate values are not returned by group APIs. Group membership does not
   confer communication consent; campaigns re-check consent before dispatch.
 - Newsletter APIs verify practice membership on reads and drafts and require

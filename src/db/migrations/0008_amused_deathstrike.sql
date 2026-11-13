@@ -1,0 +1,1 @@
+ALTER TABLE "appointment_reminder_schedules" ADD COLUMN "group_ids" jsonb DEFAULT '[]'::jsonb NOT NULL;

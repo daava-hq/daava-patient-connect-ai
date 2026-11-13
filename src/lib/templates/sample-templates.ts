@@ -327,6 +327,19 @@ export async function seedSystemTemplates() {
       status: 'published',
       isSystem: true,
     },
+    {
+      categoryId: categoryMap.get('recall')!,
+      name: 'Preventive Care Recall SMS',
+      description: 'Concise text reminder for a patient with a due preventive recall',
+      templateType: 'sms',
+      channel: 'sms',
+      content: {
+        body: 'Hi {{patient.firstName}}, your preventive care at {{practice.name}} is due on {{recall.dueDate}}. Call {{practice.phone}} to schedule.',
+      },
+      variables: ['patient.firstName', 'practice.name', 'recall.dueDate', 'practice.phone'],
+      status: 'published',
+      isSystem: true,
+    },
 
     // 7. Referrals
     {

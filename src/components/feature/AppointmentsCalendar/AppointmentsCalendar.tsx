@@ -316,6 +316,13 @@ export default function AppointmentsCalendar() {
     };
   });
 
+  const isKeysMissing = Boolean(
+    error &&
+      ['keys', 'credentials', 'not configured'].some((term) =>
+        error.toLowerCase().includes(term)
+      )
+  );
+
   return (
     <div className={styles.container}>
       <PageHeader
@@ -325,66 +332,36 @@ export default function AppointmentsCalendar() {
       />
 
       {error && (
-        <div className={`${styles.alertBox} ${styles.alertError}`} role="alert" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div
+          className={`${styles.alertBox} ${styles.alertError} ${styles.alertContent}`}
+          role="alert"
+        >
           <span>{error}</span>
-          {error.includes('keys') && (
+          {isKeysMissing && (
             <div>
-              <a
-                href="/workspace/settings"
-                style={{
-                  color: 'var(--color-primary)',
-                  fontWeight: 'var(--font-weight-medium)',
-                  textDecoration: 'underline',
-                }}
-              >
+              <Link href="/workspace/settings" className={styles.settingsLink}>
                 Go to Practice Settings → Open Dental Integration
-              </a>
+              </Link>
             </div>
           )}
         </div>
       )}
 
-      {(() => {
-        const isKeysMissing = Boolean(
-          error && (error.toLowerCase().includes('keys') || error.toLowerCase().includes('credentials') || error.toLowerCase().includes('not configured'))
-        );
-
-        if (isKeysMissing) {
-          return (
-            <SectionCard title="Open Dental Integration">
-              <EmptyState
-                icon={<Key size={32} />}
-                title="Integration Keys Not Configured"
-                description="Open Dental integration keys have not been added for this practice. Please configure your developer and customer keys in Practice Settings to view the appointment calendar."
-                action={
-                  <Link
-                    href="/workspace/settings"
-                    style={{
-                      display: 'inline-block',
-                      backgroundColor: 'var(--color-primary)',
-                      color: 'var(--color-surface)',
-                      padding: '0.5rem 1rem',
-                      borderRadius: 'var(--radius-md)',
-                      fontSize: 'var(--font-size-sm)',
-                      fontWeight: 'var(--font-weight-medium)',
-                      textDecoration: 'none',
-                    }}
-                  >
-                    Go to Practice Settings
-                  </Link>
-                }
-              />
-            </SectionCard>
-          );
-        }
-
-        return (
-          <>
-            {error && (
-              <div className={`${styles.alertBox} ${styles.alertError}`} role="alert">
-                <span>{error}</span>
-              </div>
-            )}
+      {isKeysMissing ? (
+        <SectionCard title="Open Dental Integration">
+          <EmptyState
+            icon={<Key size={32} />}
+            title="Integration Keys Not Configured"
+            description="Open Dental integration keys have not been added for this practice. Please configure your developer and customer keys in Practice Settings to view the appointment calendar."
+            action={
+              <Link href="/workspace/settings" className={styles.integrationLink}>
+                Go to Practice Settings
+              </Link>
+            }
+          />
+        </SectionCard>
+      ) : (
+        <>
 
             {/* Appointment Status Legends Bar (Open Dental AptStatus spec) */}
             <div className={styles.legendBar}>
@@ -581,9 +558,6 @@ export default function AppointmentsCalendar() {
                                 const cardStyle: React.CSSProperties = {
                                   top: `${pos.top}px`,
                                   height: `${pos.height}px`,
-                                  left: '4px',
-                                  right: '4px',
-                                  width: 'calc(100% - 8px)',
                                 };
 
                                 return (
@@ -598,10 +572,11 @@ export default function AppointmentsCalendar() {
                                     tabIndex={0}
                                     onKeyDown={(e) => {
                                       if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
                                         setSelectedAppt(appt);
                                       }
                                     }}
-                                    aria-label="Appointment card"
+                                    aria-label={`${patDisplay}, ${duration} minutes, ${status}`}
                                   >
                                     <div className={styles.apptCardTopRow}>
                                       <div className={styles.apptCardHeader}>Booked</div>
@@ -655,7 +630,7 @@ export default function AppointmentsCalendar() {
                                               ))}
                                             </div>
                                           ) : (
-                                            <div style={{ fontSize: '11px', color: '#64748b' }}>No medical alerts</div>
+                                            <div className={styles.emptyAlerts}>No medical alerts</div>
                                           )}
                                         </div>
 
@@ -696,9 +671,8 @@ export default function AppointmentsCalendar() {
                   </div>
                 </div>
               </div>
-          </>
-        );
-      })()}
+        </>
+      )}
     </div>
   );
 }

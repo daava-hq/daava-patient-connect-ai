@@ -11,6 +11,7 @@ describe('groupCriteriaSchema', () => {
       appointmentStatuses: ['Complete'],
       lastAppointmentAfter: '2025-01-01',
       lastAppointmentBefore: '2025-12-31',
+      hasDueRecall: true,
       contactAvailability: 'either',
     });
 
@@ -37,5 +38,10 @@ describe('groupCriteriaSchema', () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it('only enables the due-recall filter when explicitly selected', () => {
+    expect(groupCriteriaSchema.safeParse({ hasDueRecall: true }).success).toBe(true);
+    expect(groupCriteriaSchema.safeParse({ hasDueRecall: false }).success).toBe(false);
   });
 });

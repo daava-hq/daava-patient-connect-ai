@@ -5,8 +5,10 @@
   --color-primary:         #2563eb;   /* blue — primary actions */
   --color-primary-hover:   #1d4ed8;
   --color-primary-active:  #1e40af;
+  --color-primary-subtle:  #eff6ff;
   --color-text:            #1e3a5f;   /* navy */
   --color-text-muted:      #64748b;
+  --color-overlay:         rgb(30 58 95 / 0.6);
   --color-border:          #cbd5e1;
   --color-error:           #dc2626;
   --color-success:         #16a34a;

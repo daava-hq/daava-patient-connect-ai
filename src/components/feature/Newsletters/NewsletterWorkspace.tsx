@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { FormEvent, ReactNode } from 'react';
+import type { FormEvent } from 'react';
 import Link from 'next/link';
 import {
   CalendarClock,
@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
+import StatCard from '@/components/ui/StatCard/StatCard';
 import TemplatePickerDialog from '@/components/feature/TemplatePicker/TemplatePickerDialog';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
 import {
@@ -749,11 +750,11 @@ export default function NewsletterWorkspace() {
       ) : (
         <>
           <section className={styles.statsGrid} aria-label="Newsletter statistics">
-            <Stat icon={<Mail />} label="Newsletters" value={Object.values(dashboardStats.campaigns).reduce((sum, value) => sum + value, 0)} />
-            <Stat icon={<Save />} label="Drafts" value={dashboardStats.campaigns.draft ?? 0} />
-            <Stat icon={<CalendarClock />} label="Scheduled" value={dashboardStats.campaigns.scheduled ?? 0} />
-            <Stat icon={<Send />} label="Sent / accepted" value={dashboardStats.events.sent ?? 0} />
-            <Stat icon={<Mail />} label="Delivered" value={dashboardStats.events.delivered ?? 0} />
+            <StatCard icon={<Mail size={20} aria-hidden="true" />} label="Newsletters" value={Object.values(dashboardStats.campaigns).reduce((sum, value) => sum + value, 0).toLocaleString()} />
+            <StatCard icon={<Save size={20} aria-hidden="true" />} label="Drafts" value={(dashboardStats.campaigns.draft ?? 0).toLocaleString()} />
+            <StatCard icon={<CalendarClock size={20} aria-hidden="true" />} label="Scheduled" value={(dashboardStats.campaigns.scheduled ?? 0).toLocaleString()} />
+            <StatCard icon={<Send size={20} aria-hidden="true" />} label="Sent / accepted" value={(dashboardStats.events.sent ?? 0).toLocaleString()} />
+            <StatCard icon={<Mail size={20} aria-hidden="true" />} label="Delivered" value={(dashboardStats.events.delivered ?? 0).toLocaleString()} />
           </section>
           <section className={styles.historyCard}>
             <div className={styles.historyHeader}>
@@ -819,15 +820,15 @@ export default function NewsletterWorkspace() {
             ) : (
               <>
                 <p className={styles.reportStatus}>Status: {reportCampaign.status.replace('_', ' ')}{reportCampaign.scheduledAt ? ` · Scheduled ${new Date(reportCampaign.scheduledAt).toLocaleString()}` : ''}</p>
-                <div className={styles.reportStats}>
-                  <Stat icon={<Users />} label="Recipients" value={reportStats.total} />
-                  <Stat icon={<Send />} label="Sent / accepted" value={reportStats.sent} />
-                  <Stat icon={<Mail />} label="Delivered" value={reportStats.delivered} />
-                  <Stat icon={<X />} label="Bounced" value={reportStats.bounced} />
-                  <Stat icon={<X />} label="Failed" value={reportStats.failed} />
-                  <Stat icon={<ChevronRight />} label="Skipped" value={reportStats.skipped} />
-                  <Stat icon={<Eye />} label="Opens" value={reportStats.opened} />
-                  <Stat icon={<Smartphone />} label="Clicks" value={reportStats.clicked} />
+                <div className={styles.reportStats} role="group" aria-label="Newsletter report metrics">
+                  <StatCard icon={<Users size={20} aria-hidden="true" />} label="Recipients" value={reportStats.total.toLocaleString()} />
+                  <StatCard icon={<Send size={20} aria-hidden="true" />} label="Sent / accepted" value={reportStats.sent.toLocaleString()} />
+                  <StatCard icon={<Mail size={20} aria-hidden="true" />} label="Delivered" value={reportStats.delivered.toLocaleString()} />
+                  <StatCard icon={<X size={20} aria-hidden="true" />} label="Bounced" value={reportStats.bounced.toLocaleString()} />
+                  <StatCard icon={<X size={20} aria-hidden="true" />} label="Failed" value={reportStats.failed.toLocaleString()} />
+                  <StatCard icon={<ChevronRight size={20} aria-hidden="true" />} label="Skipped" value={reportStats.skipped.toLocaleString()} />
+                  <StatCard icon={<Eye size={20} aria-hidden="true" />} label="Opens" value={reportStats.opened.toLocaleString()} />
+                  <StatCard icon={<Smartphone size={20} aria-hidden="true" />} label="Clicks" value={reportStats.clicked.toLocaleString()} />
                 </div>
                 <p className={styles.disclaimer}>“Sent / accepted” means accepted by the configured provider, not confirmed delivered. Opens and clicks appear only when provider events are configured.</p>
                 <h3>Recipient activity</h3>
@@ -862,18 +863,6 @@ export default function NewsletterWorkspace() {
         emptyMessage="No published email newsletter templates are available. Add one in the"
       />
     </main>
-  );
-}
-
-function Stat({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
-  return (
-    <article className={styles.statCard}>
-      <span className={styles.statIcon} aria-hidden="true">{icon}</span>
-      <div className={styles.statContent}>
-        <span>{label}</span>
-        <strong>{value.toLocaleString()}</strong>
-      </div>
-    </article>
   );
 }
 

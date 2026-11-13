@@ -1,0 +1,407 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-8);
+}
+
+.primaryButton,
+.secondaryButton,
+.editButton,
+.deleteButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.primaryButton {
+  background-color: var(--color-primary);
+  color: var(--color-surface);
+}
+
+.primaryButton:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+}
+
+.secondaryButton {
+  border-color: var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background-color: var(--color-background);
+}
+
+.editButton {
+  border-color: var(--color-success);
+  background-color: var(--color-success);
+  color: var(--color-surface);
+}
+
+.editButton:hover:not(:disabled) {
+  filter: brightness(0.94);
+}
+
+.deleteButton {
+  border-color: var(--color-error);
+  background-color: var(--color-error);
+  color: var(--color-surface);
+}
+
+.deleteButton:hover:not(:disabled) {
+  filter: brightness(0.94);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled,
+.editButton:disabled,
+.deleteButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible,
+.editButton:focus-visible,
+.deleteButton:focus-visible,
+.closeButton:focus-visible,
+.cardPreview:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.filters {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.searchField {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 18rem;
+  min-width: 0;
+  color: var(--color-text-muted);
+}
+
+.searchField > svg {
+  position: absolute;
+  left: var(--space-3);
+  pointer-events: none;
+}
+
+.searchField input,
+.categoryField select {
+  min-height: 2.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+}
+
+.searchField input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-8);
+}
+
+.categoryField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.categoryField select {
+  min-width: 14rem;
+  padding: var(--space-2) var(--space-3);
+}
+
+.searchField input:focus-visible,
+.categoryField select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-color: var(--color-primary);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.templateGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: var(--space-6);
+}
+
+.templateCard {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.templateCard:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.cardPreview {
+  position: relative;
+  height: 10.625rem;
+  overflow: hidden;
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-background);
+  cursor: pointer;
+}
+
+.cardPreview .cardPreviewFrame {
+  height: 10.625rem;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  pointer-events: none;
+}
+
+.previewTags {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  pointer-events: none;
+}
+
+.previewHint {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  background-color: var(--color-text);
+  color: var(--color-surface);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  pointer-events: none;
+}
+
+.templateDetails {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+}
+
+.templateName {
+  margin: 0 0 var(--space-1);
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.templateDescription {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  overflow-wrap: anywhere;
+}
+
+.templateActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-4);
+}
+
+.previewBackdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background-color: var(--color-overlay);
+}
+
+.previewDialog {
+  width: 100%;
+  max-width: 45rem;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-background);
+  box-shadow: var(--shadow-lg);
+}
+
+.previewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: var(--space-4) var(--space-6);
+  background-color: var(--color-text);
+  color: var(--color-surface);
+}
+
+.previewTitle {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.previewSubtitle {
+  margin: var(--space-1) 0 0;
+  color: var(--color-background);
+  font-size: var(--font-size-xs);
+}
+
+.closeButton {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1);
+  background: transparent;
+  color: var(--color-surface);
+  cursor: pointer;
+}
+
+.closeButton:hover {
+  background-color: rgb(255 255 255 / 0.12);
+}
+
+.previewBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+
+.smsPreview {
+  width: 100%;
+  max-width: 30rem;
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background-color: var(--color-border);
+}
+
+.smsMessage {
+  display: inline-block;
+  max-width: 90%;
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  box-shadow: var(--shadow-sm);
+}
+
+.emailDetails {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background-color: var(--color-surface);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.emailDetails p {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-muted);
+}
+
+.emailDetails p:last-child {
+  margin-bottom: 0;
+  color: var(--color-text);
+}
+
+.previewDialog .modalPreviewFrame {
+  height: min(60vh, 40rem);
+  min-height: 22rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 64rem) {
+  .templateGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 40rem) {
+  .page {
+    padding: var(--space-4);
+  }
+
+  .templateGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .filters {
+    align-items: stretch;
+  }
+
+  .categoryField,
+  .categoryField select {
+    width: 100%;
+  }
+
+  .templateDetails {
+    padding: var(--space-4);
+  }
+
+  .templateActions {
+    flex-wrap: wrap;
+  }
+
+  .previewHeader,
+  .previewBody {
+    padding: var(--space-4);
+  }
+}

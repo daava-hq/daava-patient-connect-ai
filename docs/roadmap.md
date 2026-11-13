@@ -4,6 +4,82 @@
 
 Six-week phased delivery. Each milestone has explicit acceptance criteria. A milestone is **done** only when all acceptance criteria are met, lint/typecheck/tests pass, and docs are updated.
 
+## Module refactor track
+
+Refactor one module at a time. Preserve existing behavior and API contracts;
+reuse shared components and tokens, move page-specific styling into CSS
+Modules, and improve code organization only where the module benefits from it.
+
+- [x] Dashboard — move page-specific inline styles into a CSS Module; retain
+  the existing shared component composition and displayed content.
+- [x] Patients — move page-specific styles into a CSS Module, reuse the
+  Open Dental patient types, and simplify the page's error-state rendering.
+- [x] Appointments — move static presentation styles into the existing CSS
+  Module, simplify the calendar error branch, and make the date-dependent
+  appointment test deterministic.
+- [x] Appointment Reminders — reuse the shared `StatCard`, remove superseded
+  local stat styles, consolidate duplicate CSS, and cover report rendering.
+- [x] Birthdays — reuse shared stat cards for KPIs and reports, apply design
+  tokens to page colors, and label the metrics region for assistive technology.
+- [x] Groups — use the shared `StatCard` in group-announcement reports,
+  preserve report sizing and localized number formatting, and remove duplicate
+  report-card styles.
+- [x] Newsletters and group announcements — use shared `StatCard` cards for
+  newsletter dashboard and report metrics, align report groups accessibly, and
+  retain the established sizing and number formatting.
+- [x] Payment Reminders & Requests — type balance data, move page-specific
+  styling into a CSS Module, add explicit loading/error/practice-selection
+  states, and disable payment-link actions until delivery is implemented.
+- [x] Recall — add published Recall template selection and channel-specific
+  previews, due-recall audience count/sample preview, practice-timezone-aware
+  scheduling/send-now, scheduled cancellation, draft deletion, and recipient
+  reports while preserving server-side eligibility and consent checks.
+- [x] Referrals — type practice-scoped referral data, reuse shared table,
+  status, and feedback components, and add practice-aware loading/error states.
+- [x] Surveys — type survey records, move page styling into a CSS Module,
+  reuse shared table and feedback components, and preserve the existing
+  title/description creation contract in an accessible modal.
+- [x] Connect — use the shared empty state, move page spacing into a CSS
+  Module, render the static setup page as a Server Component, and clarify
+  messaging availability.
+- [x] Reports — use the shared empty state, move page spacing into a CSS
+  Module, render the static page as a Server Component, and clarify that
+  centralized analytics and exports are not yet available.
+- [x] Settings, login/profile, and organisation/practice selection — move
+  remaining page styles into CSS Modules, reuse shared feedback and status
+  components, improve keyboard selection, and add focused profile and
+  practice-selection tests while preserving authentication flows.
+- [x] Centralized Templates library — type template data, use shared loading,
+  empty, error, and status components, move presentation into a CSS Module,
+  and add keyboard-accessible previews with focused tests.
+- [x] Centralized Templates editors — share CSS Module styling across the
+  new/edit routes, move rich toolbar styling into its CSS Module, keep
+  template-derived values in scoped CSS custom properties, and test create,
+  update, and toolbar interactions.
+
+The module refactor track is complete; no additional module refactors are
+currently listed.
+
+**Payment delivery limitation:** Payment-link sending remains unimplemented;
+the workspace does not claim that a request was sent until a delivery
+integration is available.
+
+**Recall:** Eligibility uses synchronized Open Dental due dates and approved
+dynamic groups. Recall templates are snapshotted into campaign-owned content;
+the worker rechecks due-recall eligibility and communication consent before
+dispatch. SMS delivery remains subject to the configured SMS provider.
+
+**Survey limitation:** The current workspace creates survey records with a
+title and description; question authoring and patient distribution are not
+implemented in this UI.
+
+**Connect limitation:** The workspace remains a setup placeholder until an SMS
+provider and inbound webhook integration are configured; no live inbox or
+message sending is wired into this page.
+
+**Reports limitation:** Cross-module analytics and CSV exports are not
+implemented; the Reports page remains a setup state.
+
 ---
 
 ## Milestone 1 — Foundation (Week 1)
@@ -104,14 +180,26 @@ Six-week phased delivery. Each milestone has explicit acceptance criteria. A mil
 - [x] Static membership history and group engagement history; dynamic membership is evaluated live and has no persisted membership-change history.
 - [x] Independent group-announcement workflow with published Groups template selection, campaign snapshots, draft editing/deletion, audience preview, desktop/mobile preview, scheduling/send-now, cancellation, paginated history, and delivery reports (`src/app/api/groups/[groupId]/announcements/`, `src/components/feature/Groups/GroupsWorkspace.tsx`).
 - [x] Validation, repository, API, and tenant-scoping tests.
-- [ ] Integrate group selectors into the dedicated birthday campaign and appointment-reminder schedule flows.
-- [ ] Define and authorize a business rule for recall eligibility before adding it as a dynamic filter.
+- [x] Integrate group selectors into the dedicated birthday campaign and appointment-reminder schedule flows.
+- [x] Define and implement recall eligibility from Open Dental `DateDue`: any
+  non-disabled recall due on or before the practice date, excluding patients
+  with a current/future recall appointment date or future scheduled appointment.
+- [x] Create and edit Recall campaign drafts, including an SMS/email channel
+  selector and channel-appropriate consent filters.
+- [x] Select published Recall-library templates, preview SMS/email content,
+  and preserve the source template ID while snapshotting campaign content.
+- [x] Preview eligible due-recall recipients, schedule/send-now with admin
+  authorization, cancel scheduled drafts, delete eligible drafts, and report
+  on recipient outcomes; require a currently published source template at
+  schedule time and return only minimal recipient-history fields.
+- [x] Recheck due-recall eligibility at dispatch and populate the earliest
+  active due recall date in template messages.
 
 ### Acceptance criteria
 
 - [x] Group membership is scoped to the practice.
 - [x] Newsletter and generic campaign audiences respect group membership, filters, and consent flags.
-- [ ] Dedicated birthday and appointment-reminder workflows accept reusable group audiences.
+- [x] Dedicated birthday and appointment-reminder workflows accept reusable group audiences.
 - [x] Durable background jobs persist recipient records prior to dispatch and guarantee idempotency.
 - [x] All 8 engagement modules implemented with backend storage, validation, authorization, and API routes.
 - [x] Unit tests pass successfully.

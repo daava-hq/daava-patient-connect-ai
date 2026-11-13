@@ -17,6 +17,7 @@ import { users } from './users';
 export type BirthdayEligibilityRules = {
   minimumAge?: number;
   maximumAge?: number;
+  groupIds?: string[];
 };
 
 export const BIRTHDAY_OCCURRENCE_STATUSES = [

@@ -197,4 +197,21 @@ describe('PatientsPage', () => {
     expect(screen.getByText('Doe')).toBeDefined();
     expect(screen.queryByText('Smith')).toBeNull();
   });
+
+  it('renders a fetch failure once in an accessible alert', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ error: 'Open Dental service unavailable' }),
+      })
+    );
+
+    render(<PatientsPage />);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('Open Dental service unavailable');
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+  });
 });

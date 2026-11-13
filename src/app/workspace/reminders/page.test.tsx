@@ -28,6 +28,7 @@ describe('RemindersPage', () => {
               channel: 'email',
               localSendTime: '09:00',
               templateId: 'template-1',
+              groupIds: [],
               templateName: 'Appointment reminder',
               enabled: true,
             }],
@@ -54,6 +55,7 @@ describe('RemindersPage', () => {
         });
       }
       if (url.startsWith('/api/appointment-reminders/templates?')) return Response.json({ data: [] });
+      if (url.startsWith('/api/groups/options?')) return Response.json({ data: [] });
       if (url === '/api/appointment-reminders/preview') {
         return Response.json({
           data: {
@@ -77,6 +79,10 @@ describe('RemindersPage', () => {
       </ToastProvider>,
     );
 
+    const report = await screen.findByRole('region', { name: 'Reminder report' });
+    expect(within(report).getByText('Scheduled')).toBeTruthy();
+    expect(within(report).getByText('1')).toBeTruthy();
+
     fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
     const scheduleDialog = screen.getByRole('dialog', { name: 'Edit reminder schedule' });
     fireEvent.click(within(scheduleDialog).getByRole('button', { name: 'Preview message' }));
@@ -89,6 +95,68 @@ describe('RemindersPage', () => {
     await waitFor(() => {
       expect(screen.getByRole('dialog', { name: 'Edit reminder schedule' })).toBeTruthy();
       expect(screen.queryByRole('dialog', { name: 'Reminder message preview' })).toBeNull();
+    });
+  });
+
+  it('saves the selected reusable group audience with a reminder schedule', async () => {
+    localStorage.setItem('selectedClinicId', practiceId);
+    const template = {
+      id: 'template-1',
+      name: 'Appointment reminder',
+      channel: 'sms',
+      templateType: 'sms',
+      status: 'published',
+      isSystem: true,
+      practiceId: null,
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.startsWith('/api/appointment-reminders?')) {
+        return Response.json({
+          data: {
+            practice: { name: 'Sample Practice', timezone: 'UTC' },
+            sampleDataResetAvailable: false,
+            schedules: [],
+            upcoming: [],
+            history: [],
+            stats: { scheduled: 0, attempted: 0, sent: 0, delivered: 0, failed: 0, skipped: 0 },
+            providerAvailability: { sms: true, email: false },
+          },
+        });
+      }
+      if (url.startsWith('/api/appointment-reminders/templates?')) return Response.json({ data: [template] });
+      if (url.startsWith('/api/groups/options?')) {
+        return Response.json({ data: [{ id: 'group-1', name: 'New patients', groupType: 'static' }] });
+      }
+      if (url === '/api/appointment-reminders' && init?.method === 'POST') {
+        return Response.json({ data: { id: 'schedule-1' } }, { status: 201 });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <ToastProvider>
+        <RemindersPage />
+      </ToastProvider>,
+    );
+
+    await screen.findByRole('region', { name: 'Reminder report' });
+    fireEvent.click(screen.getByRole('button', { name: /Configure schedule/ }));
+    fireEvent.change(screen.getByLabelText('Schedule name'), { target: { value: 'New-patient reminder' } });
+    fireEvent.click(await screen.findByRole('checkbox', { name: /New patients/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Choose template' }));
+    const picker = await screen.findByRole('dialog', { name: 'Appointment reminder templates' });
+    fireEvent.click(within(picker).getByRole('button', { name: 'Select' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create schedule' }));
+
+    await waitFor(() => {
+      const request = fetchMock.mock.calls.find(
+        ([input, request]) => String(input) === '/api/appointment-reminders' && request?.method === 'POST'
+      );
+      expect(request).toBeDefined();
+      const payload = JSON.parse(String(request?.[1]?.body));
+      expect(payload.groupIds).toEqual(['group-1']);
     });
   });
 });

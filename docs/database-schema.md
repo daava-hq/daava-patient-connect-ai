@@ -16,6 +16,7 @@ organisations
         ├── users ↔ practice_members (junction)
         ├── patients (synced from Open Dental)
         │     └── appointments
+        │     └── opendental_recalls
         ├── groups
         │     └── group_members (junction: group ↔ patient)
         ├── campaigns (reminders / newsletters / group announcements / recalls)
@@ -113,6 +114,23 @@ organisations
 | `created_at` | `timestamptz` | |
 | UNIQUE | (`practice_id`, `opendental_appt_id`) | |
 
+### `opendental_recalls`
+
+Read-only snapshot of Open Dental recall records used for due-recall group
+criteria. It is refreshed by practice owners from Practice Settings.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `practice_id` | `uuid` FK → practices | |
+| `patient_id` | `uuid` FK → patients | |
+| `opendental_recall_id` | `bigint` | Open Dental recall natural key |
+| `recall_type_num` | `integer` | Open Dental recall type |
+| `due_date` | `date` | Null when Open Dental returns its unset-date sentinel |
+| `date_scheduled` | `date` | Null when no recall appointment date is set |
+| `is_disabled` | `boolean` | |
+| `synced_at` | `timestamptz` | |
+| UNIQUE | (`practice_id`, `opendental_recall_id`) | |
+
 ### Patient groups
 
 `groups` is practice-scoped and stores a `group_type` (`static` or `dynamic`),
@@ -128,13 +146,17 @@ on demand in SQL against synchronized fields only:
 - Age range derived from date of birth.
 - Birth month.
 - Appointment status and last appointment date.
+- Non-disabled Open Dental recalls due by the practice-local date; patients
+  with a current/future recall appointment date or a future scheduled
+  appointment are excluded.
 - Email/mobile contact availability.
 
 Criteria are allow-listed and strictly validated; clinical data is not exposed
 or used. Last-appointment date rules consider the most recent appointment not
 in the future. Contact availability does not imply communication consent;
 campaign dispatch must continue to apply the relevant consent checks.
-Date-only rule boundaries are interpreted in UTC.
+User-entered date-only rule boundaries are interpreted in UTC. Recall due dates
+are compared to the practice-local current date.
 
 `group_membership_history` records static membership additions/removals with
 practice, group, patient (nullable after patient deletion), actor, and time.
@@ -159,6 +181,7 @@ audience match the original creation pattern.
 | `customer_key_enc` | `text` | AES-256-GCM encrypted |
 | `last_patient_synced_at` | `timestamptz` | |
 | `last_appt_synced_at` | `timestamptz` | |
+| `last_recall_synced_at` | `timestamptz` | |
 | `created_at` | `timestamptz` | |
 | `updated_at` | `timestamptz` | |
 
@@ -215,6 +238,12 @@ and generated/sanitized `html_body`. Each newsletter draft stores its own
 snapshot; editing a reusable centralized template does not mutate prior
 campaign content.
 
+Recall campaigns also store a nullable `source_template_id` reference to the
+selected published Recall-library template. The selected content is copied to
+the campaign-owned `message_templates` row so later library edits do not change
+an existing draft. Recall audience filters persist the enforced active-patient
+status, channel-specific consent, and destination-channel requirement.
+
 ### `campaign_recipients` and `campaign_delivery_events`
 
 Recipients are unique per `(campaign_id, patient_id)` and store dispatch,
@@ -235,7 +264,10 @@ at dispatch time.
 
 Practice-owned reminder rules reference an SMS or email template in the
 `appointment-reminders` category. Schedules store the interval, practice-local
-send time, enabled state, and creator.
+send time, enabled state, creator, and selected `group_ids` as JSONB. An empty
+group list targets all otherwise-eligible patients; multiple groups are
+combined as a union and membership is evaluated from current static or dynamic
+group membership.
 
 ### `appointment_reminders`
 
@@ -258,9 +290,13 @@ this before deletion.
 
 Practice-owned campaign settings reference a published shared birthday
 template. They store the channel, days before the birthday, practice-local
-delivery time, optional age eligibility rules and offer text. New campaigns
-default to `enabled = false`; an owner or admin must explicitly enable sending.
-The practice timezone is read from `practices.timezone`.
+delivery time, optional age eligibility rules and offer text. `eligibility_rules`
+may also contain `groupIds`; multiple groups are combined as a union, and an
+empty list leaves the campaign unrestricted by groups. Membership is evaluated
+from current static or dynamic group data during materialization and again
+before dispatch. New campaigns default to `enabled = false`; an owner or admin
+must explicitly enable sending. The practice timezone is read from
+`practices.timezone`.
 
 ### `birthday_message_occurrences`
 

@@ -32,6 +32,15 @@ describe('newsletter content', () => {
     expect(rendered.text).toContain('Visit us: https://practice.example.test/');
   });
 
+  it('accepts and renders the Recall due date variable', () => {
+    const rendered = renderNewsletterDocument({
+      subject: 'Your preventive visit is due',
+      blocks: [{ type: 'paragraph', text: 'Your recall is due on {{recall.dueDate}}.' }],
+    }, { 'recall.dueDate': 'November 13, 2026' });
+
+    expect(rendered.text).toBe('Your recall is due on November 13, 2026.');
+  });
+
   it('rejects unsupported variables and content without blocks', () => {
     expect(() => parseNewsletterDocument({
       subject: 'Hello',

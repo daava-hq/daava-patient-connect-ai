@@ -12,6 +12,7 @@ export type GroupCriteria = {
   appointmentStatuses?: Array<'Scheduled' | 'Complete' | 'Broken' | 'UnschedList'>;
   lastAppointmentAfter?: string;
   lastAppointmentBefore?: string;
+  hasDueRecall?: true;
   contactAvailability?: 'email' | 'sms' | 'either' | 'both';
 };
 

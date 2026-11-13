@@ -10,22 +10,28 @@ import {
 } from '@/db/schema/groups';
 import { patients } from '@/db/schema/patients';
 import { appointments } from '@/db/schema/appointments';
+import { opendentalRecalls } from '@/db/schema/opendental_recalls';
+import { practices } from '@/db/schema/practices';
 import { users } from '@/db/schema/users';
 import { campaigns } from '@/db/schema/campaigns';
 import { campaignDeliveryEvents, campaignRecipients } from '@/db/schema/campaign_recipients';
 import { templates, templateCategories } from '@/db/schema/templates';
 import {
   and,
+  asc,
   count,
   desc,
   eq,
   exists,
   gte,
+  gt,
   ilike,
   inArray,
   isNull,
+  lt,
   lte,
   notInArray,
+  notExists,
   or,
   sql,
   type SQL,
@@ -96,6 +102,48 @@ function buildPatientConditions(practiceId: string, criteria: GroupCriteria) {
       exclusiveEndDate.setUTCDate(exclusiveEndDate.getUTCDate() + 1);
       conditions.push(sql`${lastAppointment} < ${exclusiveEndDate}`);
     }
+  }
+
+  if (criteria.hasDueRecall) {
+    const practiceToday = sql`(
+      SELECT (NOW() AT TIME ZONE ${practices.timezone})::date
+      FROM ${practices}
+      WHERE ${practices.id} = ${practiceId}
+    )`;
+    conditions.push(
+      exists(
+        db
+          .select({ id: opendentalRecalls.id })
+          .from(opendentalRecalls)
+          .where(
+            and(
+              eq(opendentalRecalls.practiceId, practiceId),
+              eq(opendentalRecalls.patientId, patients.id),
+              eq(opendentalRecalls.isDisabled, false),
+              lte(opendentalRecalls.dueDate, practiceToday),
+              or(
+                isNull(opendentalRecalls.dateScheduled),
+                lt(opendentalRecalls.dateScheduled, practiceToday),
+              )!,
+            ),
+          ),
+      ),
+    );
+    conditions.push(
+      notExists(
+        db
+          .select({ id: appointments.id })
+          .from(appointments)
+          .where(
+            and(
+              eq(appointments.practiceId, practiceId),
+              eq(appointments.patientId, patients.id),
+              eq(appointments.status, 'Scheduled'),
+              gt(appointments.scheduledAt, sql`NOW()`),
+            ),
+          ),
+      ),
+    );
   }
 
   if (criteria.contactAvailability === 'email' || criteria.contactAvailability === 'both') {
@@ -201,6 +249,51 @@ export async function getPracticeGroups(
     }))
   );
   return { groups: withDynamicCounts, total, limit, offset };
+}
+
+export async function getPracticeGroupOptions(practiceId: string) {
+  return db
+    .select({
+      id: groups.id,
+      name: groups.name,
+      groupType: groups.groupType,
+    })
+    .from(groups)
+    .where(
+      and(
+        eq(groups.practiceId, practiceId),
+        isNull(groups.deletedAt),
+        isNull(groups.archivedAt)
+      )
+    )
+    .orderBy(asc(groups.name));
+}
+
+export async function getRecallAudienceGroupOptions(practiceId: string) {
+  const activeGroups = await db
+    .select({
+      id: groups.id,
+      name: groups.name,
+      groupType: groups.groupType,
+      criteria: groups.criteria,
+    })
+    .from(groups)
+    .where(
+      and(
+        eq(groups.practiceId, practiceId),
+        isNull(groups.deletedAt),
+        isNull(groups.archivedAt),
+        eq(groups.groupType, 'dynamic'),
+      ),
+    )
+    .orderBy(asc(groups.name));
+
+  return activeGroups
+    .filter((group) => {
+      const parsedCriteria = groupCriteriaSchema.safeParse(group.criteria ?? {});
+      return parsedCriteria.success && parsedCriteria.data.hasDueRecall === true;
+    })
+    .map(({ id, name, groupType }) => ({ id, name, groupType }));
 }
 
 export async function getGroupById(practiceId: string, groupId: string): Promise<Group | null> {
@@ -733,6 +826,69 @@ export async function getGroupAudienceCondition(practiceId: string, groupIds: st
     );
   });
   return groupConditions.length ? or(...groupConditions)! : sql`false`;
+}
+
+export async function isPatientInGroups(
+  practiceId: string,
+  patientId: string,
+  groupIds: string[]
+): Promise<boolean> {
+  if (!groupIds.length) return true;
+  const patientIds = await getPatientIdsInGroups(practiceId, groupIds, [patientId]);
+  return patientIds.length > 0;
+}
+
+export async function getPatientIdsInGroups(
+  practiceId: string,
+  groupIds: string[],
+  candidatePatientIds?: string[]
+): Promise<string[]> {
+  if (!groupIds.length || (candidatePatientIds && candidatePatientIds.length === 0)) return [];
+  const audienceCondition = await getGroupAudienceCondition(practiceId, groupIds);
+  const conditions = [
+    eq(patients.practiceId, practiceId),
+    audienceCondition,
+    ...(candidatePatientIds ? [inArray(patients.id, candidatePatientIds)] : []),
+  ];
+  const patientsInAudience = await db
+    .select({ id: patients.id })
+    .from(patients)
+    .where(and(...conditions));
+  return patientsInAudience.map(({ id }) => id);
+}
+
+export async function ensureRecallAudienceGroups(practiceId: string, groupIds: string[]): Promise<void> {
+  const uniqueIds = [...new Set(groupIds)];
+  if (!uniqueIds.length) {
+    throw new ValidationError('Recall campaigns require a due-recall dynamic group');
+  }
+
+  const selectedGroups = await db
+    .select({
+      id: groups.id,
+      groupType: groups.groupType,
+      criteria: groups.criteria,
+    })
+    .from(groups)
+    .where(
+      and(
+        eq(groups.practiceId, practiceId),
+        inArray(groups.id, uniqueIds),
+        isNull(groups.deletedAt),
+        isNull(groups.archivedAt),
+      ),
+    );
+
+  if (selectedGroups.length !== uniqueIds.length) {
+    throw new ValidationError('One or more selected groups are unavailable to this practice');
+  }
+
+  for (const group of selectedGroups) {
+    const parsedCriteria = groupCriteriaSchema.safeParse(group.criteria ?? {});
+    if (group.groupType !== 'dynamic' || !parsedCriteria.success || parsedCriteria.data.hasDueRecall !== true) {
+      throw new ValidationError('Recall campaigns can target only dynamic groups with the due Open Dental recall rule');
+    }
+  }
 }
 
 export async function getGroupAnnouncementTemplate(practiceId: string, templateId: string) {

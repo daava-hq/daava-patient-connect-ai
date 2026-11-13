@@ -4,4 +4,5 @@ export * from './crypto';
 export * from './client';
 export * from './patients';
 export * from './appointments';
+export * from './recalls';
 export * from './providers';

@@ -1,21 +1,20 @@
-'use client';
-
-import React from 'react';
-import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import { MessageSquare } from 'lucide-react';
+import EmptyState from '@/components/feedback/EmptyState/EmptyState';
+import PageHeader from '@/components/ui/PageHeader/PageHeader';
+import styles from './ConnectPage.module.css';
 
 export default function ConnectPage() {
   return (
-    <div style={{ padding: '2rem' }}>
+    <main className={styles.page}>
       <PageHeader
         title="Connect Two-Way Messaging"
-        description="Real-time SMS conversation inbox with patients."
+        description="Two-way patient messaging is unavailable until the messaging provider and incoming webhook are configured."
       />
-      <div style={{ background: '#fff', padding: '4rem 2rem', borderRadius: '8px', textAlign: 'center', color: '#64748b', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <MessageSquare size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-        <h3>Two-Way SMS Inbox</h3>
-        <p>Conversations and direct messaging will appear here when incoming webhooks are configured.</p>
-      </div>
-    </div>
+      <EmptyState
+        icon={<MessageSquare size={32} aria-hidden="true" />}
+        title="Two-Way SMS Inbox"
+        description="Patient conversations and direct messages will appear here once those integrations are configured."
+      />
+    </main>
   );
 }

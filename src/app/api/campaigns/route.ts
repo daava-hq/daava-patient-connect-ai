@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/options';
 import { requirePracticeMembership } from '@/lib/auth/guards';
-import { getPracticeCampaigns, createCampaign } from '@/lib/campaigns/campaign-service';
+import { getPracticeCampaigns, createCampaign, createRecallCampaignDraft } from '@/lib/campaigns/campaign-service';
 import { AppError } from '@/lib/errors';
-import { ensurePracticeGroups } from '@/lib/groups/group-repository';
+import { ensurePracticeGroups, ensureRecallAudienceGroups } from '@/lib/groups/group-repository';
 import { z } from 'zod';
 
 const createCampaignSchema = z.object({
@@ -13,6 +13,7 @@ const createCampaignSchema = z.object({
   type: z.enum(['reminder', 'newsletter', 'birthday', 'recall', 'payment', 'survey', 'referral']),
   channel: z.enum(['sms', 'email']),
   templateId: z.string().uuid().nullable().optional(),
+  sourceTemplateId: z.string().uuid().optional(),
   audienceFilter: z.object({
     groupIds: z.array(z.string().uuid()).max(100).optional(),
     consentSms: z.boolean().optional(),
@@ -25,6 +26,21 @@ const createCampaignSchema = z.object({
   }).strict().default({}),
   scheduledAt: z.string().datetime().nullable().optional(),
   }).superRefine((campaign, context) => {
+    if (campaign.type === 'recall' && !campaign.audienceFilter.groupIds?.length) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['audienceFilter', 'groupIds'],
+        message: 'Recall campaigns require a due-recall dynamic group',
+      });
+    }
+    if (campaign.type === 'recall' && !campaign.sourceTemplateId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['sourceTemplateId'],
+        message: 'Recall campaigns require a published Recall template',
+      });
+    }
+
     if (campaign.type === 'newsletter') {
       if (campaign.channel !== 'email') {
         context.addIssue({ code: z.ZodIssueCode.custom, path: ['channel'], message: 'Newsletters must use email' });
@@ -79,20 +95,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Validation error', details: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { practiceId, scheduledAt, templateId, ...rest } = parsed.data;
+    const { practiceId, scheduledAt, templateId, sourceTemplateId, ...rest } = parsed.data;
 
     await requirePracticeMembership(session.user.id, practiceId);
-    await ensurePracticeGroups(practiceId, rest.audienceFilter.groupIds ?? []);
+    if (rest.type === 'recall') {
+      await ensureRecallAudienceGroups(practiceId, rest.audienceFilter.groupIds ?? []);
+      if (!sourceTemplateId) {
+        return NextResponse.json({ error: 'Recall campaigns require a published Recall template' }, { status: 400 });
+      }
+    } else {
+      await ensurePracticeGroups(practiceId, rest.audienceFilter.groupIds ?? []);
+    }
 
-    const campaign = await createCampaign({
-      practiceId,
-      ...rest,
-      audienceFilter: rest.type === 'newsletter'
-        ? { ...rest.audienceFilter, patientStatuses: ['Patient'], consentEmail: true }
-        : rest.audienceFilter,
-      templateId: templateId ?? undefined,
-      scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
-    });
+    let campaign;
+    if (rest.type === 'recall') {
+      if (!sourceTemplateId) {
+        return NextResponse.json({ error: 'Recall campaigns require a published Recall template' }, { status: 400 });
+      }
+      campaign = await createRecallCampaignDraft({
+          practiceId,
+          name: rest.name,
+          channel: rest.channel,
+          sourceTemplateId,
+          audienceFilter: rest.audienceFilter,
+        });
+    } else {
+      campaign = await createCampaign({
+          practiceId,
+          ...rest,
+          audienceFilter: rest.type === 'newsletter'
+            ? { ...rest.audienceFilter, patientStatuses: ['Patient'], consentEmail: true }
+            : rest.audienceFilter,
+          templateId: templateId ?? undefined,
+          scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
+        });
+    }
 
     return NextResponse.json({ data: campaign }, { status: 201 });
   } catch (err) {

@@ -2,11 +2,16 @@ import 'server-only';
 import { db } from '@/db';
 import { campaigns, campaigns as campaignsTable, Campaign, NewCampaign, CampaignStatus, AudienceFilter } from '@/db/schema/campaigns';
 import { campaignDeliveryEvents, campaignRecipients } from '@/db/schema/campaign_recipients';
-import { messageTemplates } from '@/db/schema/message_templates';
+import { messageTemplates, type NewMessageTemplate } from '@/db/schema/message_templates';
+import type { Template } from '@/db/schema/templates';
 import { eq, and, isNull, sql, inArray } from 'drizzle-orm';
 import { NotFoundError, AppError } from '@/lib/errors';
 import { resolveAudience } from './audience-service';
 import { parseNewsletterDocument, renderNewsletterDocument } from '@/lib/newsletters/newsletter-content';
+import { getPublishedRecallTemplate } from '@/lib/templates/template-service';
+import { extractTemplateBody } from '@/lib/templates/document-schema';
+import { withRecallAudienceDefaults, type RecallChannel } from './recall-audience';
+import { ensureRecallAudienceGroups } from '@/lib/groups/group-repository';
 
 /** Valid state transitions for a campaign */
 const VALID_TRANSITIONS: Record<CampaignStatus, CampaignStatus[]> = {
@@ -142,6 +147,179 @@ export async function createCampaign(
     .values({ ...data, status: 'draft' })
     .returning();
   return campaign;
+}
+
+function buildRecallMessageSnapshot(
+  source: Template,
+  practiceId: string,
+  campaignName: string,
+  channel: RecallChannel,
+): NewMessageTemplate {
+  if (!isRecord(source.content)) {
+    throw new AppError(400, 'Recall template content is invalid', 'INVALID_TEMPLATE');
+  }
+
+  if (channel === 'email') {
+    let content;
+    try {
+      content = parseNewsletterDocument(source.content);
+    } catch (error) {
+      throw new AppError(
+        400,
+        error instanceof Error ? error.message : 'Recall email template is invalid',
+        'INVALID_TEMPLATE',
+      );
+    }
+    const rendered = renderNewsletterDocument(content);
+    if (!rendered.subject.trim() || !rendered.text.trim()) {
+      throw new AppError(400, 'Recall email templates need a subject and message body', 'INVALID_TEMPLATE');
+    }
+    return {
+      practiceId,
+      name: `${source.name} - ${campaignName}`,
+      channel,
+      subject: rendered.subject,
+      body: rendered.text,
+      htmlBody: rendered.html,
+      content,
+    };
+  }
+
+  const body = extractTemplateBody(source.content);
+  if (!body.trim()) {
+    throw new AppError(400, 'Recall SMS templates need a message body', 'INVALID_TEMPLATE');
+  }
+  return {
+    practiceId,
+    name: `${source.name} - ${campaignName}`,
+    channel,
+    subject: null,
+    body,
+    htmlBody: null,
+    content: source.content,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export async function createRecallCampaignDraft(data: {
+  practiceId: string;
+  name: string;
+  channel: RecallChannel;
+  sourceTemplateId: string;
+  audienceFilter: AudienceFilter;
+}): Promise<Campaign> {
+  const source = await getPublishedRecallTemplate(data.practiceId, data.sourceTemplateId, data.channel);
+  if (!source) {
+    throw new AppError(400, 'Select a published Recall template for the chosen channel', 'INVALID_TEMPLATE');
+  }
+  const snapshot = buildRecallMessageSnapshot(source, data.practiceId, data.name, data.channel);
+
+  return db.transaction(async (tx) => {
+    const [campaignTemplate] = await tx.insert(messageTemplates).values(snapshot).returning({ id: messageTemplates.id });
+    const [campaign] = await tx
+      .insert(campaigns)
+      .values({
+        practiceId: data.practiceId,
+        name: data.name,
+        type: 'recall',
+        channel: data.channel,
+        status: 'draft',
+        templateId: campaignTemplate.id,
+        sourceTemplateId: source.id,
+        audienceFilter: withRecallAudienceDefaults(data.channel, data.audienceFilter),
+      })
+      .returning();
+
+    return campaign;
+  });
+}
+
+export async function updateRecallCampaignDraft(data: {
+  practiceId: string;
+  campaignId: string;
+  name?: string;
+  channel?: RecallChannel;
+  sourceTemplateId?: string;
+  audienceFilter?: AudienceFilter;
+}): Promise<Campaign> {
+  const existing = await getCampaignById(data.practiceId, data.campaignId);
+  if (!existing || existing.type !== 'recall') throw new NotFoundError('Recall campaign not found');
+  if (existing.status !== 'draft') {
+    throw new AppError(409, 'Only Recall campaign drafts can be edited', 'INVALID_STATE');
+  }
+
+  const channel = data.channel ?? existing.channel;
+  if (channel !== 'sms' && channel !== 'email') {
+    throw new AppError(409, 'Recall campaign has an unsupported channel', 'INVALID_STATE');
+  }
+  const sourceTemplateId = data.sourceTemplateId ?? existing.sourceTemplateId ?? undefined;
+  const templateChanged = data.sourceTemplateId !== undefined && data.sourceTemplateId !== existing.sourceTemplateId;
+  const refreshSnapshot = templateChanged || channel !== existing.channel || !existing.templateId;
+  const source = refreshSnapshot && sourceTemplateId
+    ? await getPublishedRecallTemplate(data.practiceId, sourceTemplateId, channel)
+    : null;
+  if (refreshSnapshot && !source) {
+    throw new AppError(400, 'Select a published Recall template for the chosen channel', 'INVALID_TEMPLATE');
+  }
+  const snapshot = source
+    ? buildRecallMessageSnapshot(source, data.practiceId, data.name ?? existing.name, channel)
+    : null;
+
+  return db.transaction(async (tx) => {
+    const [locked] = await tx
+      .select()
+      .from(campaigns)
+      .where(and(
+        eq(campaigns.practiceId, data.practiceId),
+        eq(campaigns.id, data.campaignId),
+        isNull(campaigns.deletedAt),
+      ))
+      .for('update')
+      .limit(1);
+    if (!locked || locked.type !== 'recall') throw new NotFoundError('Recall campaign not found');
+    if (locked.status !== 'draft') {
+      throw new AppError(409, 'Only Recall campaign drafts can be edited', 'INVALID_STATE');
+    }
+
+    let templateId = locked.templateId;
+    if (snapshot) {
+      if (locked.templateId) {
+        const [updatedTemplate] = await tx.update(messageTemplates).set({
+          ...snapshot,
+          updatedAt: new Date(),
+        }).where(and(
+          eq(messageTemplates.practiceId, data.practiceId),
+          eq(messageTemplates.id, locked.templateId),
+          isNull(messageTemplates.deletedAt),
+        )).returning({ id: messageTemplates.id });
+        if (!updatedTemplate) throw new NotFoundError('Recall campaign template not found');
+      } else {
+        const [createdTemplate] = await tx.insert(messageTemplates).values(snapshot).returning({ id: messageTemplates.id });
+        templateId = createdTemplate.id;
+      }
+    }
+
+    const [updated] = await tx.update(campaigns).set({
+      ...(data.name !== undefined ? { name: data.name } : {}),
+      channel,
+      templateId,
+      sourceTemplateId: sourceTemplateId ?? null,
+      audienceFilter: withRecallAudienceDefaults(
+        channel,
+        data.audienceFilter ?? locked.audienceFilter,
+      ),
+      updatedAt: new Date(),
+    }).where(and(
+      eq(campaigns.practiceId, data.practiceId),
+      eq(campaigns.id, data.campaignId),
+      eq(campaigns.status, 'draft'),
+    )).returning();
+    if (!updated) throw new AppError(409, 'Recall campaign changed while it was being edited', 'INVALID_STATE');
+    return updated;
+  });
 }
 
 export async function createAnnouncementDraft(data: {
@@ -471,6 +649,80 @@ export async function scheduleNewsletter(
   return scheduled;
 }
 
+export async function scheduleRecallCampaign(
+  practiceId: string,
+  campaignId: string,
+  scheduledAt: Date,
+): Promise<Campaign> {
+  if (Number.isNaN(scheduledAt.getTime()) || scheduledAt.getTime() < Date.now()) {
+    throw new AppError(400, 'Scheduled time must be now or in the future', 'INVALID_SCHEDULE');
+  }
+  const existing = await getCampaignById(practiceId, campaignId);
+  if (!existing || existing.type !== 'recall') throw new NotFoundError('Recall campaign not found');
+  if (existing.status !== 'draft') {
+    throw new AppError(409, 'Only Recall campaign drafts can be scheduled', 'INVALID_STATE');
+  }
+  if (!existing.sourceTemplateId) {
+    throw new AppError(409, 'Select a published Recall template before scheduling', 'INVALID_CONTENT');
+  }
+  if (!existing.templateId) {
+    throw new AppError(409, 'Select a Recall template before scheduling', 'INVALID_CONTENT');
+  }
+  if (existing.channel !== 'sms' && existing.channel !== 'email') {
+    throw new AppError(409, 'Recall campaign has an unsupported channel', 'INVALID_STATE');
+  }
+  const sourceTemplate = await getPublishedRecallTemplate(
+    practiceId,
+    existing.sourceTemplateId,
+    existing.channel,
+  );
+  if (!sourceTemplate) {
+    throw new AppError(409, 'Select a published Recall template before scheduling', 'INVALID_TEMPLATE');
+  }
+
+  await ensureRecallAudienceGroups(practiceId, existing.audienceFilter.groupIds ?? []);
+  const [template] = await db.select({
+    channel: messageTemplates.channel,
+    subject: messageTemplates.subject,
+    body: messageTemplates.body,
+  }).from(messageTemplates).where(and(
+    eq(messageTemplates.practiceId, practiceId),
+    eq(messageTemplates.id, existing.templateId),
+    isNull(messageTemplates.deletedAt),
+  )).limit(1);
+  if (
+    !template ||
+    template.channel !== existing.channel ||
+    !template.body.trim() ||
+    (existing.channel === 'email' && !template.subject?.trim())
+  ) {
+    throw new AppError(409, 'Recall template content is required before scheduling', 'INVALID_CONTENT');
+  }
+
+  const audienceFilter = withRecallAudienceDefaults(
+    existing.channel,
+    existing.audienceFilter,
+  );
+  const recipients = await resolveAudience(practiceId, audienceFilter, 1);
+  if (!recipients.length) {
+    throw new AppError(400, 'No eligible patients match the due-recall audience', 'EMPTY_AUDIENCE');
+  }
+
+  const [scheduled] = await db.update(campaigns).set({
+    audienceFilter,
+    status: 'scheduled',
+    scheduledAt,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(campaigns.practiceId, practiceId),
+    eq(campaigns.id, campaignId),
+    eq(campaigns.status, 'draft'),
+    isNull(campaigns.deletedAt),
+  )).returning();
+  if (!scheduled) throw new AppError(409, 'Recall campaign changed while it was being scheduled', 'INVALID_STATE');
+  return scheduled;
+}
+
 export async function scheduleGroupAnnouncement(
   practiceId: string,
   groupId: string,
@@ -531,7 +783,7 @@ export async function scheduleGroupAnnouncement(
 export async function updateCampaign(
   practiceId: string,
   campaignId: string,
-  data: Partial<Pick<NewCampaign, 'name' | 'templateId' | 'audienceFilter' | 'scheduledAt'>>
+  data: Partial<Pick<NewCampaign, 'name' | 'channel' | 'templateId' | 'audienceFilter' | 'scheduledAt'>>
 ): Promise<Campaign> {
   const existing = await getCampaignById(practiceId, campaignId);
   if (!existing) throw new NotFoundError('Campaign not found');

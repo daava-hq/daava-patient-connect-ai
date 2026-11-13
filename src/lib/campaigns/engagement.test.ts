@@ -76,6 +76,18 @@ describe('Engagement Engine Unit Tests', () => {
       expect(missingVariables).toHaveLength(0);
     });
 
+    it('supports dotted template variables used by Recall messages', () => {
+      const body = 'Hi {{patient.firstName}}, your care is due on {{recall.dueDate}}.';
+      const { rendered, missingVariables } = interpolateTemplate(body, {
+        'patient.firstName': 'Jordan',
+        'recall.dueDate': 'November 13, 2026',
+      });
+
+      expect(rendered).toBe('Hi Jordan, your care is due on November 13, 2026.');
+      expect(extractTemplateVariables(body)).toEqual(['patient.firstName', 'recall.dueDate']);
+      expect(missingVariables).toHaveLength(0);
+    });
+
     it('reports missing variables during interpolation', () => {
       const body = 'Hello {{first_name}}, your code is {{code}}.';
       const { rendered, missingVariables } = interpolateTemplate(body, {

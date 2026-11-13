@@ -5,6 +5,7 @@
 - API setup: https://www.opendental.com/site/apisetup.html
 - Patients: https://www.opendental.com/site/apipatients.html
 - Appointments: https://www.opendental.com/site/apiappointments.html
+- Recalls: https://www.opendental.com/site/apirecalls.html
 - Full specification: https://www.opendental.com/site/apispecification.html
 - Implementation guide: https://www.opendental.com/site/apiimplementation.html
 
@@ -35,6 +36,7 @@ Each practice record has an encrypted `opendental_credentials` column (or a sepa
 |-----|-------------|--------|
 | `sync-patients` | Full + incremental patient pull | Implemented |
 | `sync-appointments` | Full + incremental appointment pull | Implemented |
+| `sync-recalls` | Read-only recall snapshot for due-recall group targeting | Implemented |
 
 ## Sync design principles
 
@@ -139,6 +141,28 @@ patient status is `Patient`, then rechecks both immediately before dispatch.
 provider/operatory data is not currently stored in the synchronized schema;
 templates that require unavailable variables are rejected before dispatch.
 SMS/email delivery remains disabled until real providers are configured.
+
+## Recall sync
+
+The recall sync reads `GET /recalls` (available in Open Dental API version
+22.4.40 and later) and stores a practice-scoped snapshot of
+the recall ID, patient, recall type number, due date, scheduled date, and
+disabled flag. Open Dental's `0001-01-01` date sentinel is stored as null.
+Malformed records and recalls whose patient has not been synchronized are
+skipped and counted; a successful snapshot replaces the previous snapshot
+atomically. The sync is read-only and can be triggered by an authorized
+practice owner through Practice Settings.
+
+Dynamic groups can select patients with any non-disabled recall due on or
+before the practice's current date. Patients with a current/future Open Dental
+recall appointment date or a future `Scheduled` appointment in the synchronized
+local appointment data are excluded. The recall rule uses Open Dental's `DateDue` as
+the source of truth; Patient Connect does not calculate a separate interval or
+write recall changes back to Open Dental. Sync appointments and recall data
+regularly to keep the audience current.
+Recall campaign messages use the earliest currently due `DateDue` per eligible
+patient for `{{recall.dueDate}}`; dispatch rechecks due-recall group eligibility
+before processing each recipient batch.
 
 ## Operatories & Providers (Calendar Columns)
 

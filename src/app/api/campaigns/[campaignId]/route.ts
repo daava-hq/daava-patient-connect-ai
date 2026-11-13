@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/options';
-import { requirePracticeMembership } from '@/lib/auth/guards';
+import { requirePracticeAdmin, requirePracticeMembership } from '@/lib/auth/guards';
 import {
   getCampaignById,
   updateCampaign,
+  updateRecallCampaignDraft,
   transitionCampaign,
   softDeleteCampaign,
 } from '@/lib/campaigns/campaign-service';
@@ -12,11 +13,14 @@ import { getCampaignStats } from '@/lib/campaigns/recipient-tracking';
 import { AppError } from '@/lib/errors';
 import { z } from 'zod';
 import { CampaignStatus } from '@/db/schema/campaigns';
-import { ensurePracticeGroups } from '@/lib/groups/group-repository';
+import { ensurePracticeGroups, ensureRecallAudienceGroups } from '@/lib/groups/group-repository';
+import { withRecallAudienceDefaults } from '@/lib/campaigns/recall-audience';
 
 const updateSchema = z.object({
   name: z.string().min(1).max(255).optional(),
+  channel: z.enum(['sms', 'email']).optional(),
   templateId: z.string().uuid().nullable().optional(),
+  sourceTemplateId: z.string().uuid().optional(),
   audienceFilter: z.object({
     groupIds: z.array(z.string().uuid()).max(100).optional(),
     consentSms: z.boolean().optional(),
@@ -74,6 +78,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { campaignId
       if (campaign.type === 'newsletter') {
         return NextResponse.json({ error: 'Use the newsletter schedule or cancel action for newsletter state changes' }, { status: 400 });
       }
+      if (campaign.type === 'recall') {
+        return NextResponse.json({ error: 'Use the Recall schedule or cancel action for Recall state changes' }, { status: 400 });
+      }
       const updated = await transitionCampaign(practiceId, params.campaignId, transitionParsed.data.status as CampaignStatus);
       return NextResponse.json({ data: updated });
     }
@@ -88,10 +95,21 @@ export async function PATCH(req: NextRequest, { params }: { params: { campaignId
     if (!practiceId) return NextResponse.json({ error: 'practiceId is required' }, { status: 400 });
     await requirePracticeMembership(session.user.id, practiceId);
 
-    const { scheduledAt, templateId, ...rest } = updateParsed.data;
+    const { scheduledAt, templateId, sourceTemplateId, ...rest } = updateParsed.data;
     const existing = await getCampaignById(practiceId, params.campaignId);
     if (!existing) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
-    if (existing.type === 'newsletter' && rest.audienceFilter) {
+    if (rest.channel && existing.type !== 'recall') {
+      return NextResponse.json({ error: 'Only Recall campaigns can change channel through this endpoint' }, { status: 400 });
+    }
+    if (existing.type === 'recall' && (rest.audienceFilter || rest.channel)) {
+      const channel = rest.channel ?? existing.channel;
+      if (channel !== 'sms' && channel !== 'email') {
+        return NextResponse.json({ error: 'Recall campaign has an unsupported channel' }, { status: 409 });
+      }
+      const audienceFilter = rest.audienceFilter ?? existing.audienceFilter;
+      await ensureRecallAudienceGroups(practiceId, audienceFilter.groupIds ?? []);
+      rest.audienceFilter = withRecallAudienceDefaults(channel, audienceFilter);
+    } else if (existing.type === 'newsletter' && rest.audienceFilter) {
       if (rest.audienceFilter.consentEmail === false ||
           rest.audienceFilter.patientStatuses?.some((status) => status !== 'Patient')) {
         return NextResponse.json({ error: 'Newsletters can only target email-consenting active patients' }, { status: 400 });
@@ -102,12 +120,21 @@ export async function PATCH(req: NextRequest, { params }: { params: { campaignId
         consentEmail: true,
       };
     }
-    await ensurePracticeGroups(practiceId, rest.audienceFilter?.groupIds ?? []);
-    const updated = await updateCampaign(practiceId, params.campaignId, {
-      ...rest,
-      templateId: templateId ?? undefined,
-      scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
-    });
+    if (existing.type !== 'recall') {
+      await ensurePracticeGroups(practiceId, rest.audienceFilter?.groupIds ?? []);
+    }
+    const updated = existing.type === 'recall'
+      ? await updateRecallCampaignDraft({
+          practiceId,
+          campaignId: params.campaignId,
+          ...rest,
+          ...(sourceTemplateId !== undefined ? { sourceTemplateId } : {}),
+        })
+      : await updateCampaign(practiceId, params.campaignId, {
+          ...rest,
+          templateId: templateId ?? undefined,
+          scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
+        });
 
     return NextResponse.json({ data: updated });
   } catch (err) {
@@ -125,6 +152,8 @@ export async function DELETE(req: NextRequest, { params }: { params: { campaignI
     if (!practiceId) return NextResponse.json({ error: 'practiceId is required' }, { status: 400 });
 
     await requirePracticeMembership(session.user.id, practiceId);
+    const campaign = await getCampaignById(practiceId, params.campaignId);
+    if (campaign?.type === 'recall') await requirePracticeAdmin(session.user.id, practiceId);
     await softDeleteCampaign(practiceId, params.campaignId);
 
     return NextResponse.json({ success: true });

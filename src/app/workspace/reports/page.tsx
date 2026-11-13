@@ -1,21 +1,20 @@
-'use client';
-
-import React from 'react';
-import PageHeader from '@/components/ui/PageHeader/PageHeader';
 import { BarChart3 } from 'lucide-react';
+import EmptyState from '@/components/feedback/EmptyState/EmptyState';
+import PageHeader from '@/components/ui/PageHeader/PageHeader';
+import styles from './ReportsPage.module.css';
 
 export default function ReportsPage() {
   return (
-    <div style={{ padding: '2rem' }}>
+    <main className={styles.page}>
       <PageHeader
         title="Engagement & Operations Reports"
-        description="Comprehensive analytics and exportable reports across all modules."
+        description="Centralized reporting and CSV exports are not yet available."
       />
-      <div style={{ background: '#fff', padding: '4rem 2rem', borderRadius: '8px', textAlign: 'center', color: '#64748b', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <BarChart3 size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-        <h3>Engagement Analytics</h3>
-        <p>Delivery rates, campaign performance, response metrics, and CSV exports.</p>
-      </div>
-    </div>
+      <EmptyState
+        icon={<BarChart3 size={32} aria-hidden="true" />}
+        title="Cross-Module Reports"
+        description="Delivery rates, campaign performance, response metrics, and CSV exports will appear here once report data sources are connected."
+      />
+    </main>
   );
 }

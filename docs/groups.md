@@ -24,9 +24,43 @@ Scheduled announcements can be cancelled. Drafts can be deleted.
 The group engagement history lists announcement status, scheduled time, and
 recipient counts. Each campaign report includes sent/accepted, delivered,
 bounced, failed, skipped, open, and click counts where the provider supports
-them in labeled icon cards, plus recipient activity. Group announcement details
-and actions are scoped to the practice and group that own the campaign. The
-report dialog and metric-card sizing match the newsletter report layout.
+them in shared `StatCard` components, plus recipient activity. Group
+announcement details and actions are scoped to the practice and group that own
+the campaign. The report dialog and metric-card sizing match the newsletter
+report layout.
+
+## Reusable campaign audiences
+
+Birthday campaigns and appointment reminder schedules can target one or more
+active groups in their practice. Selected groups are combined as a union; when
+none are selected, the workflow keeps its existing all-eligible-patient
+audience. Static memberships and dynamic criteria are resolved from current
+data during scheduling and checked again immediately before dispatch. Group
+selection does not bypass active-patient, appointment, consent, destination,
+or practice-channel safeguards.
+
+`GET /api/groups/options?practiceId=...` returns minimal active group options
+after verifying practice membership. Campaign and schedule saves independently
+validate that every selected group is active and belongs to the authorized
+practice. Archived or deleted groups cannot be selected for new or updated
+audiences.
+`GET /api/groups/recall-options?practiceId=...` returns only active dynamic
+groups that include the approved due-recall criterion, after practice
+membership is verified.
+
+Dynamic group criteria can include due Open Dental recalls. A match requires
+an active recall of any recall type with `DateDue` on or before the practice's
+current date. Patients with a current/future recall appointment date or a
+future scheduled appointment in the synchronized appointment data are
+excluded. Recall campaigns require one or more active dynamic groups with this
+criterion; static groups and groups without it are rejected. This rule
+depends on the owner-triggered recall sync and the appointment sync; it does
+not calculate a new interval or modify Open Dental.
+Recall campaign drafts select a published SMS or email template from the
+Recall category and snapshot its content. Audience previews show names only;
+schedule/send-now and cancellation require a practice owner or admin. Dispatch
+rechecks the current dynamic-group eligibility and channel consent. When more
+than one due recall exists, the earliest due date is used for `{{recall.dueDate}}`.
 
 Routes:
 

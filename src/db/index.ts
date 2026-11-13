@@ -19,6 +19,7 @@ import * as payments from './schema/payments';
 import * as templates from './schema/templates';
 import * as appointmentReminders from './schema/appointment_reminders';
 import * as birthdayEngagement from './schema/birthday_engagement';
+import * as opendentalRecalls from './schema/opendental_recalls';
 
 const globalForDb = globalThis as typeof globalThis & {
   __patientConnectPostgres?: ReturnType<typeof postgres>;
@@ -54,5 +55,6 @@ export const db = drizzle(client, {
     ...templates,
     ...appointmentReminders,
     ...birthdayEngagement,
+    ...opendentalRecalls,
   },
 });

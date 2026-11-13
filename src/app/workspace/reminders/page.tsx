@@ -1,11 +1,12 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { Bell, CalendarClock, ChevronRight, Eye, Mail, Plus, Send, Settings2, Trash2, X } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
+import StatCard from '@/components/ui/StatCard/StatCard';
 import TemplatePickerDialog from '@/components/feature/TemplatePicker/TemplatePickerDialog';
+import GroupAudienceSelector, { type GroupOption } from '@/components/feature/GroupAudienceSelector/GroupAudienceSelector';
 import { useToast } from '@/components/feedback/ToastProvider/ToastProvider';
 import EmailMessagePreview from '@/components/feature/EmailMessagePreview/EmailMessagePreview';
 import {
@@ -22,6 +23,7 @@ interface ReminderSchedule {
   channel: 'sms' | 'email';
   localSendTime: string;
   templateId: string | null;
+  groupIds: string[];
   templateName: string | null;
   enabled: boolean;
 }
@@ -93,6 +95,7 @@ interface ScheduleForm {
   channel: 'sms' | 'email';
   localSendTime: string;
   templateId: string;
+  groupIds: string[];
   enabled: boolean;
 }
 
@@ -112,6 +115,7 @@ const EMPTY_FORM: ScheduleForm = {
   channel: 'sms',
   localSendTime: '09:00',
   templateId: '',
+  groupIds: [],
   enabled: true,
 };
 
@@ -132,6 +136,9 @@ export default function RemindersPage() {
   const [practiceId, setPracticeId] = useState('');
   const [dashboard, setDashboard] = useState<ReminderDashboard | null>(null);
   const [templates, setTemplates] = useState<ReminderTemplate[]>([]);
+  const [groupOptions, setGroupOptions] = useState<GroupOption[]>([]);
+  const [groupOptionsLoading, setGroupOptionsLoading] = useState(true);
+  const [groupOptionsError, setGroupOptionsError] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [formOpen, setFormOpen] = useState(false);
@@ -153,6 +160,7 @@ export default function RemindersPage() {
   const scheduleDialogRef = useRef<HTMLElement | null>(null);
   const previewDialogRef = useRef<HTMLElement | null>(null);
   const previewRequestIdRef = useRef(0);
+  const groupOptionsRequestIdRef = useRef(0);
 
   const clearPreview = useCallback(() => {
     previewRequestIdRef.current += 1;
@@ -165,6 +173,25 @@ export default function RemindersPage() {
     clearPreview();
     setFormOpen(false);
   }, [clearPreview]);
+
+  const loadGroupOptions = useCallback(async (selectedPracticeId: string) => {
+    const requestId = ++groupOptionsRequestIdRef.current;
+    setGroupOptionsLoading(true);
+    setGroupOptionsError('');
+    try {
+      const response = await fetch(`/api/groups/options?practiceId=${encodeURIComponent(selectedPracticeId)}`);
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || 'Failed to load active patient groups');
+      if (!Array.isArray(json.data)) throw new Error('Patient groups are unavailable');
+      if (requestId === groupOptionsRequestIdRef.current) setGroupOptions(json.data as GroupOption[]);
+    } catch (error) {
+      if (requestId === groupOptionsRequestIdRef.current) {
+        setGroupOptionsError(error instanceof Error ? error.message : 'Failed to load active patient groups');
+      }
+    } finally {
+      if (requestId === groupOptionsRequestIdRef.current) setGroupOptionsLoading(false);
+    }
+  }, []);
 
   const loadDashboard = useCallback(async (selectedPracticeId: string) => {
     setLoading(true);
@@ -211,6 +238,17 @@ export default function RemindersPage() {
   }, [practiceId, loadDashboard]);
 
   useEffect(() => {
+    if (practiceId) {
+      void loadGroupOptions(practiceId);
+      return;
+    }
+    groupOptionsRequestIdRef.current++;
+    setGroupOptions([]);
+    setGroupOptionsError('');
+    setGroupOptionsLoading(false);
+  }, [loadGroupOptions, practiceId]);
+
+  useEffect(() => {
     if (!formOpen || templateDialogOpen || previewModalOpen) return;
     return manageDialogFocus(scheduleDialogRef.current, closeScheduleForm);
   }, [closeScheduleForm, formOpen, previewModalOpen, templateDialogOpen]);
@@ -249,6 +287,9 @@ export default function RemindersPage() {
     [dashboard, historyFilter]
   );
   const selectedTemplate = templates.find((template) => template.id === form.templateId);
+  const hasUnavailableGroup = form.groupIds.some(
+    (groupId) => !groupOptions.some((group) => group.id === groupId)
+  );
 
   function openCreateForm() {
     setEditingScheduleId(null);
@@ -268,6 +309,7 @@ export default function RemindersPage() {
       channel: schedule.channel,
       localSendTime: schedule.localSendTime,
       templateId: schedule.templateId ?? '',
+      groupIds: schedule.groupIds ?? [],
       enabled: schedule.enabled,
     });
     clearPreview();
@@ -278,6 +320,14 @@ export default function RemindersPage() {
   async function saveSchedule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!practiceId || !form.templateId) return;
+    if (
+      groupOptionsLoading ||
+      groupOptionsError ||
+      form.groupIds.some((groupId) => !groupOptions.some((group) => group.id === groupId))
+    ) {
+      showToast('Resolve unavailable patient groups before saving', 'error');
+      return;
+    }
     setSaving(true);
     try {
       const response = await fetch(
@@ -455,12 +505,36 @@ export default function RemindersPage() {
           </div>
 
           <section className={styles.statsGrid} aria-label="Reminder report">
-            <Stat icon={<CalendarClock />} label="Scheduled" value={dashboard.stats.scheduled} />
-            <Stat icon={<Eye />} label="Attempted" value={dashboard.stats.attempted} />
-            <Stat icon={<Send />} label="Sent" value={dashboard.stats.sent} />
-            <Stat icon={<Mail />} label="Delivered" value={dashboard.stats.delivered} />
-            <Stat icon={<X />} label="Failed" value={dashboard.stats.failed} />
-            <Stat icon={<ChevronRight />} label="Skipped" value={dashboard.stats.skipped} />
+            <StatCard
+              icon={<CalendarClock size={20} aria-hidden="true" />}
+              label="Scheduled"
+              value={dashboard.stats.scheduled.toLocaleString()}
+            />
+            <StatCard
+              icon={<Eye size={20} aria-hidden="true" />}
+              label="Attempted"
+              value={dashboard.stats.attempted.toLocaleString()}
+            />
+            <StatCard
+              icon={<Send size={20} aria-hidden="true" />}
+              label="Sent"
+              value={dashboard.stats.sent.toLocaleString()}
+            />
+            <StatCard
+              icon={<Mail size={20} aria-hidden="true" />}
+              label="Delivered"
+              value={dashboard.stats.delivered.toLocaleString()}
+            />
+            <StatCard
+              icon={<X size={20} aria-hidden="true" />}
+              label="Failed"
+              value={dashboard.stats.failed.toLocaleString()}
+            />
+            <StatCard
+              icon={<ChevronRight size={20} aria-hidden="true" />}
+              label="Skipped"
+              value={dashboard.stats.skipped.toLocaleString()}
+            />
           </section>
 
           <section className={styles.section} aria-labelledby="settings-heading">
@@ -490,7 +564,12 @@ export default function RemindersPage() {
                         {schedule.enabled ? 'Enabled' : 'Paused'}
                       </span>
                     </div>
-                    <p className={styles.templateSummary}>Template: {schedule.templateName ?? 'Unavailable'}</p>
+                    <p className={styles.templateSummary}>
+                      Template: {schedule.templateName ?? 'Unavailable'} ·{' '}
+                      {schedule.groupIds.length
+                        ? `${schedule.groupIds.length} patient group${schedule.groupIds.length === 1 ? '' : 's'}`
+                        : 'All eligible patients'}
+                    </p>
                     <div className={styles.cardActions}>
                       <button
                         type="button"
@@ -751,6 +830,18 @@ export default function RemindersPage() {
                   Choose template
                 </button>
               </div>}
+              {!previewOnly && (
+                <GroupAudienceSelector
+                  groups={groupOptions}
+                  selectedGroupIds={form.groupIds}
+                  onChange={(groupIds) => setForm((current) => ({ ...current, groupIds }))}
+                  loading={groupOptionsLoading}
+                  error={groupOptionsError}
+                  onRetry={() => {
+                    if (practiceId) void loadGroupOptions(practiceId);
+                  }}
+                />
+              )}
 
               <label>
                 Preview appointment
@@ -775,7 +866,11 @@ export default function RemindersPage() {
               </label>}
               {!previewOnly && <div className={styles.modalActions}>
                 <button type="button" className={styles.secondaryButton} onClick={closeScheduleForm}>Cancel</button>
-                <button type="submit" className={styles.primaryButton} disabled={saving || !form.templateId}>
+                <button
+                  type="submit"
+                  className={styles.primaryButton}
+                  disabled={saving || !form.templateId || groupOptionsLoading || Boolean(groupOptionsError) || hasUnavailableGroup}
+                >
                   {saving ? 'Saving…' : editingScheduleId ? 'Save changes' : 'Create schedule'}
                 </button>
               </div>}
@@ -853,18 +948,6 @@ export default function RemindersPage() {
         emptyMessage={`No ${form.channel.toUpperCase()} templates available. Create one in the`}
       />
     </main>
-  );
-}
-
-function Stat({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
-  return (
-    <article className={styles.statCard}>
-      <span className={styles.statIcon} aria-hidden="true">{icon}</span>
-      <div className={styles.statContent}>
-        <span>{label}</span>
-        <strong>{value.toLocaleString()}</strong>
-      </div>
-    </article>
   );
 }
 

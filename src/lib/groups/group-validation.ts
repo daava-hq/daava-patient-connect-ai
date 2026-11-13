@@ -12,6 +12,7 @@ export const groupCriteriaSchema = z
     appointmentStatuses: z.array(z.enum(appointmentStatuses)).max(appointmentStatuses.length).optional(),
     lastAppointmentAfter: z.string().date().optional(),
     lastAppointmentBefore: z.string().date().optional(),
+    hasDueRecall: z.literal(true).optional(),
     contactAvailability: z.enum(['email', 'sms', 'either', 'both']).optional(),
   })
   .strict()

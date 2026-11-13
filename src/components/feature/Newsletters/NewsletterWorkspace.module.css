@@ -75,7 +75,6 @@
   gap: var(--space-4);
 }
 
-.statCard,
 .historyCard,
 .stateCard {
   border: 1px solid var(--color-border);
@@ -84,45 +83,10 @@
   box-shadow: var(--shadow-sm);
 }
 
-.statCard {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-3);
+.statsGrid > div,
+.reportStats > div {
   min-width: 0;
-  min-height: 0;
   padding: var(--space-4);
-}
-
-.statIcon {
-  display: grid;
-  width: 2.5rem;
-  height: 2.5rem;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
-  color: var(--color-primary);
-}
-
-.statIcon svg {
-  width: 1.2rem;
-  height: 1.2rem;
-}
-
-.statContent {
-  display: grid;
-  gap: var(--space-1);
-}
-
-.statContent > span {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-}
-
-.statContent strong {
-  font-size: var(--font-size-2xl);
-  line-height: var(--line-height-tight);
 }
 
 .historyCard {
@@ -517,13 +481,6 @@
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   gap: var(--space-4);
   margin: var(--space-5) 0;
-}
-
-.reportStats .statCard {
-  flex-direction: column;
-  align-items: flex-start;
-  min-height: 0;
-  gap: var(--space-3);
 }
 
 .disclaimer {

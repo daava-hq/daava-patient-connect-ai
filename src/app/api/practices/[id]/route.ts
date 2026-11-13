@@ -76,6 +76,7 @@ export async function GET(
         customerKeyEnc: practiceOpendentalCredentials.customerKeyEnc,
         lastPatientSyncedAt: practiceOpendentalCredentials.lastPatientSyncedAt,
         lastApptSyncedAt: practiceOpendentalCredentials.lastApptSyncedAt,
+        lastRecallSyncedAt: practiceOpendentalCredentials.lastRecallSyncedAt,
       })
       .from(practiceOpendentalCredentials)
       .where(eq(practiceOpendentalCredentials.practiceId, practiceId))
@@ -106,6 +107,7 @@ export async function GET(
             customerKeyHint: custKeyHint,
             lastPatientSyncedAt: creds?.lastPatientSyncedAt ?? null,
             lastApptSyncedAt: creds?.lastApptSyncedAt ?? null,
+            lastRecallSyncedAt: creds?.lastRecallSyncedAt ?? null,
           },
         },
       },

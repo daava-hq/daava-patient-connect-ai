@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '@/components/feedback/ToastProvider/ToastProvider';
 import NewsletterWorkspace from './NewsletterWorkspace';
@@ -71,14 +71,16 @@ describe('NewsletterWorkspace', () => {
     );
 
     await screen.findByText('Spring newsletter');
-    expect(screen.getAllByText('Newsletters').some((element) => element.closest('article')?.querySelector('svg'))).toBe(true);
+    const dashboardMetrics = screen.getByRole('region', { name: 'Newsletter statistics' });
+    expect(within(dashboardMetrics).getByText('Newsletters')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Report' }));
     const report = await screen.findByRole('dialog', { name: 'Spring newsletter' });
     expect(report.textContent).toContain('Status: cancelled');
     expect(report.textContent).toContain('Recipient activity');
     expect(report.textContent).toContain('recipient-1');
-    expect(report.textContent).toContain('Skipped');
-    expect(report.querySelectorAll('svg').length).toBeGreaterThanOrEqual(8);
+    const reportMetrics = within(report).getByRole('group', { name: 'Newsletter report metrics' });
+    expect(within(reportMetrics).getByText('Recipients')).toBeTruthy();
+    expect(within(reportMetrics).getByText('Skipped')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close report' }));
     fireEvent.click(screen.getByRole('button', { name: 'Delete Spring newsletter' }));

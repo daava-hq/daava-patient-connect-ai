@@ -1,10 +1,10 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { CalendarClock, ChevronLeft, ChevronRight, Copy, Eye, History, Mail, Plus, Save, Search, Send, Smartphone, Trash2, Users, X } from 'lucide-react';
 import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader/PageHeader';
+import StatCard from '@/components/ui/StatCard/StatCard';
 import TemplatePickerDialog from '@/components/feature/TemplatePicker/TemplatePickerDialog';
 import SearchInput from '@/components/ui/SearchInput/SearchInput';
 import Pagination from '@/components/ui/Pagination/Pagination';
@@ -1164,7 +1164,7 @@ export default function GroupsWorkspace() {
                 <div className={styles.stepContent}>
                   {groupType === 'dynamic' ? (
                     <div className={styles.formGrid}>
-                      <p className={styles.note}>Rules use synchronized patient and appointment fields only. Communication consent is rechecked separately at send time.</p>
+                      <p className={styles.note}>Rules use synchronized patient, appointment, and Open Dental recall data. Recall matches exclude patients with a future scheduled appointment. Communication consent is rechecked separately at send time.</p>
                       <fieldset className={styles.filterField}>
                         <legend>Patient status</legend>
                         {(['Patient', 'Inactive', 'Archived'] as const).map((status) => (
@@ -1201,6 +1201,17 @@ export default function GroupsWorkspace() {
                             }}
                           />{status}</label>
                         ))}
+                      </fieldset>
+                      <fieldset className={styles.filterField}>
+                        <legend>Open Dental recall</legend>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={criteria.hasDueRecall === true}
+                            onChange={(event) => setCriteriaField('hasDueRecall', event.target.checked ? true : undefined)}
+                          />
+                          Has a recall due today or earlier (any recall type)
+                        </label>
                       </fieldset>
                       <div className={styles.inlineFields}>
                         <label>Last appointment after<input type="date" value={criteria.lastAppointmentAfter ?? ''} onChange={(event) => setCriteriaField('lastAppointmentAfter', event.target.value || undefined)} /></label>
@@ -1373,15 +1384,15 @@ export default function GroupsWorkspace() {
             ) : (
               <>
                 <p className={styles.note}>Status: {announcementReport.campaign.status.replace('_', ' ')}{announcementReport.campaign.scheduledAt ? ` · Scheduled ${new Date(announcementReport.campaign.scheduledAt).toLocaleString()}` : ''}</p>
-                <div className={styles.announcementStats}>
-                  <AnnouncementReportStat icon={<Users />} label="Recipients" value={announcementReport.stats.total} />
-                  <AnnouncementReportStat icon={<Send />} label="Sent / accepted" value={announcementReport.stats.sent} />
-                  <AnnouncementReportStat icon={<Mail />} label="Delivered" value={announcementReport.stats.delivered} />
-                  <AnnouncementReportStat icon={<X />} label="Bounced" value={announcementReport.stats.bounced} />
-                  <AnnouncementReportStat icon={<X />} label="Failed" value={announcementReport.stats.failed} />
-                  <AnnouncementReportStat icon={<ChevronRight />} label="Skipped" value={announcementReport.stats.skipped} />
-                  <AnnouncementReportStat icon={<Eye />} label="Opens" value={announcementReport.stats.opened} />
-                  <AnnouncementReportStat icon={<Smartphone />} label="Clicks" value={announcementReport.stats.clicked} />
+                <div className={styles.announcementStats} role="group" aria-label="Announcement report metrics">
+                  <StatCard icon={<Users size={20} aria-hidden="true" />} label="Recipients" value={announcementReport.stats.total.toLocaleString()} />
+                  <StatCard icon={<Send size={20} aria-hidden="true" />} label="Sent / accepted" value={announcementReport.stats.sent.toLocaleString()} />
+                  <StatCard icon={<Mail size={20} aria-hidden="true" />} label="Delivered" value={announcementReport.stats.delivered.toLocaleString()} />
+                  <StatCard icon={<X size={20} aria-hidden="true" />} label="Bounced" value={announcementReport.stats.bounced.toLocaleString()} />
+                  <StatCard icon={<X size={20} aria-hidden="true" />} label="Failed" value={announcementReport.stats.failed.toLocaleString()} />
+                  <StatCard icon={<ChevronRight size={20} aria-hidden="true" />} label="Skipped" value={announcementReport.stats.skipped.toLocaleString()} />
+                  <StatCard icon={<Eye size={20} aria-hidden="true" />} label="Opens" value={announcementReport.stats.opened.toLocaleString()} />
+                  <StatCard icon={<Smartphone size={20} aria-hidden="true" />} label="Clicks" value={announcementReport.stats.clicked.toLocaleString()} />
                 </div>
                 <h3>Recipient activity</h3>
                 {announcementReport.recipients.length ? (
@@ -1400,17 +1411,5 @@ export default function GroupsWorkspace() {
         </div>
       )}
     </div>
-  );
-}
-
-function AnnouncementReportStat({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
-  return (
-    <article className={`${styles.statCard} ${styles.announcementReportStat}`}>
-      <span className={styles.announcementReportIcon} aria-hidden="true">{icon}</span>
-      <div className={styles.announcementReportMetric}>
-        <span>{label}</span>
-        <strong>{value.toLocaleString()}</strong>
-      </div>
-    </article>
   );
 }

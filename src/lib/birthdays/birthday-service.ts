@@ -6,6 +6,12 @@ import { patients } from '@/db/schema/patients';
 import { practices } from '@/db/schema/practices';
 import { templateCategories, templates } from '@/db/schema/templates';
 import { AppError, NotFoundError } from '@/lib/errors';
+import {
+  ensurePracticeGroups,
+  getGroupAudienceCondition,
+  getPatientIdsInGroups,
+  isPatientInGroups,
+} from '@/lib/groups/group-repository';
 import { logError } from '@/lib/logger';
 import { getAdapter } from '@/lib/messaging/stub-adapter';
 import { isPracticeChannelEnabled } from '@/lib/messaging/practice-channel-settings';
@@ -346,10 +352,19 @@ export async function createBirthdayCampaign(
   input: BirthdayCampaignInput
 ) {
   await getPractice(practiceId);
+  await ensurePracticeGroups(practiceId, input.eligibilityRules.groupIds ?? []);
   await validateBirthdayTemplate(practiceId, input.templateId, input.channel, input.offerText);
   const [campaign] = await db
     .insert(birthdayCampaigns)
-    .values({ practiceId, createdBy, ...input })
+    .values({
+      practiceId,
+      createdBy,
+      ...input,
+      eligibilityRules: {
+        ...input.eligibilityRules,
+        groupIds: input.eligibilityRules.groupIds ?? [],
+      },
+    })
     .returning();
   return campaign;
 }
@@ -371,11 +386,18 @@ export async function updateBirthdayCampaign(
     )
     .limit(1);
   if (!existing) throw new NotFoundError('Birthday campaign not found');
+  if (input.eligibilityRules.groupIds !== undefined) {
+    await ensurePracticeGroups(practiceId, input.eligibilityRules.groupIds);
+  }
   await validateBirthdayTemplate(practiceId, input.templateId, input.channel, input.offerText);
+  const eligibilityRules = {
+    ...input.eligibilityRules,
+    groupIds: input.eligibilityRules.groupIds ?? existing.eligibilityRules.groupIds ?? [],
+  };
   return db.transaction(async (tx) => {
     const [campaign] = await tx
       .update(birthdayCampaigns)
-      .set({ ...input, updatedAt: new Date() })
+      .set({ ...input, eligibilityRules, updatedAt: new Date() })
       .where(and(eq(birthdayCampaigns.id, campaignId), eq(birthdayCampaigns.practiceId, practiceId)))
       .returning();
     if (!input.enabled) {
@@ -500,9 +522,22 @@ export async function getUpcomingBirthdayMessages(practiceId: string, timeZone: 
         )
       ),
   ]);
+  const groupPatientIds = new Map(
+    await Promise.all(
+      campaigns.map(async (campaign) => {
+        const groupIds = campaign.eligibilityRules.groupIds ?? [];
+        return [
+          campaign.id,
+          groupIds.length ? new Set(await getPatientIdsInGroups(practiceId, groupIds)) : null,
+        ] as const;
+      })
+    )
+  );
   const messages = campaigns
     .flatMap((campaign) =>
       activePatients.flatMap((patient) => {
+        const campaignPatientIds = groupPatientIds.get(campaign.id);
+        if (campaignPatientIds && !campaignPatientIds.has(patient.id)) return [];
         const occurrence = getNextBirthdayOccurrence({
           dateOfBirth: patient.dateOfBirth,
           daysBefore: campaign.daysBefore,
@@ -696,6 +731,10 @@ export async function materializeBirthdayOccurrences(practiceId: string, now = n
     );
   let materialized = 0;
   for (const campaign of campaigns) {
+    const groupIds = campaign.eligibilityRules.groupIds ?? [];
+    const groupCondition = groupIds.length
+      ? await getGroupAudienceCondition(practiceId, groupIds)
+      : undefined;
     const activePatients = await db
       .select({
         id: patients.id,
@@ -703,7 +742,14 @@ export async function materializeBirthdayOccurrences(practiceId: string, now = n
         status: patients.status,
       })
       .from(patients)
-      .where(and(eq(patients.practiceId, practiceId), eq(patients.status, 'Patient'), isNotNull(patients.dateOfBirth)));
+      .where(
+        and(
+          eq(patients.practiceId, practiceId),
+          eq(patients.status, 'Patient'),
+          isNotNull(patients.dateOfBirth),
+          ...(groupCondition ? [groupCondition] : [])
+        )
+      );
     const occurrences = activePatients.flatMap((patient) => {
       const occurrence = getNextBirthdayOccurrence({
         dateOfBirth: patient.dateOfBirth,
@@ -899,6 +945,9 @@ async function dispatchBirthdayOccurrence(
   const patient = record.patient;
   const campaign = record.campaign;
   const template = record.template;
+  if (!(await isPatientInGroups(practiceId, patient.id, campaign.eligibilityRules.groupIds ?? []))) {
+    return markBirthdaySkipped(occurrenceId, practiceId, now, 'Patient is no longer in the campaign audience');
+  }
   if (!(await isPracticeChannelEnabled(practiceId, campaign.channel))) {
     return markBirthdaySkipped(occurrenceId, practiceId, now, 'Practice channel is disabled');
   }

@@ -68,6 +68,7 @@ const allowedVariables = new Set([
   'practice.address',
   'practice.website',
   'campaign.name',
+  'recall.dueDate',
 ]);
 
 export function parseNewsletterDocument(value: unknown): NewsletterDocument {
