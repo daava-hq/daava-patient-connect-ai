@@ -732,7 +732,7 @@ export default function RemindersPage() {
                         <tr>
                           <th>Patient</th>
                           <th>Appointment</th>
-                          <th>Schedule</th>
+                          <th>Reminder Name</th>
                           <th>Scheduled reminder</th>
                           <th>Channel</th>
                           <th>Status</th>
@@ -894,7 +894,7 @@ export default function RemindersPage() {
             </div>
             <form onSubmit={saveSchedule} className={styles.form}>
               <label>
-                Schedule name
+                Reminder name
                 <input required maxLength={120} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="24-hour SMS reminder" />
               </label>
               <div className={styles.formRow}>

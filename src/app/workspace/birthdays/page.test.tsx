@@ -200,6 +200,7 @@ describe('BirthdaysPage range selection', () => {
 
     expect(within(table).getAllByRole('row')).toHaveLength(4);
     expect(within(table).getByRole('columnheader', { name: 'Name' })).toBeDefined();
+    expect(within(table).getByRole('columnheader', { name: 'Campaign name' })).toBeDefined();
     expect(within(table).getByRole('columnheader', { name: 'Scheduled message' })).toBeDefined();
     expect(within(table).getByRole('columnheader', { name: 'Eligibility' })).toBeDefined();
     expect(within(table).queryByRole('columnheader', { name: 'Preview and Send now' })).toBeNull();

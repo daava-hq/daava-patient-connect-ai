@@ -1148,7 +1148,7 @@ function ScheduledMessagesTable({
               <tr>
                 <th>Name</th>
                 <th>Birthday</th>
-                <th>Campaign</th>
+                <th>Campaign name</th>
                 <th>Scheduled message</th>
                 <th>Channel</th>
                 <th>Status</th>

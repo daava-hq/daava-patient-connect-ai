@@ -165,6 +165,7 @@ describe('RemindersPage', () => {
     expect(screen.getByLabelText('Patient search')).toBeTruthy();
     expect(screen.queryByLabelText('Audience')).toBeNull();
     const scheduledTable = screen.getByRole('table');
+    expect(within(scheduledTable).getByRole('columnheader', { name: 'Reminder Name' })).toBeTruthy();
     expect(within(scheduledTable).getAllByRole('row', { name: /Jordan Sample/ })).toHaveLength(2);
     expect(within(scheduledTable).getByRole('row', { name: /Jordan Sample.*Email reminder/ })).toBeTruthy();
     expect(within(scheduledTable).queryByRole('columnheader', { name: 'Actions' })).toBeNull();
@@ -338,7 +339,7 @@ describe('RemindersPage', () => {
     await screen.findByRole('heading', { name: 'Upcoming appointments' });
     fireEvent.click(screen.getByRole('tab', { name: 'Reminder settings' }));
     fireEvent.click(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'New reminder' }));
-    fireEvent.change(screen.getByLabelText('Schedule name'), { target: { value: 'All-appointments reminder' } });
+    fireEvent.change(screen.getByLabelText('Reminder name'), { target: { value: 'All-appointments reminder' } });
     const dialog = screen.getByRole('dialog', { name: 'Add reminder schedule' });
     expect(within(dialog).queryByText('Patient groups')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Choose template' }));
