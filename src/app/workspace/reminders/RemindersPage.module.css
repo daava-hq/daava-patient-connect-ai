@@ -138,6 +138,7 @@
   min-height: 2.75rem;
   padding: 0 var(--space-4);
   border: 0;
+  border-radius: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
   color: var(--color-text-muted);
@@ -161,6 +162,10 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   gap: var(--space-4);
+}
+
+.reportGrid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .rangeControls {
@@ -216,6 +221,16 @@
 
 .sectionHeader {
   flex-wrap: wrap;
+}
+
+.scheduledHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.scheduledHeader > div:first-child {
+  min-width: 0;
 }
 
 .sectionHeader h2,

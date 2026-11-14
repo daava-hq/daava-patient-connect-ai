@@ -507,7 +507,7 @@ export default function RemindersPage() {
               <Bell size={16} aria-hidden="true" /> Reminder templates
             </Link>
             <button type="button" className={styles.primaryButton} onClick={openCreateForm} disabled={!practiceId}>
-              <Plus size={17} aria-hidden="true" /> New schedule
+              <Plus size={17} aria-hidden="true" /> New reminder
             </button>
           </div>
         }
@@ -656,7 +656,7 @@ export default function RemindersPage() {
                     <p>Each enabled schedule targets otherwise-eligible future appointments.</p>
                   </div>
                   <button type="button" className={styles.primaryButton} onClick={openCreateForm}>
-                    <Settings2 size={16} aria-hidden="true" /> Configure schedule
+                    <Plus size={17} aria-hidden="true" /> New reminder
                   </button>
                 </div>
                 {dashboard.schedules.length === 0 ? (
@@ -711,7 +711,7 @@ export default function RemindersPage() {
 
             {tab === 'scheduled' && (
               <>
-                <div className={styles.sectionHeader}>
+                <div className={`${styles.sectionHeader} ${styles.scheduledHeader}`}>
                   <div>
                     <h2>Scheduled reminders</h2>
                     <p>Projected delivery times for future appointments with enabled schedules; status is checked again before dispatch.</p>

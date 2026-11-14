@@ -598,18 +598,18 @@ export async function getUpcomingBirthdayMessages(practiceId: string, timeZone: 
 }
 
 async function getBirthdayReportCounts(practiceId: string) {
-  const rows = await db
+  const [counts] = await db
     .select({
-      status: birthdayMessageOccurrences.status,
-      count: sql<number>`count(*)::int`,
+      scheduled: sql<number>`count(*) FILTER (WHERE ${birthdayMessageOccurrences.status} = 'pending')::int`,
+      attempted: sql<number>`count(*) FILTER (WHERE ${birthdayMessageOccurrences.attemptedAt} IS NOT NULL)::int`,
+      sent: sql<number>`count(*) FILTER (WHERE ${birthdayMessageOccurrences.status} IN ('sent', 'delivered'))::int`,
+      delivered: sql<number>`count(*) FILTER (WHERE ${birthdayMessageOccurrences.status} = 'delivered')::int`,
+      failed: sql<number>`count(*) FILTER (WHERE ${birthdayMessageOccurrences.status} = 'failed')::int`,
+      skipped: sql<number>`count(*) FILTER (WHERE ${birthdayMessageOccurrences.status} = 'skipped')::int`,
     })
     .from(birthdayMessageOccurrences)
-    .where(eq(birthdayMessageOccurrences.practiceId, practiceId))
-    .groupBy(birthdayMessageOccurrences.status);
-  return rows.reduce<Record<string, number>>((result, row) => {
-    result[row.status] = row.count;
-    return result;
-  }, {});
+    .where(eq(birthdayMessageOccurrences.practiceId, practiceId));
+  return counts ?? { scheduled: 0, attempted: 0, sent: 0, delivered: 0, failed: 0, skipped: 0 };
 }
 
 export async function previewBirthdayTemplate(input: {

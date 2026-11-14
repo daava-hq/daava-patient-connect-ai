@@ -93,6 +93,10 @@
   gap: var(--space-4);
 }
 
+.reportGrid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
 .toolbar {
   justify-content: space-between;
   flex-wrap: wrap;
@@ -186,6 +190,16 @@
   flex-wrap: wrap;
 }
 
+.scheduledHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.scheduledHeader > div:first-child {
+  min-width: 0;
+}
+
 .sectionHeading h2,
 .modalHeader h2 {
   margin: 0;
@@ -207,6 +221,7 @@
 }
 
 .timezoneBadge {
+  flex: 0 0 auto;
   margin-left: auto;
   border-radius: var(--radius-full);
   background: var(--color-background);
@@ -399,8 +414,7 @@
   background: color-mix(in srgb, var(--color-error) 8%, var(--color-surface));
 }
 
-.notice,
-.footerNote {
+.notice {
   border-radius: var(--radius-md);
   padding: var(--space-4);
   background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
@@ -483,17 +497,6 @@
   color: var(--color-error);
 }
 
-.footerNote {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-  background: transparent;
-  padding: 0;
-  color: var(--color-text-muted);
-}
-
-.footerNote a,
 .templateHint a {
   color: var(--color-primary);
   font-weight: var(--font-weight-semibold);
@@ -717,12 +720,20 @@
 }
 
 @media (max-width: 900px) {
+  .reportGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .scheduleFilters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 640px) {
+  .reportGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .page {
     gap: var(--space-4);
     padding: var(--space-4);

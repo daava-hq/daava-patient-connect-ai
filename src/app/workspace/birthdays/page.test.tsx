@@ -33,11 +33,12 @@ function createFetchMock(
   previewResult?: { subject: string; body: string; unresolved: string[] },
   scheduledMessages: Array<Record<string, unknown>> = [],
   groupOptions: Array<{ id: string; name: string; groupType: 'static' | 'dynamic' }> = [],
+  history: Array<Record<string, unknown>> = [],
 ) {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.startsWith('/api/birthdays?')) {
-      return Response.json({ data: { ...dashboard, campaigns, scheduledMessages } });
+      return Response.json({ data: { ...dashboard, campaigns, scheduledMessages, history } });
     }
     if (url.startsWith('/api/groups/options?')) {
       return Response.json({ data: groupOptions });
@@ -112,8 +113,10 @@ describe('BirthdaysPage range selection', () => {
     });
 
     fireEvent.click(screen.getByRole('tab', { name: 'Campaign settings' }));
+    expect(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'New campaign' })).toBeDefined();
     expect(screen.queryByRole('link', { name: 'Manage birthday templates' })).toBeNull();
     expect(screen.getByRole('link', { name: 'Birthday templates' })).toBeDefined();
+    expect(screen.queryByText(/active patients do not have a birthdate on file/)).toBeNull();
     fireEvent.click(screen.getByRole('tab', { name: 'Overview' }));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('range=thisMonth'));
@@ -263,6 +266,68 @@ describe('BirthdaysPage range selection', () => {
     const table = screen.getByRole('table');
     expect(within(table).getByRole('row', { name: /Avery Example.*sent/ })).toBeDefined();
     expect(within(table).queryByRole('row', { name: /Avery Example.*Scheduled/ })).toBeNull();
+  });
+
+  it('shows the same six delivery report metrics as appointment reminders', async () => {
+    render(
+      <ToastProvider>
+        <BirthdaysPage />
+      </ToastProvider>,
+    );
+
+    await screen.findByText('Upcoming birthdays');
+    fireEvent.click(screen.getByRole('tab', { name: 'Reports' }));
+
+    const reportPanel = within(screen.getByRole('tabpanel'));
+    for (const label of ['Scheduled', 'Attempted', 'Sent', 'Delivered', 'Failed', 'Skipped']) {
+      expect(reportPanel.getByText(label)).toBeDefined();
+    }
+    expect(reportPanel.queryByText('Pending / processing')).toBeNull();
+  });
+
+  it('filters birthday delivery history to failed messages', async () => {
+    fetchMock = createFetchMock([], [], undefined, [], [], [{
+      id: 'history-sent',
+      campaignName: 'Birthday Greeting',
+      channel: 'email',
+      firstName: 'Avery',
+      lastName: 'Example',
+      birthdayYear: 2026,
+      scheduledFor: '2026-03-02T09:00:00.000Z',
+      sentAt: '2026-03-02T09:01:00.000Z',
+      status: 'sent',
+      lastErrorMessage: null,
+    }, {
+      id: 'history-failed',
+      campaignName: 'Birthday Reminder',
+      channel: 'sms',
+      firstName: 'Jordan',
+      lastName: 'Sample',
+      birthdayYear: 2026,
+      scheduledFor: '2026-03-03T09:00:00.000Z',
+      sentAt: null,
+      status: 'failed',
+      lastErrorMessage: 'Provider rejected message',
+    }]);
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <ToastProvider>
+        <BirthdaysPage />
+      </ToastProvider>,
+    );
+
+    await screen.findByText('Upcoming birthdays');
+    fireEvent.click(screen.getByRole('tab', { name: 'Delivery history' }));
+
+    const table = screen.getByRole('table');
+    expect(within(table).getAllByRole('row')).toHaveLength(3);
+    expect(within(table).getByRole('row', { name: /Avery Example.*sent/ })).toBeDefined();
+    expect(within(table).getByRole('row', { name: /Jordan Sample.*failed/ })).toBeDefined();
+
+    fireEvent.change(screen.getByLabelText('History'), { target: { value: 'failed' } });
+    expect(within(table).getAllByRole('row')).toHaveLength(2);
+    expect(within(table).getByRole('row', { name: /Jordan Sample.*failed/ })).toBeDefined();
+    expect(within(table).queryByRole('row', { name: /Avery Example/ })).toBeNull();
   });
 
   it('lets campaign creators select a channel-compatible birthday template from a picker', async () => {

@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import Link from 'next/link';
 import {
   Cake,
+  CalendarClock,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
   Clock3,
+  Eye,
   Gift,
   Mail,
   MessageSquareText,
@@ -217,6 +219,7 @@ export default function BirthdaysPage() {
   const [range, setRange] = useState<BirthdayRange>('next7');
   const [calendarMonth, setCalendarMonth] = useState('');
   const [tab, setTab] = useState<Tab>('overview');
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'failed'>('all');
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const templatePickerOpenRef = useRef(false);
   const [loading, setLoading] = useState(true);
@@ -552,6 +555,10 @@ export default function BirthdaysPage() {
   }
 
   const selectedTemplate = templates.find((template) => template.id === draft.templateId);
+  const filteredHistory = useMemo(
+    () => dashboard?.history.filter((item) => historyFilter === 'all' || item.status === 'failed') ?? [],
+    [dashboard, historyFilter]
+  );
   const calendarEvents = dashboard?.birthdays ?? [];
   const [calendarYear, calendarMonthNumber] = calendarMonth.split('-').map(Number);
   const daysInCalendarMonth = calendarMonth ? new Date(Date.UTC(calendarYear, calendarMonthNumber, 0)).getUTCDate() : 0;
@@ -660,7 +667,7 @@ export default function BirthdaysPage() {
 
               {tab === 'scheduled' && (
                 <>
-                  <div className={styles.sectionHeading}>
+                  <div className={`${styles.sectionHeading} ${styles.scheduledHeader}`}>
                     <div>
                       <h2>Scheduled birthday messages</h2>
                       <p>
@@ -722,7 +729,7 @@ export default function BirthdaysPage() {
                       <p>Campaigns remain disabled until an administrator explicitly enables them.</p>
                     </div>
                     <button className={styles.primaryButton} onClick={startCreateCampaign}>
-                      <Plus size={16} /> Configure schedule
+                      <Plus size={17} /> New campaign
                     </button>
                   </div>
                   {dashboard.campaigns.length === 0 ? (
@@ -770,8 +777,19 @@ export default function BirthdaysPage() {
                       <h2>Delivery history</h2>
                       <p>Recent scheduled messages and their latest processing status.</p>
                     </div>
+                    <label className={styles.field}>
+                      History
+                      <select value={historyFilter} onChange={(event) => setHistoryFilter(event.target.value as typeof historyFilter)}>
+                        <option value="all">All attempts</option>
+                        <option value="failed">Failed reminders</option>
+                      </select>
+                    </label>
                   </div>
-                  <HistoryTable history={dashboard.history} timezone={dashboard.timezone} />
+                  <HistoryTable
+                    history={filteredHistory}
+                    timezone={dashboard.timezone}
+                    emptyMessage={historyFilter === 'failed' ? 'No failed birthday reminders' : 'No birthday delivery history yet'}
+                  />
                 </>
               )}
 
@@ -784,14 +802,36 @@ export default function BirthdaysPage() {
                     </div>
                   </div>
                   <div className={styles.reportGrid}>
-                    <StatCard icon={<Send size={20} aria-hidden="true" />} label="Sent" value={dashboard.report.sent ?? 0} />
                     <StatCard
-                      icon={<Clock3 size={20} aria-hidden="true" />}
-                      label="Pending / processing"
-                      value={(dashboard.report.pending ?? 0) + (dashboard.report.processing ?? 0)}
+                      icon={<CalendarClock size={20} aria-hidden="true" />}
+                      label="Scheduled"
+                      value={(dashboard.report.scheduled ?? 0).toLocaleString()}
                     />
-                    <StatCard icon={<MessageSquareText size={20} aria-hidden="true" />} label="Skipped" value={dashboard.report.skipped ?? 0} />
-                    <StatCard icon={<Mail size={20} aria-hidden="true" />} label="Failed" value={dashboard.report.failed ?? 0} />
+                    <StatCard
+                      icon={<Eye size={20} aria-hidden="true" />}
+                      label="Attempted"
+                      value={(dashboard.report.attempted ?? 0).toLocaleString()}
+                    />
+                    <StatCard
+                      icon={<Send size={20} aria-hidden="true" />}
+                      label="Sent"
+                      value={(dashboard.report.sent ?? 0).toLocaleString()}
+                    />
+                    <StatCard
+                      icon={<Mail size={20} aria-hidden="true" />}
+                      label="Delivered"
+                      value={(dashboard.report.delivered ?? 0).toLocaleString()}
+                    />
+                    <StatCard
+                      icon={<X size={20} aria-hidden="true" />}
+                      label="Failed"
+                      value={(dashboard.report.failed ?? 0).toLocaleString()}
+                    />
+                    <StatCard
+                      icon={<ChevronRight size={20} aria-hidden="true" />}
+                      label="Skipped"
+                      value={(dashboard.report.skipped ?? 0).toLocaleString()}
+                    />
                   </div>
                   <p className={styles.notice}>Provider delivery receipts are not currently integrated, so a sent message is not a confirmed delivery.</p>
                 </>
@@ -799,12 +839,6 @@ export default function BirthdaysPage() {
             </section>
           )}
 
-          {dashboard && (
-            <div className={styles.footerNote}>
-              <span>{dashboard.metrics.patientsMissingBirthdate} active patients do not have a birthdate on file and are excluded.</span>
-              <Link href="/workspace/templates?category=birthdays">Browse or create birthday templates</Link>
-            </div>
-          )}
         </>
       )}
 
@@ -1149,9 +1183,17 @@ function ScheduledMessagesTable({
   );
 }
 
-function HistoryTable({ history, timezone }: { history: BirthdayHistory[]; timezone: string }) {
+function HistoryTable({
+  history,
+  timezone,
+  emptyMessage,
+}: {
+  history: BirthdayHistory[];
+  timezone: string;
+  emptyMessage: string;
+}) {
   if (history.length === 0) {
-    return <div className={styles.emptyInline}><Clock3 size={26} /><strong>No birthday delivery history yet</strong></div>;
+    return <div className={styles.emptyInline}><Clock3 size={26} /><strong>{emptyMessage}</strong></div>;
   }
   return (
     <div className={styles.tableWrap}>
